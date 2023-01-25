@@ -163,7 +163,7 @@ function BOT:TBotFindRandomEnemy()
 			
 			if v:Visible( self ) then -- Using Visible() as an example of why we should delay the thinking.
 				
-				VisibleEnemies[]		=	v
+				VisibleEnemies[ #VisibleEnemies + 1]		=	v
 				
 			end
 			
@@ -171,7 +171,7 @@ function BOT:TBotFindRandomEnemy()
 		
 	end
 	
-	self.Enemy		=	VisibleEnemies[]
+	self.Enemy		=	VisibleEnemies[ #VisibleEnemies + 1]
 	
 end
 
@@ -245,7 +245,7 @@ function TutorialBotPathfinder( StartNode , GoalNode )
 				end
 				
 				-- Parenting of the nodes so we can trace the parents back later.
-				FinalPath[]		=	Current:GetID()
+				FinalPath[ neighbor:GetId() ]		=	Current:GetID()
 			end
 			
 		end
@@ -272,9 +272,9 @@ function TutorialBotRetracePath( Current , FinalPath )
 	
 	Current				=	Current:GetID()
 	
-	while ( FinalPath[] ) do
+	while ( FinalPath[ Current ] ) do
 		
-		Current			=	FinalPath[]
+		Current			=	FinalPath[ Current ]
 		table.insert( NodePath , navmesh.GetNavAreaByID( Current ) )
 		
 	end
@@ -373,11 +373,11 @@ function BOT:ComputeNavmeshVisibility()
 		-- You should also make sure that the nodes exist as this is called 0.03 seconds after the pathfind.
 		-- For tutorial sakes ill keep this simple.
 		
-		local NextNode		=	self.NavmeshNodes[]
+		local NextNode		=	self.NavmeshNodes[ CurrentNode:GetID() ]
 		
 		if !IsValid( NextNode ) then
 			
-			self.Path[]		=	self.Goal
+			self.Path[ Current ]		=	self.Goal
 			
 			break
 		end
@@ -392,7 +392,7 @@ function BOT:ComputeNavmeshVisibility()
 		if SendBoxedLine( LastVisPos , OurClosestPointToNextAreasClosestPointToLastVisPos ) == true then
 			
 			LastVisPos						=	OurClosestPointToNextAreasClosestPointToLastVisPos
-			self.Path[]		=	OurClosestPointToNextAreasClosestPointToLastVisPos
+			self.Path[ Current ]		=	OurClosestPointToNextAreasClosestPointToLastVisPos
 			
 			continue
 		end
@@ -400,7 +400,7 @@ function BOT:ComputeNavmeshVisibility()
 		
 		
 		
-		self.Path[]			=	CurrentNode:GetCenter()
+		self.Path[ Current ]			=	CurrentNode:GetCenter()
 		
 	end
 	
@@ -476,12 +476,12 @@ function BOT:TBotNavigation()
 	
 	if istable( self.Path ) then
 		
-		if self.Path[] then
+		if self.Path[ self.Goal ] then
 			
-			local Waypoint2D		=	Vector( self.Path[].x , self.Path[].y , self:GetPos().z )
+			local Waypoint2D		=	Vector( self.Path[ self.Goal ].x , self.Path[ self.Goal ].y , self:GetPos().z )
 			-- ALWAYS: Use 2D navigation, It helps by a large amount.
 			
-			if self.Path[] and IsVecCloseEnough( self:GetPos() , Waypoint2D , 600 ) and SendBoxedLine( self.Path[] , self:GetPos() + Vector( 0 , 0 , 15 ) ) == true and self.Path[].z - 20 <= Waypoint2D.z then
+			if self.Path[ self.Goal ] and IsVecCloseEnough( self:GetPos() , Waypoint2D , 600 ) and SendBoxedLine( self.Path[ self.Goal ] , self:GetPos() + Vector( 0 , 0 , 15 ) ) == true and self.Path[ self.Goal ].z - 20 <= Waypoint2D.z then
 				
 				table.remove( self.Path , 1 )
 				
@@ -541,14 +541,14 @@ function BOT:TBotDebugWaypoints()
 	if !istable( self.Path ) then return end
 	if table.IsEmpty( self.Path ) then return end
 	
-	debugoverlay.Line( self.Path[] , self:GetPos() + Vector( 0 , 0 , 44 ) , 0.08 , Color( 0 , 255 , 255 ) )
-	debugoverlay.Sphere( self.Path[] , 8 , 0.08 , Color( 0 , 255 , 255 ) , true )
+	debugoverlay.Line( self.Path[ self.Goal ] , self:GetPos() + Vector( 0 , 0 , 44 ) , 0.08 , Color( 0 , 255 , 255 ) )
+	debugoverlay.Sphere( self.Path[ self.Goal ] , 8 , 0.08 , Color( 0 , 255 , 255 ) , true )
 	
 	for k, v in ipairs( self.Path ) do
 		
-		if self.Path[] then
+		if self.Path[ k ] then
 			
-			debugoverlay.Line( v , self.Path[] , 0.08 , Color( 255 , 255 , 0 ) )
+			debugoverlay.Line( v , self.Path[ k ] , 0.08 , Color( 255 , 255 , 0 ) )
 			
 		end
 		
@@ -582,9 +582,9 @@ function BOT:TBotUpdateMovement( cmd )
 		return
 	end
 	
-	if self.Path[] then
+	if self.Path[ self.Goal ] then
 		
-		local MovementAngle		=	( self.Path[] - self:GetPos() ):GetNormalized():Angle()
+		local MovementAngle		=	( self.Path[ self.Goal ] - self:GetPos() ):GetNormalized():Angle()
 		
 		cmd:SetViewAngles( MovementAngle )
 		cmd:SetForwardMove( 1000 )
