@@ -3,11 +3,12 @@ local BOT						=	FindMetaTable( "Player" )
 
 
 function TBotCreate( ply , cmd , args )
-	if !args[] then return end
+	if !args[ #args ] then return end
 	
-	local NewBot				=	player.CreateNextBot( args[] ) -- Create the bot and store it in a varaible.
+	local NewBot				=	player.CreateNextBot( args[ #args ] ) -- Create the bot and store it in a varaible.
 	
 	NewBot.IsTutorialBot		=	true -- Flag this as our bot so we don't control other bots, Only ours!
+	NewBot.Owner		=	ply -- Make the player who created the bot its "owner"
 	
 	NewBot:TBotResetAI() -- Fully reset your bots AI.
 	
@@ -70,8 +71,19 @@ hook.Add( "StartCommand" , "TutorialBotAIHook" , function( bot , cmd )
 			
 		end
 		
+	elseif (IsValid(ply.Owner) and ply.Owner:Alive()) then
+		bot:SetEyeAngles( ( bot.Owner:GetShootPos() - bot:GetShootPos() ):GetNormalized():Angle() )
+		
+		if isvector( bot.Goal ) then
+			
+			bot:TBotUpdateMovement( cmd ) -- Move when we need to.
+			
+		else
+			
+			bot:TBotSetNewGoal( bot.Owner:GetPos() )
+			
+		end
 	end
-	
 	
 	
 end)
