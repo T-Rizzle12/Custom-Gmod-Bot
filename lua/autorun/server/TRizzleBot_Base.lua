@@ -59,7 +59,8 @@ hook.Add( "StartCommand" , "TutorialBotAIHook" , function( bot , cmd )
 		
 		-- Instantly face our enemy!
 		-- CHALLANGE: Can you make them turn smoothly?
-		bot:SetEyeAngles( ( bot.Enemy:GetShootPos() - bot:GetShootPos() ):GetNormalized():Angle() )
+		local lerp = FrameTime() * math.random(8, 10)
+		bot:SetEyeAngles( LerpAngle(lerp, bot:GetShootPos(), ( bot.Enemy:GetShootPos() - bot:GetShootPos() ):GetNormalized():Angle() ) )
 		
 		if isvector( bot.Goal ) then
 			
@@ -72,7 +73,8 @@ hook.Add( "StartCommand" , "TutorialBotAIHook" , function( bot , cmd )
 		end
 		
 	elseif (IsValid(ply.Owner) and ply.Owner:Alive()) then
-		bot:SetEyeAngles( ( bot.Owner:GetShootPos() - bot:GetShootPos() ):GetNormalized():Angle() )
+		local lerp = FrameTime() * math.random(8, 10)
+		bot:SetEyeAngles(lerp, bot:GetShootPos(), ( bot.Owner:GetShootPos() - bot:GetShootPos() ):GetNormalized():Angle() ) )
 		
 		if isvector( bot.Goal ) then
 			
