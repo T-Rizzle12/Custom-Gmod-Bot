@@ -3,12 +3,14 @@ local BOT						=	FindMetaTable( "Player" )
 
 
 function TBotCreate( ply , cmd , args )
-	if !args[ #args ] then return end
+	if !args[ 1 ] then return end
 	
-	local NewBot				=	player.CreateNextBot( args[ #args ] ) -- Create the bot and store it in a varaible.
+	local NewBot				=	player.CreateNextBot( args[ 1 ] ) -- Create the bot and store it in a varaible.
 	
 	NewBot.IsTutorialBot		=	true -- Flag this as our bot so we don't control other bots, Only ours!
 	NewBot.Owner		=	ply -- Make the player who created the bot its "owner"
+	NewBot.FollowDist		=	100 -- This is how close the bot will follow it's owner
+	NewBot.DangerDist		=	300 -- This is how far the bot can be from it's owner before it focuses only on following them
 	
 	NewBot:TBotResetAI() -- Fully reset your bots AI.
 	
