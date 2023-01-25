@@ -582,7 +582,7 @@ function BOT:TBotUpdateMovement( cmd )
 		return
 	end
 	
-	if self.Path[ self.Goal ] then
+	if self.Path[ #self.Path ] then
 		
 		local MovementAngle		=	( self.Path[ self.Goal ] - self:GetPos() ):GetNormalized():Angle()
 		
