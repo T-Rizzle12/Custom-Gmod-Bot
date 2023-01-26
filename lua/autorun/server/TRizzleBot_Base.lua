@@ -637,7 +637,7 @@ function BOT:TBotUpdateMovement( cmd )
 		local MovementAngle		=	( self.Goal - self:GetPos() ):GetNormalized():Angle()
 		
 		cmd:SetViewAngles( MovementAngle )
-		cmd:SetForwardMove( 1000 )
+		cmd:SetForwardMove( self:GetMaxSpeed() )
 		
 		local GoalIn2D			=	Vector( self.Goal.x , self.Goal.y , self:GetPos().z )
 		-- Optionaly you could convert this to 2D navigation as well if you like.
@@ -656,7 +656,7 @@ function BOT:TBotUpdateMovement( cmd )
 		local MovementAngle		=	( self.Path[ 1 ] - self:GetPos() ):GetNormalized():Angle()
 		
 		cmd:SetViewAngles( MovementAngle )
-		cmd:SetForwardMove( 1000 )
+		cmd:SetForwardMove( self:GetMaxSpeed() )
 		
 	end
 	
