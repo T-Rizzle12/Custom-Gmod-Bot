@@ -11,6 +11,8 @@ function TBotCreate( ply , cmd , args )
 	NewBot.Owner		=	ply -- Make the player who created the bot its "owner"
 	NewBot.FollowDist		=	200 -- This is how close the bot will follow it's owner
 	NewBot.DangerDist		=	300 -- This is how far the bot can be from it's owner before it focuses only on following them
+	NewBot.Jump		=	false -- If this is set to true the bot will jump
+	NewBot.Crouch		=	false -- If this is set to true the bot will crouch
 	
 	NewBot:TBotResetAI() -- Fully reset your bots AI.
 	
@@ -27,6 +29,8 @@ function BOT:TBotResetAI()
 	
 	self.Enemy				=	nil -- Refresh our enemy.
 	self.NumEnemies			=	0 -- How many enemies do we currently see
+	self.Jump			=	false -- Stop jumping
+	self.Crouch			=	false -- Stop crouching
 	
 	self.Goal				=	nil -- The vector goal we want to get to.
 	self.NavmeshNodes		=	{} -- The nodes given to us by the pathfinder
@@ -122,6 +126,9 @@ hook.Add( "StartCommand" , "TutorialBotAIHook" , function( bot , cmd )
 		if (bot.Owner:GetPos() - bot:GetPos()):Length() > bot.DangerDist then 
 			buttons = buttons + IN_SPEED 
 		end
+		
+		if self.Jump then buttons = buttons + IN_JUMP self.Jump = false end
+		if self.Crouch then buttons = buttons + IN_DUCK self.Crouch = false end
 		
 		cmd:SetButtons( buttons )
 		
@@ -586,6 +593,8 @@ function BOT:TBotCreateNavTimer()
 			
 			if IsVecCloseEnough( self:GetPos() , LastBotPos , 2 ) then
 				
+				self.Jump	=	true
+				self.Crouch	=	true
 				self.Path	=	nil
 				-- TODO/Challange: Make the bot jump a few times, If that does not work. Then recreate the path.
 				
