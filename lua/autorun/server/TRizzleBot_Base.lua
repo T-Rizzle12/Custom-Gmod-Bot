@@ -288,7 +288,7 @@ function TutorialBotPathfinder( StartNode , GoalNode )
 			-- G + H = F
 			local NewCostSoFar		=	Current:GetCostSoFar() + TutorialBotRangeCheck( Current , neighbor )
 			
-			if neighbor:IsOpen() or neighbor:IsClosed() and neighbor:GetCostSoFar() <= NewCostSoFar then
+			if (neighbor:IsOpen() or neighbor:IsClosed()) and neighbor:GetCostSoFar() <= NewCostSoFar then
 				
 				continue
 				
@@ -461,7 +461,7 @@ function BOT:ComputeNavmeshVisibility()
 		if SendBoxedLine( LastVisPos , OurClosestPointToNextAreasClosestPointToLastVisPos ) == true then
 			
 			LastVisPos						=	OurClosestPointToNextAreasClosestPointToLastVisPos
-			self.Path[ CurrentNode:GetID() ]		=	OurClosestPointToNextAreasClosestPointToLastVisPos
+			self.Path[ NextNode:GetID() ]		=	OurClosestPointToNextAreasClosestPointToLastVisPos
 			
 			continue
 		end
@@ -469,7 +469,7 @@ function BOT:ComputeNavmeshVisibility()
 		
 		
 		
-		self.Path[ CurrentNode:GetID() ]			=	CurrentNode:GetCenter()
+		self.Path[ NextNode:GetID() ]			=	CurrentNode:GetCenter()
 		
 	end
 	
@@ -550,7 +550,7 @@ function BOT:TBotNavigation()
 			local Waypoint2D		=	Vector( self.Path[ 1 ].x , self.Path[ 1 ].y , self:GetPos().z )
 			-- ALWAYS: Use 2D navigation, It helps by a large amount.
 			
-			if self.Path[ 1 ] and IsVecCloseEnough( self:GetPos() , Waypoint2D , 600 ) and SendBoxedLine( self.Path[ 1 ] , self:GetPos() + Vector( 0 , 0 , 15 ) ) == true and self.Path[ 1 ].z - 20 <= Waypoint2D.z then
+			if self.Path[ 2 ] and IsVecCloseEnough( self:GetPos() , Waypoint2D , 600 ) and SendBoxedLine( self.Path[ 2 ] , self:GetPos() + Vector( 0 , 0 , 15 ) ) == true and self.Path[ 2 ].z - 20 <= Waypoint2D.z then
 				
 				table.remove( self.Path , 1 )
 				
@@ -651,9 +651,9 @@ function BOT:TBotUpdateMovement( cmd )
 		return
 	end
 	
-	if self.Path[ #self.Path ] then
+	if self.Path[ 1 ] then
 		
-		local MovementAngle		=	( self.Path[ #self.Path ] - self:GetPos() ):GetNormalized():Angle()
+		local MovementAngle		=	( self.Path[ 1 ] - self:GetPos() ):GetNormalized():Angle()
 		
 		cmd:SetViewAngles( MovementAngle )
 		cmd:SetForwardMove( 1000 )
