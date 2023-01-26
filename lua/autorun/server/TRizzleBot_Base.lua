@@ -446,7 +446,7 @@ function BOT:ComputeNavmeshVisibility()
 		
 		if !IsValid( NextNode ) then
 			
-			self.Path[ CurrentNode:GetID() ]		=	self.Goal
+			self.Path[ k + 1 ]		=	self.Goal
 			
 			break
 		end
@@ -461,7 +461,7 @@ function BOT:ComputeNavmeshVisibility()
 		if SendBoxedLine( LastVisPos , OurClosestPointToNextAreasClosestPointToLastVisPos ) == true then
 			
 			LastVisPos						=	OurClosestPointToNextAreasClosestPointToLastVisPos
-			self.Path[ NextNode:GetID() ]		=	OurClosestPointToNextAreasClosestPointToLastVisPos
+			self.Path[ k + 1 ]		=	OurClosestPointToNextAreasClosestPointToLastVisPos
 			
 			continue
 		end
@@ -469,7 +469,7 @@ function BOT:ComputeNavmeshVisibility()
 		
 		
 		
-		self.Path[ NextNode:GetID() ]			=	CurrentNode:GetCenter()
+		self.Path[ k + 1 ]			=	CurrentNode:GetCenter()
 		
 	end
 	
