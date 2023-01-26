@@ -615,9 +615,9 @@ function BOT:TBotDebugWaypoints()
 	
 	for k, v in ipairs( self.Path ) do
 		
-		if self.Path[ k ] then
+		if self.Path[ k + 1 ] then
 			
-			debugoverlay.Line( v , self.Path[ k ] , 0.08 , Color( 255 , 255 , 0 ) )
+			debugoverlay.Line( v , self.Path[ k + 1 ] , 0.08 , Color( 255 , 255 , 0 ) )
 			
 		end
 		
