@@ -313,7 +313,7 @@ function TutorialBotPathfinder( StartNode , GoalNode )
 				end
 				
 				-- Parenting of the nodes so we can trace the parents back later.
-				if (table.IsEmpty( FinalPath )) then return false end
+				-- if (table.IsEmpty( FinalPath )) then return false end
 				FinalPath[ neighbor:GetId() ]		=	Current:GetID()
 			end
 			
