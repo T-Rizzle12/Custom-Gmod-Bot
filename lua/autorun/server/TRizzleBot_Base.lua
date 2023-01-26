@@ -9,7 +9,7 @@ function TBotCreate( ply , cmd , args )
 	
 	NewBot.IsTutorialBot		=	true -- Flag this as our bot so we don't control other bots, Only ours!
 	NewBot.Owner		=	ply -- Make the player who created the bot its "owner"
-	NewBot.FollowDist		=	100 -- This is how close the bot will follow it's owner
+	NewBot.FollowDist		=	200 -- This is how close the bot will follow it's owner
 	NewBot.DangerDist		=	300 -- This is how far the bot can be from it's owner before it focuses only on following them
 	
 	NewBot:TBotResetAI() -- Fully reset your bots AI.
@@ -26,6 +26,7 @@ concommand.Add( "TutorialCreateBot" , TBotCreate )
 function BOT:TBotResetAI()
 	
 	self.Enemy				=	nil -- Refresh our enemy.
+	self.NumEnemies			=	0 -- How many enemies do we currently see
 	
 	self.Goal				=	nil -- The vector goal we want to get to.
 	self.NavmeshNodes		=	{} -- The nodes given to us by the pathfinder
@@ -43,48 +44,98 @@ hook.Add( "StartCommand" , "TutorialBotAIHook" , function( bot , cmd )
 	cmd:ClearButtons() -- Clear the bots buttons. Shooting, Running , jumping etc...
 	cmd:ClearMovement() -- For when the bot is moving around.
 	
-	-- Only using bot:HasWeapon() just for this example!
-	if bot:HasWeapon( "weapon_crowbar" ) then
-		
-		-- Get the weapon entity by its class name, Then select it.
-		cmd:SelectWeapon( bot:GetWeapon( "weapon_crowbar" ) )
-		
-	end
-	
-	
 	
 	-- Better make sure they exist of course.
 	if IsValid( bot.Enemy ) then
 		
-		-- Attack and run
-		cmd:SetButtons( bit.bor( IN_ATTACK , IN_SPEED ) )
-		
 		-- Instantly face our enemy!
 		-- CHALLANGE: Can you make them turn smoothly?
 		local lerp = FrameTime() * math.random(8, 10)
-		bot:SetEyeAngles( LerpAngle(lerp, bot:GetShootPos(), ( bot.Enemy:GetShootPos() - bot:GetShootPos() ):GetNormalized():Angle() ) )
+		bot:SetEyeAngles( LerpAngle(lerp, bot:EyeAngles(), ( bot.Enemy:GetShootPos() - bot:GetShootPos() ):GetNormalized():Angle() ) )
 		
-		if isvector( bot.Goal ) then
+		if bot:HasWeapon( "weapon_crowbar" ) and (bot.Enemy:GetPos() - bot:GetPos()):Length() < 80 then
+		
+			-- If an enemy gets too close the bot should use its crowbar
+			cmd:SelectWeapon( bot:GetWeapon( "weapon_crowbar" ) )
+		
+		elseif bot:HasWeapon( "weapon_pistol" ) then
+		
+			-- If an enemy gets too far the bot should use its pistol
+			cmd:SelectWeapon( bot:GetWeapon( "weapon_pistol" ) )
+		
+		end
+		
+		local buttons = 0
+		local botWeapon = bot:GetActiveWeapon()
+		if math.random(2) == 1 and bot.Enemy:GetNPCState() != NPC_STATE_DEAD then
+			buttons = buttons + IN_ATTACK
+		end
+		
+		if math.random(2) == 1 and (botWeapon:Clip1() == 0 or bot.Enemy:GetNPCState() == NPC_STATE_DEAD and botWeapon:Clip1() <= botWeapon:GetMaxClip1() / 2) then
+			buttons = buttons + IN_RELOAD
+		end
+		
+		cmd:SetButtons( buttons )
+		if isvector( bot.Goal ) and bot:GetActiveWeapon():GetClass() == "weapon_crowbar" and (bot.Enemy:GetPos() - bot.Goal):Length() < 64 and (bot.Owner:GetPos() - bot:GetPos()):Length() < bot.DangerDist then
 			
-			bot:TBotUpdateMovement( cmd ) -- Move when we need to.
+			bot:TBotUpdateMovement( cmd ) -- Only chase after targets if we are using a melee weapon.
+			
+		elseif !isvector( bot.Goal ) or (bot.Owner:GetPos() - bot:GetPos()):Length() > bot.DangerDist then
+			
+			if isvector( bot.Goal ) and (bot.Owner:GetPos() - bot.Goal):Length() < bot.FollowDist then bot:TBotUpdateMovement( cmd ) -- The bot should follow their owner if they get too far
+			else bot:TBotSetNewGoal( bot.Owner:GetPos() ) end
 			
 		else
-			
+		
 			bot:TBotSetNewGoal( bot.Enemy:GetPos() )
 			
 		end
 		
-	elseif (IsValid(ply.Owner) and ply.Owner:Alive()) then
-		local lerp = FrameTime() * math.random(8, 10)
-		bot:SetEyeAngles(lerp, bot:GetShootPos(), ( bot.Owner:GetShootPos() - bot:GetShootPos() ):GetNormalized():Angle() ) )
+	elseif IsValid( bot.Owner ) and bot.Owner:Alive() then
 		
-		if isvector( bot.Goal ) then
+		local lerp = FrameTime() * math.random(8, 10)
+		bot:SetEyeAngles( LerpAngle(lerp, bot:EyeAngles(), ( bot.Owner:GetShootPos() - bot:GetShootPos() ):GetNormalized():Angle() ) )
+		
+		local buttons = 0
+		local botWeapon = bot:GetActiveWeapon()
+		if math.random(2) == 1 and (botWeapon:Clip1() == 0 or botWeapon:Clip1() <= botWeapon:GetMaxClip1() / 2) then
+			buttons = buttons + IN_RELOAD
+		end
+		
+		if bot:HasWeapon( "weapon_medkit" ) and (bot.Owner:GetPos() - bot:GetPos()):Length() < bot.FollowDist and bot.Owner:Health() < bot.Owner:GetMaxHealth() then
+		
+			-- If an enemy gets too close the bot should use its crowbar
+			cmd:SelectWeapon( bot:GetWeapon( "weapon_medkit" ) )
+			if math.random(2) == 1 then
+				buttons = buttons + IN_ATTACK
+			end
+		elseif bot:HasWeapon( "weapon_medkit" ) and (bot.Owner:GetPos() - bot:GetPos()):Length() < bot.FollowDist and bot:Health() < bot:GetMaxHealth() then
+		
+			-- If an enemy gets too close the bot should use its crowbar
+			cmd:SelectWeapon( bot:GetWeapon( "weapon_medkit" ) )
+			if math.random(2) == 1 then
+				buttons = buttons + IN_ATTACK2
+			end
+		end
+		
+		-- Run if we are too far from our owner
+		if (bot.Owner:GetPos() - bot:GetPos()):Length() > bot.DangerDist then 
+			buttons = buttons + IN_SPEED 
+		end
+		
+		cmd:SetButtons( buttons )
+		
+		if isvector( bot.Goal ) and (bot.Owner:GetPos() - bot.Goal):Length() < 64 then
 			
 			bot:TBotUpdateMovement( cmd ) -- Move when we need to.
 			
-		else
+		elseif (bot.Owner:GetPos() - bot:GetPos()):Length() > bot.FollowDist then
 			
 			bot:TBotSetNewGoal( bot.Owner:GetPos() )
+			
+		else
+		
+			bot.Goal = nil; -- We have no targets and we are near our owner there is no need to move
 			
 		end
 	end
@@ -147,11 +198,9 @@ function BOT:TBotCreateThinking()
 			
 			-- A quick condition statement to check if our enemy is no longer a threat.
 			-- Most likely done best in its own function. But for this tutorial we will make it simple.
-			if !IsValid( self.Enemy ) or !self.Enemy:IsPlayer() or !self.Enemy:Alive() then
-				
-				self.Enemy		=	nil
-				
-			end
+			if !IsValid( self.Enemy ) then self.Enemy		=	nil
+			elseif self.Enemy:IsPlayer() or !self.Enemy:Alive() then self.Enemy		=	nil
+			elseif !self.Enemy:Visible( self ) then self.Enemy		=	nil end
 			
 			self:TBotFindRandomEnemy()
 			
@@ -169,25 +218,28 @@ end
 
 -- Target any player or bot that is visible to us.
 function BOT:TBotFindRandomEnemy()
-	if IsValid( self.Enemy ) then return end
-	
 	local VisibleEnemies	=	{} -- So we can select a random enemy.
+	local targetdist		=	10000 -- This will allow the bot to select the closest enemy to it.
+	local target			=	nil -- This is the closest enemy to the bot.
 	
-	for k, v in ipairs( player.GetAll() ) do
+	for k, v in ipairs( ents.GetAll() ) do
 		
-		if v:Alive() and v != self then -- Make sure they are alive and we don't want to target ourself.
+		if IsValid ( v ) and v:IsNPC() and v:GetNPCState() != NPC_STATE_DEAD and (v:GetEnemy() == self or v:GetEnemy() == self.Owner) then -- The bot should attack any NPC that is attacking them or their owner
 			
 			if v:Visible( self ) then -- Using Visible() as an example of why we should delay the thinking.
 				
-				VisibleEnemies[ #VisibleEnemies + 1]		=	v
-				
+				VisibleEnemies[ #VisibleEnemies + 1 ]		=	v
+				if (v:GetPos() - self:GetPos()):Length() < targetdist then 
+					target = v
+				end
 			end
 			
 		end
 		
 	end
 	
-	self.Enemy		=	VisibleEnemies[ #VisibleEnemies + 1]
+	self.Enemy		=	target
+	self.NumEnemies		=	#VisibleEnemies
 	
 end
 
@@ -261,6 +313,7 @@ function TutorialBotPathfinder( StartNode , GoalNode )
 				end
 				
 				-- Parenting of the nodes so we can trace the parents back later.
+				if (table.IsEmpty( FinalPath )) then return false end
 				FinalPath[ neighbor:GetId() ]		=	Current:GetID()
 			end
 			
@@ -393,7 +446,7 @@ function BOT:ComputeNavmeshVisibility()
 		
 		if !IsValid( NextNode ) then
 			
-			self.Path[ Current ]		=	self.Goal
+			self.Path[ CurrentNode:GetID() ]		=	self.Goal
 			
 			break
 		end
@@ -408,7 +461,7 @@ function BOT:ComputeNavmeshVisibility()
 		if SendBoxedLine( LastVisPos , OurClosestPointToNextAreasClosestPointToLastVisPos ) == true then
 			
 			LastVisPos						=	OurClosestPointToNextAreasClosestPointToLastVisPos
-			self.Path[ Current ]		=	OurClosestPointToNextAreasClosestPointToLastVisPos
+			self.Path[ CurrentNode:GetID() ]		=	OurClosestPointToNextAreasClosestPointToLastVisPos
 			
 			continue
 		end
@@ -416,7 +469,7 @@ function BOT:ComputeNavmeshVisibility()
 		
 		
 		
-		self.Path[ Current ]			=	CurrentNode:GetCenter()
+		self.Path[ CurrentNode:GetID() ]			=	CurrentNode:GetCenter()
 		
 	end
 	
@@ -492,12 +545,12 @@ function BOT:TBotNavigation()
 	
 	if istable( self.Path ) then
 		
-		if self.Path[ self.Goal ] then
+		if self.Path[ 1 ] then
 			
-			local Waypoint2D		=	Vector( self.Path[ self.Goal ].x , self.Path[ self.Goal ].y , self:GetPos().z )
+			local Waypoint2D		=	Vector( self.Path[ 1 ].x , self.Path[ 1 ].y , self:GetPos().z )
 			-- ALWAYS: Use 2D navigation, It helps by a large amount.
 			
-			if self.Path[ self.Goal ] and IsVecCloseEnough( self:GetPos() , Waypoint2D , 600 ) and SendBoxedLine( self.Path[ self.Goal ] , self:GetPos() + Vector( 0 , 0 , 15 ) ) == true and self.Path[ self.Goal ].z - 20 <= Waypoint2D.z then
+			if self.Path[ 1 ] and IsVecCloseEnough( self:GetPos() , Waypoint2D , 600 ) and SendBoxedLine( self.Path[ 1 ] , self:GetPos() + Vector( 0 , 0 , 15 ) ) == true and self.Path[ 1 ].z - 20 <= Waypoint2D.z then
 				
 				table.remove( self.Path , 1 )
 				
@@ -557,8 +610,8 @@ function BOT:TBotDebugWaypoints()
 	if !istable( self.Path ) then return end
 	if table.IsEmpty( self.Path ) then return end
 	
-	debugoverlay.Line( self.Path[ self.Goal ] , self:GetPos() + Vector( 0 , 0 , 44 ) , 0.08 , Color( 0 , 255 , 255 ) )
-	debugoverlay.Sphere( self.Path[ self.Goal ] , 8 , 0.08 , Color( 0 , 255 , 255 ) , true )
+	debugoverlay.Line( self.Path[ 1 ] , self:GetPos() + Vector( 0 , 0 , 44 ) , 0.08 , Color( 0 , 255 , 255 ) )
+	debugoverlay.Sphere( self.Path[ 1 ] , 8 , 0.08 , Color( 0 , 255 , 255 ) , true )
 	
 	for k, v in ipairs( self.Path ) do
 		
@@ -600,7 +653,7 @@ function BOT:TBotUpdateMovement( cmd )
 	
 	if self.Path[ #self.Path ] then
 		
-		local MovementAngle		=	( self.Path[ self.Goal ] - self:GetPos() ):GetNormalized():Angle()
+		local MovementAngle		=	( self.Path[ #self.Path ] - self:GetPos() ):GetNormalized():Angle()
 		
 		cmd:SetViewAngles( MovementAngle )
 		cmd:SetForwardMove( 1000 )
