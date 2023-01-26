@@ -449,7 +449,7 @@ function BOT:ComputeNavmeshVisibility()
 		-- You should also make sure that the nodes exist as this is called 0.03 seconds after the pathfind.
 		-- For tutorial sakes ill keep this simple.
 		
-		local NextNode		=	self.NavmeshNodes[ CurrentNode:GetID() ]
+		local NextNode		=	self.NavmeshNodes[ k + 1 ]
 		
 		if !IsValid( NextNode ) then
 			
