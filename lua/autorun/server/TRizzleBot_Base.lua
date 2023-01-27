@@ -552,12 +552,12 @@ function BOT:TBotNavigation()
 	
 	if istable( self.Path ) then
 		
-		if self.Path[ 1 ] then
+		if self.Path[ #self.Path ] then
 			
-			local Waypoint2D		=	Vector( self.Path[ 1 ].x , self.Path[ 1 ].y , self:GetPos().z )
+			local Waypoint2D		=	Vector( self.Path[ #self.Path ].x , self.Path[ #self.Path ].y , self:GetPos().z )
 			-- ALWAYS: Use 2D navigation, It helps by a large amount.
 			
-			if self.Path[ 2 ] and IsVecCloseEnough( self:GetPos() , Waypoint2D , 600 ) and SendBoxedLine( self.Path[ 2 ] , self:GetPos() + Vector( 0 , 0 , 15 ) ) == true and self.Path[ 2 ].z - 20 <= Waypoint2D.z then
+			if self.Path[ #self.Path - 1 ] and IsVecCloseEnough( self:GetPos() , Waypoint2D , 600 ) and SendBoxedLine( self.Path[ #self.Path - 1 ] , self:GetPos() + Vector( 0 , 0 , 15 ) ) == true and self.Path[ #self.Path - 1 ].z - 20 <= Waypoint2D.z then
 				
 				table.remove( self.Path , 1 )
 				
@@ -619,14 +619,14 @@ function BOT:TBotDebugWaypoints()
 	if !istable( self.Path ) then return end
 	if table.IsEmpty( self.Path ) then return end
 	
-	debugoverlay.Line( self.Path[ 1 ] , self:GetPos() + Vector( 0 , 0 , 44 ) , 0.08 , Color( 0 , 255 , 255 ) )
-	debugoverlay.Sphere( self.Path[ 1 ] , 8 , 0.08 , Color( 0 , 255 , 255 ) , true )
+	debugoverlay.Line( self.Path[ #self.Path ] , self:GetPos() + Vector( 0 , 0 , 44 ) , 0.08 , Color( 0 , 255 , 255 ) )
+	debugoverlay.Sphere( self.Path[ #self.Path ] , 8 , 0.08 , Color( 0 , 255 , 255 ) , true )
 	
 	for k, v in ipairs( self.Path ) do
 		
-		if self.Path[ k + 1 ] then
+		if self.Path[ #self.Path - k ] then
 			
-			debugoverlay.Line( v , self.Path[ k + 1 ] , 0.08 , Color( 255 , 255 , 0 ) )
+			debugoverlay.Line( v , self.Path[ #self.Path - k ] , 0.08 , Color( 255 , 255 , 0 ) )
 			
 		end
 		
@@ -660,9 +660,9 @@ function BOT:TBotUpdateMovement( cmd )
 		return
 	end
 	
-	if self.Path[ 1 ] then
+	if self.Path[ #self.Path ] then
 		
-		local MovementAngle		=	( self.Path[ 1 ] - self:GetPos() ):GetNormalized():Angle()
+		local MovementAngle		=	( self.Path[ #self.Path ] - self:GetPos() ):GetNormalized():Angle()
 		
 		cmd:SetViewAngles( MovementAngle )
 		cmd:SetForwardMove( self:GetMaxSpeed() )
