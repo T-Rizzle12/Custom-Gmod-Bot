@@ -585,6 +585,7 @@ function BOT:TBotCreateNavTimer()
 	
 	local index				=	self:EntIndex()
 	local LastBotPos		=	self:GetPos()
+	local Attempts		=	0
 	
 	
 	timer.Create( "tutorialbot_nav" .. index , 0.09 , 0 , function()
@@ -601,9 +602,13 @@ function BOT:TBotCreateNavTimer()
 				
 				self.Jump	=	true
 				self.Crouch	=	true
-				self.Path	=	nil
+				
+				if Attempts > 30 then self.Path	=	nil end
+				Attempts = Attempts + 1
 				-- TODO/Challange: Make the bot jump a few times, If that does not work. Then recreate the path.
 				
+			else
+				Attempts = 0
 			end
 			LastBotPos		=	self:GetPos()
 			
