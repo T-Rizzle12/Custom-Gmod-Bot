@@ -79,7 +79,11 @@ hook.Add( "StartCommand" , "TutorialBotAIHook" , function( bot , cmd )
 			buttons = buttons + IN_RELOAD
 		end
 		
+		if self.Jump then buttons = buttons + IN_JUMP self.Jump = false end
+		if self.Crouch then buttons = buttons + IN_DUCK self.Crouch = false end
+		
 		cmd:SetButtons( buttons )
+		
 		if isvector( bot.Goal ) and bot:GetActiveWeapon():GetClass() == "weapon_crowbar" and (bot.Enemy:GetPos() - bot.Goal):Length() < 64 and (bot.Owner:GetPos() - bot:GetPos()):Length() < bot.DangerDist then
 			
 			bot:TBotUpdateMovement( cmd ) -- Only chase after targets if we are using a melee weapon.
@@ -102,25 +106,27 @@ hook.Add( "StartCommand" , "TutorialBotAIHook" , function( bot , cmd )
 		
 		local buttons = 0
 		local botWeapon = bot:GetActiveWeapon()
-		if math.random(2) == 1 and (botWeapon:Clip1() == 0 or botWeapon:Clip1() <= botWeapon:GetMaxClip1() / 2) then
+		if math.random(2) == 1 and (botWeapon:Clip1() < botWeapon:GetMaxClip1()) then
 			buttons = buttons + IN_RELOAD
 		end
 		
+		-- If the bot and bot's owner is not in combat then the bot should check if either their owner or they need to heal
 		if bot:HasWeapon( "weapon_medkit" ) and (bot.Owner:GetPos() - bot:GetPos()):Length() < bot.FollowDist and bot.Owner:Health() < bot.Owner:GetMaxHealth() then
 		
-			-- If an enemy gets too close the bot should use its crowbar
+			-- The bot should priortize healing its owner over themself
 			cmd:SelectWeapon( bot:GetWeapon( "weapon_medkit" ) )
 			if math.random(2) == 1 then
 				buttons = buttons + IN_ATTACK
 			end
 		elseif bot:HasWeapon( "weapon_medkit" ) and (bot.Owner:GetPos() - bot:GetPos()):Length() < bot.FollowDist and bot:Health() < bot:GetMaxHealth() then
 		
-			-- If an enemy gets too close the bot should use its crowbar
+			-- The bot will heal themself if their owner has full health
 			cmd:SelectWeapon( bot:GetWeapon( "weapon_medkit" ) )
 			if math.random(2) == 1 then
 				buttons = buttons + IN_ATTACK2
 			end
 		end
+		-- Possibly add support for the bot to heal nearby players?
 		
 		-- Run if we are too far from our owner
 		if (bot.Owner:GetPos() - bot:GetPos()):Length() > bot.DangerDist then 
