@@ -55,7 +55,7 @@ hook.Add( "StartCommand" , "TutorialBotAIHook" , function( bot , cmd )
 		-- Instantly face our enemy!
 		-- CHALLANGE: Can you make them turn smoothly?
 		local lerp = FrameTime() * math.random(8, 10)
-		bot:SetEyeAngles( LerpAngle(lerp, bot:EyeAngles(), ( bot.Enemy:GetShootPos() - bot:GetShootPos() ):GetNormalized():Angle() ) )
+		bot:SetEyeAngles( LerpAngle(lerp, bot:EyeAngles(), ( bot.Enemy:EyePos() - bot:GetShootPos() ):GetNormalized():Angle() ) )
 		
 		if bot:HasWeapon( "weapon_crowbar" ) and (bot.Enemy:GetPos() - bot:GetPos()):Length() < 80 then
 		
@@ -98,7 +98,7 @@ hook.Add( "StartCommand" , "TutorialBotAIHook" , function( bot , cmd )
 	elseif IsValid( bot.Owner ) and bot.Owner:Alive() then
 		
 		local lerp = FrameTime() * math.random(8, 10)
-		bot:SetEyeAngles( LerpAngle(lerp, bot:EyeAngles(), ( bot.Owner:GetShootPos() - bot:GetShootPos() ):GetNormalized():Angle() ) )
+		bot:SetEyeAngles( LerpAngle(lerp, bot:EyeAngles(), ( bot.Owner:EyePos() - bot:GetShootPos() ):GetNormalized():Angle() ) )
 		
 		local buttons = 0
 		local botWeapon = bot:GetActiveWeapon()
