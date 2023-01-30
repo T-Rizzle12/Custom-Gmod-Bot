@@ -59,48 +59,58 @@ hook.Add( "StartCommand" , "TutorialBotAIHook" , function( bot , cmd )
 		
 		-- Instantly face our enemy!
 		-- CHALLANGE: Can you make them turn smoothly?
-		local lerp = FrameTime() * math.random(8, 10)
+		local lerp = math.random(0.4, 1.0)
 		bot:SetEyeAngles( LerpAngle(lerp, bot:EyeAngles(), ( bot.Enemy:GetShootPos() - bot:GetShootPos() ):GetNormalized():Angle() ) )
 		
-		if bot:HasWeapon( "weapon_crowbar" ) and (bot.Enemy:GetPos() - bot:GetPos()):Length() < 80 then
+		if bot:HasWeapon( "weapon_pistol" ) and bot:GetWeapon( "weapon_pistol" ):HasAmmo() and (bot.Enemy:GetPos() - bot:GetPos()):Length() > 300 then
 		
-			-- If an enemy gets too close the bot should use its crowbar
-			cmd:SelectWeapon( bot:GetWeapon( "weapon_crowbar" ) )
+			-- If an enemy gets too far the bot should use its pistol
+			cmd:SelectWeapon( bot:GetWeapon( "weapon_pistol" ) )
 		
-		elseif bot:HasWeapon( "weapon_shotgun" ) and bot:GetWeapon( "weapon_shotgun" ):HasAmmo() and (bot.Enemy:GetPos() - bot:GetPos()):Length() < 300 then
+		elseif bot:HasWeapon( "weapon_shotgun" ) and bot:GetWeapon( "weapon_shotgun" ):HasAmmo() and (bot.Enemy:GetPos() - bot:GetPos()):Length() > 80 then
 		
 			-- If an enemy gets too far but is still close the bot should use its shotgun
 			cmd:SelectWeapon( bot:GetWeapon( "weapon_shotgun" ) )
 		
-		elseif bot:HasWeapon( "weapon_pistol" ) and bot:GetWeapon( "weapon_pistol" ):HasAmmo() then
+		elseif bot:HasWeapon( "weapon_crowbar" ) then
 		
-			-- If an enemy gets too far the bot should use its pistol
-			cmd:SelectWeapon( bot:GetWeapon( "weapon_pistol" ) )
+			-- If an enemy gets too close the bot should use its crowbar
+			cmd:SelectWeapon( bot:GetWeapon( "weapon_crowbar" ) )
 		
 		end
 		
 		local buttons = 0
 		local botWeapon = bot:GetActiveWeapon()
-		if math.random(2) == 1 and bot.Enemy:GetNPCState() != NPC_STATE_DEAD then
+		if math.random(2) == 1 then
 			buttons = buttons + IN_ATTACK
 		end
 		
-		if math.random(2) == 1 and (botWeapon:Clip1() == 0 and botWeapon:Clip1() <= botWeapon:GetMaxClip1() / 2) then
+		if math.random(2) == 1 and botWeapon:Clip1() == 0 then
 			buttons = buttons + IN_RELOAD
 		end
 		
-		if bot.Jump then 
-			buttons = buttons + IN_JUMP 
-			bot.Jump = false 
-		end
-		if bot.Crouch then 
-			buttons = buttons + IN_DUCK 
-			bot.Crouch = false 
+		if !bot:Is_On_Ladder() then
+			if bot.Jump then 
+				buttons = buttons + IN_JUMP 
+				bot.Jump = false 
+			end
+			if bot.Crouch then 
+				buttons = buttons + IN_DUCK 
+				bot.Crouch = false 
+			end
+			if bot.Use then 
+				buttons = buttons + IN_USE 
+				bot.Use = false 
+			end
+		else
+		
+			buttons = buttons + IN_FORWARD
+		
 		end
 		
 		cmd:SetButtons( buttons )
 		
-		if isvector( bot.Goal ) and (bot.Owner:GetPos() - bot:GetPos()):Length() < bot.DangerDist or isvector( bot.Goal ) then
+		if isvector( bot.Goal ) and (bot.Owner:GetPos() - bot:GetPos()):Length() < bot.DangerDist and (bot.Owner:GetPos() - bot.Goal):Length() < 64 or isvector( bot.Goal ) and (bot.Enemy:GetPos() - bot.Goal):Length() < 64 then
 			
 			bot:TBotUpdateMovement( cmd )
 			
@@ -116,9 +126,6 @@ hook.Add( "StartCommand" , "TutorialBotAIHook" , function( bot , cmd )
 		
 	elseif IsValid( bot.Owner ) and bot.Owner:Alive() then
 		
-		local lerp = FrameTime() * math.random(8, 10)
-		bot:SetEyeAngles( LerpAngle(lerp, bot:EyeAngles(), ( bot.Owner:GetShootPos() - bot:GetShootPos() ):GetNormalized():Angle() ) )
-		
 		local buttons = 0
 		local botWeapon = bot:GetActiveWeapon()
 		if math.random(2) == 1 and botWeapon:Clip1() < botWeapon:GetMaxClip1() then
@@ -129,11 +136,13 @@ hook.Add( "StartCommand" , "TutorialBotAIHook" , function( bot , cmd )
 		if bot:HasWeapon( "weapon_medkit" ) and (bot.Owner:GetPos() - bot:GetPos()):Length() < 80 and bot.Owner:Health() < bot.Owner:GetMaxHealth() then
 		
 			-- The bot should priortize healing its owner over themself
+			local lerp = math.random(0.4, 1.0)
+			bot:SetEyeAngles( LerpAngle(lerp, bot:EyeAngles(), ( bot.Owner:GetShootPos() - bot:GetShootPos() ):GetNormalized():Angle() ) )
 			cmd:SelectWeapon( bot:GetWeapon( "weapon_medkit" ) )
 			if math.random(2) == 1 then
 				buttons = buttons + IN_ATTACK
 			end
-		elseif bot:HasWeapon( "weapon_medkit" ) and (bot.Owner:GetPos() - bot:GetPos()):Length() < bot.FollowDist and bot:Health() < bot:GetMaxHealth() then
+		elseif bot:HasWeapon( "weapon_medkit" ) and (bot.Owner:GetPos() - bot:GetPos()):Length() < 80 and bot:Health() < bot:GetMaxHealth() then
 		
 			-- The bot will heal themself if their owner has full health
 			cmd:SelectWeapon( bot:GetWeapon( "weapon_medkit" ) )
@@ -239,7 +248,7 @@ function BOT:TBotCreateThinking()
 			-- A quick condition statement to check if our enemy is no longer a threat.
 			-- Most likely done best in its own function. But for this tutorial we will make it simple.
 			if !IsValid( self.Enemy ) then self.Enemy		=	nil
-			elseif self.Enemy:IsPlayer() or !self.Enemy:Alive() then self.Enemy		=	nil
+			elseif self.Enemy:IsPlayer() and !self.Enemy:Alive() then self.Enemy		=	nil
 			elseif !self.Enemy:Visible( self ) then self.Enemy		=	nil
 			elseif self.Enemy:IsNPC() and self.Enemy:GetNPCState() == NPC_STATE_DEAD then self.Enemy		=	nil end
 			
