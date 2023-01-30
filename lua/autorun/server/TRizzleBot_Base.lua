@@ -1,4 +1,6 @@
 local BOT						=	FindMetaTable( "Player" )
+local Zone		=	FindMetaTable( "CNavArea" )
+local Lad		=	FindMetaTable( "CNavLadder" )
 
 
 
@@ -13,6 +15,7 @@ function TBotCreate( ply , cmd , args )
 	NewBot.DangerDist		=	300 -- This is how far the bot can be from it's owner before it focuses only on following them
 	NewBot.Jump		=	false -- If this is set to true the bot will jump
 	NewBot.Crouch		=	false -- If this is set to true the bot will crouch
+	NewBot.Use			=	false -- If this is set to true the bot use press its use key
 	
 	NewBot:TBotResetAI() -- Fully reset your bots AI.
 	
@@ -31,10 +34,12 @@ function BOT:TBotResetAI()
 	self.NumEnemies			=	0 -- How many enemies do we currently see
 	self.Jump			=	false -- Stop jumping
 	self.Crouch			=	false -- Stop crouching
+	self.Use			=	false -- Stop using
 	
 	self.Goal				=	nil -- The vector goal we want to get to.
 	self.NavmeshNodes		=	{} -- The nodes given to us by the pathfinder
 	self.Path				=	nil -- The nodes converted into waypoints by our visiblilty checking.
+	self.PathTime			=	CurTime() + 1.0 -- This will limit how often the path gets recreated
 	
 	self:TBotCreateThinking() -- Start our AI
 	
@@ -55,14 +60,19 @@ hook.Add( "StartCommand" , "TutorialBotAIHook" , function( bot , cmd )
 		-- Instantly face our enemy!
 		-- CHALLANGE: Can you make them turn smoothly?
 		local lerp = FrameTime() * math.random(8, 10)
-		bot:SetEyeAngles( LerpAngle(lerp, bot:EyeAngles(), ( bot.Enemy:EyePos() - bot:GetShootPos() ):GetNormalized():Angle() ) )
+		bot:SetEyeAngles( LerpAngle(lerp, bot:EyeAngles(), ( bot.Enemy:GetShootPos() - bot:GetShootPos() ):GetNormalized():Angle() ) )
 		
 		if bot:HasWeapon( "weapon_crowbar" ) and (bot.Enemy:GetPos() - bot:GetPos()):Length() < 80 then
 		
 			-- If an enemy gets too close the bot should use its crowbar
 			cmd:SelectWeapon( bot:GetWeapon( "weapon_crowbar" ) )
 		
-		elseif bot:HasWeapon( "weapon_pistol" ) then
+		elseif bot:HasWeapon( "weapon_shotgun" ) and bot:GetWeapon( "weapon_shotgun" ):HasAmmo() and (bot.Enemy:GetPos() - bot:GetPos()):Length() < 300 then
+		
+			-- If an enemy gets too far but is still close the bot should use its shotgun
+			cmd:SelectWeapon( bot:GetWeapon( "weapon_shotgun" ) )
+		
+		elseif bot:HasWeapon( "weapon_pistol" ) and bot:GetWeapon( "weapon_pistol" ):HasAmmo() then
 		
 			-- If an enemy gets too far the bot should use its pistol
 			cmd:SelectWeapon( bot:GetWeapon( "weapon_pistol" ) )
@@ -75,43 +85,48 @@ hook.Add( "StartCommand" , "TutorialBotAIHook" , function( bot , cmd )
 			buttons = buttons + IN_ATTACK
 		end
 		
-		if math.random(2) == 1 and (botWeapon:Clip1() == 0 or bot.Enemy:GetNPCState() == NPC_STATE_DEAD and botWeapon:Clip1() <= botWeapon:GetMaxClip1() / 2) then
+		if math.random(2) == 1 and (botWeapon:Clip1() == 0 and botWeapon:Clip1() <= botWeapon:GetMaxClip1() / 2) then
 			buttons = buttons + IN_RELOAD
 		end
 		
-		if self.Jump then buttons = buttons + IN_JUMP self.Jump = false end
-		if self.Crouch then buttons = buttons + IN_DUCK self.Crouch = false end
+		if bot.Jump then 
+			buttons = buttons + IN_JUMP 
+			bot.Jump = false 
+		end
+		if bot.Crouch then 
+			buttons = buttons + IN_DUCK 
+			bot.Crouch = false 
+		end
 		
 		cmd:SetButtons( buttons )
 		
-		if isvector( bot.Goal ) and bot:GetActiveWeapon():GetClass() == "weapon_crowbar" and (bot.Enemy:GetPos() - bot.Goal):Length() < 64 and (bot.Owner:GetPos() - bot:GetPos()):Length() < bot.DangerDist then
+		if isvector( bot.Goal ) and (bot.Owner:GetPos() - bot:GetPos()):Length() < bot.DangerDist or isvector( bot.Goal ) then
 			
-			bot:TBotUpdateMovement( cmd ) -- Only chase after targets if we are using a melee weapon.
+			bot:TBotUpdateMovement( cmd )
 			
-		elseif !isvector( bot.Goal ) or (bot.Owner:GetPos() - bot:GetPos()):Length() > bot.DangerDist then
+		elseif bot:GetActiveWeapon():GetClass() == "weapon_crowbar" and (bot.Owner:GetPos() - bot:GetPos()):Length() < bot.DangerDist then
 			
-			if isvector( bot.Goal ) and (bot.Owner:GetPos() - bot.Goal):Length() < bot.FollowDist then bot:TBotUpdateMovement( cmd ) -- The bot should follow their owner if they get too far
-			else bot:TBotSetNewGoal( bot.Owner:GetPos() ) end
+			bot:TBotSetNewGoal( bot.Enemy:GetPos() ) -- Only chase after targets if we are using a melee weapon.
 			
-		else
-		
-			bot:TBotSetNewGoal( bot.Enemy:GetPos() )
+		elseif (bot.Owner:GetPos() - bot:GetPos()):Length() > bot.DangerDist then
+			
+			bot:TBotSetNewGoal( bot.Owner:GetPos() )
 			
 		end
 		
 	elseif IsValid( bot.Owner ) and bot.Owner:Alive() then
 		
 		local lerp = FrameTime() * math.random(8, 10)
-		bot:SetEyeAngles( LerpAngle(lerp, bot:EyeAngles(), ( bot.Owner:EyePos() - bot:GetShootPos() ):GetNormalized():Angle() ) )
+		bot:SetEyeAngles( LerpAngle(lerp, bot:EyeAngles(), ( bot.Owner:GetShootPos() - bot:GetShootPos() ):GetNormalized():Angle() ) )
 		
 		local buttons = 0
 		local botWeapon = bot:GetActiveWeapon()
-		if math.random(2) == 1 and (botWeapon:Clip1() < botWeapon:GetMaxClip1()) then
+		if math.random(2) == 1 and botWeapon:Clip1() < botWeapon:GetMaxClip1() then
 			buttons = buttons + IN_RELOAD
 		end
 		
 		-- If the bot and bot's owner is not in combat then the bot should check if either their owner or they need to heal
-		if bot:HasWeapon( "weapon_medkit" ) and (bot.Owner:GetPos() - bot:GetPos()):Length() < bot.FollowDist and bot.Owner:Health() < bot.Owner:GetMaxHealth() then
+		if bot:HasWeapon( "weapon_medkit" ) and (bot.Owner:GetPos() - bot:GetPos()):Length() < 80 and bot.Owner:Health() < bot.Owner:GetMaxHealth() then
 		
 			-- The bot should priortize healing its owner over themself
 			cmd:SelectWeapon( bot:GetWeapon( "weapon_medkit" ) )
@@ -133,8 +148,24 @@ hook.Add( "StartCommand" , "TutorialBotAIHook" , function( bot , cmd )
 			buttons = buttons + IN_SPEED 
 		end
 		
-		if self.Jump then buttons = buttons + IN_JUMP self.Jump = false end
-		if self.Crouch then buttons = buttons + IN_DUCK self.Crouch = false end
+		if !bot:Is_On_Ladder() then
+			if bot.Jump then 
+				buttons = buttons + IN_JUMP 
+				bot.Jump = false 
+			end
+			if bot.Crouch then 
+				buttons = buttons + IN_DUCK 
+				bot.Crouch = false 
+			end
+			if bot.Use then 
+				buttons = buttons + IN_USE 
+				bot.Use = false 
+			end
+		else
+		
+			buttons = buttons + IN_FORWARD
+		
+		end
 		
 		cmd:SetButtons( buttons )
 		
@@ -145,11 +176,7 @@ hook.Add( "StartCommand" , "TutorialBotAIHook" , function( bot , cmd )
 		elseif (bot.Owner:GetPos() - bot:GetPos()):Length() > bot.FollowDist then
 			
 			bot:TBotSetNewGoal( bot.Owner:GetPos() )
-			
-		else
 		
-			bot.Goal = nil; -- We have no targets and we are near our owner there is no need to move
-			
 		end
 	end
 	
@@ -213,7 +240,8 @@ function BOT:TBotCreateThinking()
 			-- Most likely done best in its own function. But for this tutorial we will make it simple.
 			if !IsValid( self.Enemy ) then self.Enemy		=	nil
 			elseif self.Enemy:IsPlayer() or !self.Enemy:Alive() then self.Enemy		=	nil
-			elseif !self.Enemy:Visible( self ) then self.Enemy		=	nil end
+			elseif !self.Enemy:Visible( self ) then self.Enemy		=	nil
+			elseif self.Enemy:IsNPC() and self.Enemy:GetNPCState() == NPC_STATE_DEAD then self.Enemy		=	nil end
 			
 			self:TBotFindRandomEnemy()
 			
@@ -289,46 +317,51 @@ function TutorialBotPathfinder( StartNode , GoalNode )
 		
 		Current:AddToClosedList() -- We don't need to deal with this anymore.
 		
-		for k, neighbor in ipairs( Current:GetAdjacentAreas() ) do
-			local Height			=	Current:ComputeAdjacentConnectionHeightChange( neighbor ) 
+		for k, neighbor in ipairs( Current:Get_Connected_Areas() ) do
+			local Height = 0
 			
-			if Height > 64 then
-				-- We can't jump that high.
+			if neighbor:Node_Get_Type() == 1 and Current:Node_Get_Type() == 1 then
+				Height			=	Current:ComputeAdjacentConnectionHeightChange( neighbor ) 
 				
-				continue
+				if Height > 64 then
+					-- We can't jump that high.
+					
+					continue
+				end
 			end
 			
 			-- G + H = F
 			local NewCostSoFar		=	Current:GetCostSoFar() + TutorialBotRangeCheck( Current , neighbor )
 			
-			if (neighbor:IsOpen() or neighbor:IsClosed()) and neighbor:GetCostSoFar() <= NewCostSoFar then
-				
-				continue
-				
-			else
-				neighbor:SetCostSoFar( NewCostSoFar )
-				neighbor:SetTotalCost( NewCostSoFar + TutorialBotRangeCheck( neighbor , GoalNode ) )
-				
-				if neighbor:IsClosed() then
+			if neighbor:Node_Get_Type() == 1 and Current:Node_Get_Type() == 1 then
+				if neighbor:IsOpen() or neighbor:IsClosed() and neighbor:GetCostSoFar() <= NewCostSoFar then
 					
-					neighbor:RemoveFromClosedList()
-					
-				end
-				
-				if neighbor:IsOpen() then
-					
-					neighbor:UpdateOnOpenList()
+					continue
 					
 				else
+					neighbor:SetCostSoFar( NewCostSoFar )
+					neighbor:SetTotalCost( NewCostSoFar + TutorialBotRangeCheck( neighbor , GoalNode ) )
 					
-					neighbor:AddToOpenList()
+					if neighbor:IsClosed() then
+						
+						neighbor:RemoveFromClosedList()
+						
+					end
 					
+					if neighbor:IsOpen() then
+						
+						neighbor:UpdateOnOpenList()
+						
+					else
+						
+						neighbor:AddToOpenList()
+						
+					end
 				end
-				
-				-- Parenting of the nodes so we can trace the parents back later.
-				-- if (table.IsEmpty( FinalPath )) then return false end
-				FinalPath[ neighbor:GetId() ]		=	Current:GetID()
 			end
+			-- Parenting of the nodes so we can trace the parents back later.
+			-- if (table.IsEmpty( FinalPath )) then return false end
+			FinalPath[ neighbor:GetID() ]		=	Current
 			
 		end
 		
@@ -344,7 +377,11 @@ function TutorialBotRangeCheck( FirstNode , SecondNode )
 	if !IsValid( FirstNode ) then error( "Bad argument #1 CNavArea expected got " .. type( FirstNode ) ) end
 	if !IsValid( FirstNode ) then error( "Bad argument #2 CNavArea expected got " .. type( SecondNode ) ) end
 	
-	return FirstNode:GetCenter():Distance( SecondNode:GetCenter() )
+	if FirstNode:Node_Get_Type() == 1 and SecondNode:Node_Get_Type() == 1 then
+		return FirstNode:GetCenter():Distance( SecondNode:GetCenter() )
+	end
+	
+	return SecondNode:GetLength()
 end
 
 
@@ -352,13 +389,19 @@ function TutorialBotRetracePath( Current , FinalPath )
 	
 	local NodePath		=	{ Current }
 	
-	Current				=	Current:GetID()
-	
-	while ( FinalPath[ Current ] ) do
+	while ( FinalPath[ Current:GetID() ] ) do
 		
-		Current			=	FinalPath[ Current ]
-		table.insert( NodePath , navmesh.GetNavAreaByID( Current ) )
+		Current			=	FinalPath[ Current:GetID() ]
 		
+		if Current:Node_Get_Type() == 1 then
+		
+			table.insert( NodePath , navmesh.GetNavAreaByID( Current:GetID() ) )
+			
+		else
+		
+			table.insert( NodePath , navmesh.GetNavLadderByID( Current:GetID() ) )
+			
+		end
 	end
 	
 	
@@ -369,7 +412,10 @@ function BOT:TBotSetNewGoal( NewGoal )
 	if !isvector( NewGoal ) then error( "Bad argument #1 vector expected got " .. type( NewGoal ) ) end
 	
 	self.Goal				=	NewGoal
-	
+	if self.PathTime < CurTime() then
+		self.Path				=	{}
+		self.PathTime			=	CurTime() + 5.0
+	end
 	self:TBotCreateNavTimer()
 	
 end
@@ -464,7 +510,27 @@ function BOT:ComputeNavmeshVisibility()
 			break
 		end
 		
+		if NextNode:Node_Get_Type() == 2 then
 		
+			local CloseToStart		=	NextNode:Get_Closest_Point( LastVisPos )
+			
+			LastVisPos		=	CloseToStart
+			
+			self.Path[ #self.Path + 1 ]		=	NextNode
+			
+			continue
+		end
+		
+		if CurrentNode:Node_Get_Type() == 2 then
+		
+			local CloseToEnd		=	CurrentNode:Get_Closest_Point( NextNode:GetCenter() )
+			
+			LastVisPos		=	CloseToEnd
+			
+			self.Path[ #self.Path + 1 ]		=	CurrentNode
+			
+			continue
+		end
 		
 		-- The next area ahead's closest point to us.
 		local NextAreasClosetPointToLastVisPos		=	NextNode:GetClosestPointOnArea( LastVisPos ) + Vector( 0 , 0 , 32 )
@@ -558,16 +624,16 @@ function BOT:TBotNavigation()
 	
 	if istable( self.Path ) then
 		
-		if self.Path[ #self.Path ] then
+		if self.Path[ 1 ] then
 			
-			local Waypoint2D		=	Vector( self.Path[ #self.Path ].x , self.Path[ #self.Path ].y , self:GetPos().z )
+			local Waypoint2D		=	Vector( self.Path[ 1 ].x , self.Path[ 1 ].y , self:GetPos().z )
 			-- ALWAYS: Use 2D navigation, It helps by a large amount.
 			
-			if self.Path[ #self.Path - 1 ] and IsVecCloseEnough( self:GetPos() , Waypoint2D , 600 ) and SendBoxedLine( self.Path[ #self.Path - 1 ] , self:GetPos() + Vector( 0 , 0 , 15 ) ) == true and self.Path[ #self.Path - 1 ].z - 20 <= Waypoint2D.z then
+			if self.Path[ 2 ] and IsVecCloseEnough( self:GetPos() , Waypoint2D , 600 ) and SendBoxedLine( self.Path[ 2 ] , self:GetPos() + Vector( 0 , 0 , 15 ) ) == true and self.Path[ 2 ].z - 20 <= Waypoint2D.z then
 				
 				table.remove( self.Path , 1 )
 				
-			elseif IsVecCloseEnough( self:GetPos() , Waypoint2D , 24 ) then
+			elseif IsVecCloseEnough( self:GetPos() , Waypoint2D , 32 ) then
 				
 				table.remove( self.Path , 1 )
 				
@@ -602,6 +668,7 @@ function BOT:TBotCreateNavTimer()
 				
 				self.Jump	=	true
 				self.Crouch	=	true
+				self.Use	=	true
 				
 				if Attempts > 30 then self.Path	=	nil end
 				Attempts = Attempts + 1
@@ -630,14 +697,14 @@ function BOT:TBotDebugWaypoints()
 	if !istable( self.Path ) then return end
 	if table.IsEmpty( self.Path ) then return end
 	
-	debugoverlay.Line( self.Path[ #self.Path ] , self:GetPos() + Vector( 0 , 0 , 44 ) , 0.08 , Color( 0 , 255 , 255 ) )
-	debugoverlay.Sphere( self.Path[ #self.Path ] , 8 , 0.08 , Color( 0 , 255 , 255 ) , true )
+	debugoverlay.Line( self.Path[ 1 ] , self:GetPos() + Vector( 0 , 0 , 44 ) , 0.08 , Color( 0 , 255 , 255 ) )
+	debugoverlay.Sphere( self.Path[ 1 ] , 8 , 0.08 , Color( 0 , 255 , 255 ) , true )
 	
 	for k, v in ipairs( self.Path ) do
 		
-		if self.Path[ #self.Path - k ] then
+		if self.Path[ k + 1 ] then
 			
-			debugoverlay.Line( v , self.Path[ #self.Path - k ] , 0.08 , Color( 255 , 255 , 0 ) )
+			debugoverlay.Line( v , self.Path[ k + 1 ] , 0.08 , Color( 255 , 255 , 0 ) )
 			
 		end
 		
@@ -671,13 +738,108 @@ function BOT:TBotUpdateMovement( cmd )
 		return
 	end
 	
-	if self.Path[ #self.Path ] then
+	if self.Path[ 1 ] then
 		
-		local MovementAngle		=	( self.Path[ #self.Path ] - self:GetPos() ):GetNormalized():Angle()
+		local MovementAngle		=	( self.Path[ 1 ] - self:GetPos() ):GetNormalized():Angle()
 		
 		cmd:SetViewAngles( MovementAngle )
 		cmd:SetForwardMove( self:GetMaxSpeed() )
 		
 	end
 	
+end
+
+-- Just like GetAdjacentAreas but a more advanced one.
+-- For both ladders and CNavAreas.
+function Zone:Get_Connected_Areas()
+	
+	local AllNodes		=	self:GetAdjacentAreas()
+	
+	local AllLadders	=	self:GetLadders()
+	
+	for k, v in ipairs( AllLadders ) do
+		
+		AllNodes[ #AllNodes + 1 ]	=	v
+		
+	end
+	
+	return AllNodes
+end
+
+function Lad:Get_Connected_Areas()
+	
+	local AllNodes		=	{}
+	
+	local TopLArea		=	self:GetTopLeftArea()
+	if IsValid( TopLArea ) then
+		
+		AllNodes[ #AllNodes + 1 ]	=	TopLArea
+		
+	end
+	
+	
+	local TopRArea		=	self:GetTopRightArea()
+	if IsValid( TopRArea ) then
+		
+		AllNodes[ #AllNodes + 1 ]	=	TopRArea
+		
+	end
+	
+	
+	local TopBArea		=	self:GetTopBehindArea()
+	if IsValid( TopBArea ) then
+		
+		AllNodes[ #AllNodes + 1 ]	=	TopBArea
+		
+	end
+	
+	local TopFArea		=	self:GetTopForwardArea()
+	if IsValid( TopFArea ) then
+		
+		AllNodes[ #AllNodes + 1 ]	=	TopFArea
+		
+	end
+	
+	local BArea		=	self:GetBottomArea()
+	if IsValid( BArea ) then
+		
+		AllNodes[ #AllNodes + 1 ]	=	BArea
+		
+	end
+	
+	return AllNodes
+end
+
+function BOT:Is_On_Ladder()
+	
+	if self:GetMoveType() == MOVETYPE_LADDER then
+		
+		return true
+	end
+	
+	return false
+end
+
+function Lad:Get_Closest_Point( pos )
+	
+	local TopArea	=	self:GetTop():Distance( pos )
+	local LowArea	=	self:GetBottom():Distance( pos )
+	
+	if TopArea < LowArea then
+		
+		return self:GetTop()
+	end
+	
+	return self:GetBottom()
+end
+
+-- See if a node is an area : 1 or a ladder : 2
+function Zone:Node_Get_Type()
+	
+	return 1
+end
+
+function Lad:Node_Get_Type()
+	
+	return 2
 end
