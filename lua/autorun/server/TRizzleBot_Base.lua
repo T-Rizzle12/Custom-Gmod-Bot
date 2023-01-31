@@ -38,8 +38,6 @@ function BOT:TBotResetAI()
 	
 	self.Goal				=	nil -- The vector goal we want to get to.
 	self.NavmeshNodes		=	{} -- The nodes given to us by the pathfinder
-	self.OpenList		=	{} -- These are the nav areas that need to be check by my A-Star Pathfinding
-	self.ClosedList		=	{} -- These are the nav areas that have been eh checked by my A-Star Pathfinding
 	self.Path				=	{} -- The nodes converted into waypoints by our visiblilty checking.
 	self.PathTime			=	CurTime() + 1.0 -- This will limit how often the path gets recreated
 	
