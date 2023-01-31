@@ -59,10 +59,10 @@ hook.Add( "StartCommand" , "TutorialBotAIHook" , function( bot , cmd )
 		
 		-- Instantly face our enemy!
 		-- CHALLANGE: Can you make them turn smoothly?
-		local lerp = math.random(0.4, 1.0)
-		bot:SetEyeAngles( LerpAngle(lerp, bot:EyeAngles(), ( bot.Enemy:GetShootPos() - bot:GetShootPos() ):GetNormalized():Angle() ) )
+		local lerp = math.random(0.4, 0.8)
+		bot:SetEyeAngles( LerpAngle(lerp, bot:EyeAngles(), ( (bot.Enemy:GetPos() + Vector(0, 0, 45)) - bot:GetShootPos() ):GetNormalized():Angle() ) )
 		
-		if bot:HasWeapon( "weapon_pistol" ) and bot:GetWeapon( "weapon_pistol" ):HasAmmo() and (bot.Enemy:GetPos() - bot:GetPos()):Length() > 300 then
+		if bot:HasWeapon( "weapon_pistol" ) and bot:GetWeapon( "weapon_pistol" ):HasAmmo() and (bot.Enemy:GetPos() - bot:GetPos()):Length() > 400 then
 		
 			-- If an enemy gets too far the bot should use its pistol
 			cmd:SelectWeapon( bot:GetWeapon( "weapon_pistol" ) )
@@ -110,7 +110,7 @@ hook.Add( "StartCommand" , "TutorialBotAIHook" , function( bot , cmd )
 		
 		cmd:SetButtons( buttons )
 		
-		if isvector( bot.Goal ) and (bot.Owner:GetPos() - bot:GetPos()):Length() < bot.DangerDist and (bot.Owner:GetPos() - bot.Goal):Length() < 64 or isvector( bot.Goal ) and (bot.Enemy:GetPos() - bot.Goal):Length() < 64 then
+		if isvector( bot.Goal ) and (bot.Owner:GetPos() - bot.Goal):Length() < 64 or isvector( bot.Goal ) and (bot.Enemy:GetPos() - bot.Goal):Length() < 64 then
 			
 			bot:TBotUpdateMovement( cmd )
 			
@@ -136,8 +136,8 @@ hook.Add( "StartCommand" , "TutorialBotAIHook" , function( bot , cmd )
 		if bot:HasWeapon( "weapon_medkit" ) and (bot.Owner:GetPos() - bot:GetPos()):Length() < 80 and bot.Owner:Health() < bot.Owner:GetMaxHealth() then
 		
 			-- The bot should priortize healing its owner over themself
-			local lerp = math.random(0.4, 1.0)
-			bot:SetEyeAngles( LerpAngle(lerp, bot:EyeAngles(), ( bot.Owner:GetShootPos() - bot:GetShootPos() ):GetNormalized():Angle() ) )
+			local lerp = math.random(0.4, 0.8)
+			bot:SetEyeAngles( LerpAngle(lerp, bot:EyeAngles(), ( (bot.Owner:GetPos() + Vector(0, 0, 45) ) - bot:GetShootPos() ):GetNormalized():Angle() ) )
 			cmd:SelectWeapon( bot:GetWeapon( "weapon_medkit" ) )
 			if math.random(2) == 1 then
 				buttons = buttons + IN_ATTACK
@@ -149,6 +149,15 @@ hook.Add( "StartCommand" , "TutorialBotAIHook" , function( bot , cmd )
 			if math.random(2) == 1 then
 				buttons = buttons + IN_ATTACK2
 			end
+		elseif bot:HasWeapon( "weapon_pistol" ) and bot:GetWeapon( "weapon_pistol" ):Clip1() < bot:GetWeapon( "weapon_pistol" ):GetMaxClip1() then
+		
+			-- The bot should reload weapons that need to be reloaded
+			cmd:SelectWeapon( bot:GetWeapon( "weapon_pistol" ) )
+		
+		elseif bot:HasWeapon( "weapon_shotgun" ) and bot:GetWeapon( "weapon_shotgun" ):Clip1() < bot:GetWeapon( "weapon_shotgun" ):GetMaxClip1() then
+		
+			cmd:SelectWeapon( bot:GetWeapon( "weapon_shotgun" ) )
+			
 		end
 		-- Possibly add support for the bot to heal nearby players?
 		
@@ -281,6 +290,7 @@ function BOT:TBotFindRandomEnemy()
 				VisibleEnemies[ #VisibleEnemies + 1 ]		=	v
 				if (v:GetPos() - self:GetPos()):Length() < targetdist then 
 					target = v
+					targetdist = (v:GetPos() - self:GetPos()):Length()
 				end
 			end
 			
@@ -680,6 +690,7 @@ function BOT:TBotCreateNavTimer()
 				self.Use	=	true
 				
 				if Attempts > 30 then self.Path	=	nil end
+				if Attempts > 60 then self.Goal =	nil end
 				Attempts = Attempts + 1
 				-- TODO/Challange: Make the bot jump a few times, If that does not work. Then recreate the path.
 				
@@ -731,9 +742,11 @@ function BOT:TBotUpdateMovement( cmd )
 	if !istable( self.Path ) or table.IsEmpty( self.Path ) or isbool( self.NavmeshNodes ) then
 		
 		local MovementAngle		=	( self.Goal - self:GetPos() ):GetNormalized():Angle()
+		local lerp = math.random(0.4, 1.0)
 		
 		cmd:SetViewAngles( MovementAngle )
 		cmd:SetForwardMove( self:GetMaxSpeed() )
+		if !IsValid( self.Enemy ) then self:SetEyeAngles( LerpAngle(lerp, self:EyeAngles(), ( self.Goal - self:GetPos() ):GetNormalized():Angle() ) ) end
 		
 		local GoalIn2D			=	Vector( self.Goal.x , self.Goal.y , self:GetPos().z )
 		-- Optionaly you could convert this to 2D navigation as well if you like.
@@ -750,9 +763,11 @@ function BOT:TBotUpdateMovement( cmd )
 	if self.Path[ 1 ] then
 		
 		local MovementAngle		=	( self.Path[ 1 ] - self:GetPos() ):GetNormalized():Angle()
+		local lerp = math.random(0.4, 1.0)
 		
 		cmd:SetViewAngles( MovementAngle )
 		cmd:SetForwardMove( self:GetMaxSpeed() )
+		if !IsValid ( self.Enemy ) then self:SetEyeAngles( LerpAngle(lerp, self:EyeAngles(), ( self.Path[ 1 ] - self:GetPos() ):GetNormalized():Angle() ) ) end
 		
 	end
 	
