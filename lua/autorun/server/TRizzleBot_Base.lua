@@ -275,7 +275,7 @@ end
 
 
 
--- Target any player or bot that is visible to us.
+-- Target any hostile NPC that is visible to us.
 function BOT:TBotFindRandomEnemy()
 	local VisibleEnemies	=	{} -- So we can select a random enemy.
 	local targetdist		=	10000 -- This will allow the bot to select the closest enemy to it.
