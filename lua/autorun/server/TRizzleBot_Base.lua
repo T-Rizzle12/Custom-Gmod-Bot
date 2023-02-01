@@ -83,7 +83,7 @@ hook.Add( "StartCommand" , "TutorialBotAIHook" , function( bot , cmd )
 		
 		local buttons = 0
 		local botWeapon = bot:GetActiveWeapon()
-		if math.random(2) == 1 then
+		if math.random(2) == 1 and bot:GetEyeTrace().Entity == bot.Enemy then
 			buttons = buttons + IN_ATTACK
 		end
 		
