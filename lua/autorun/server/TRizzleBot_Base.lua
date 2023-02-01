@@ -38,9 +38,7 @@ function BOT:TBotResetAI()
 	
 	self.Goal				=	nil -- The vector goal we want to get to.
 	self.NavmeshNodes		=	{} -- The nodes given to us by the pathfinder
-	self.OpenList		=	{} -- These are the nav areas that need to be check by my A-Star Pathfinding
-	self.ClosedList		=	{} -- These are the nav areas that have been eh checked by my A-Star Pathfinding
-	self.Path				=	{} -- The nodes converted into waypoints by our visiblilty checking.
+	self.Path				=	nil -- The nodes converted into waypoints by our visiblilty checking.
 	self.PathTime			=	CurTime() + 1.0 -- This will limit how often the path gets recreated
 	
 	self:TBotCreateThinking() -- Start our AI
@@ -277,7 +275,7 @@ end
 
 
 
--- Target any hostile NPC that is visible to us.
+-- Target any player or bot that is visible to us.
 function BOT:TBotFindRandomEnemy()
 	local VisibleEnemies	=	{} -- So we can select a random enemy.
 	local targetdist		=	10000 -- This will allow the bot to select the closest enemy to it.
@@ -355,7 +353,7 @@ function TutorialBotPathfinder( StartNode , GoalNode )
 			local NewCostSoFar		=	Current:GetCostSoFar() + TutorialBotRangeCheck( Current , neighbor )
 			
 			if neighbor:Node_Get_Type() == 1 and Current:Node_Get_Type() == 1 then
-				if neighbor:IsOpen() or neighbor:IsClosed() and neighbor:GetCostSoFar() <= NewCostSoFar then
+				if ( neighbor:IsOpen() or neighbor:IsClosed() ) and neighbor:GetCostSoFar() <= NewCostSoFar then
 					
 					continue
 					
@@ -413,6 +411,8 @@ function TutorialBotRetracePath( Current , FinalPath )
 	while ( FinalPath[ Current:GetID() ] ) do
 		
 		Current			=	FinalPath[ Current:GetID() ]
+		
+		print(type( Current ))
 		
 		if Current:Node_Get_Type() == 1 then
 		
