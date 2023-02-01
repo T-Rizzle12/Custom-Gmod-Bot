@@ -1,8 +1,8 @@
 local BOT						=	FindMetaTable( "Player" )
 local Zone		=	FindMetaTable( "CNavArea" )
 local Lad		=	FindMetaTable( "CNavLadder" )
-local OpenList		=	{}
-local NodeData		=	{}
+local Open_List		=	{}
+local Node_Data		=	{}
 
 
 
@@ -62,7 +62,7 @@ hook.Add( "StartCommand" , "TutorialBotAIHook" , function( bot , cmd )
 		-- Instantly face our enemy!
 		-- CHALLANGE: Can you make them turn smoothly?
 		local lerp = math.random(0.4, 0.8)
-		bot:SetEyeAngles( LerpAngle(lerp, bot:EyeAngles(), ( (bot.Enemy:GetPos() + Vector(0, 0, 45)) - bot:GetShootPos() ):GetNormalized():Angle() ) )
+		bot:SetEyeAngles( LerpAngle(lerp, bot:EyeAngles(), ( (bot.Enemy:GetPos() + Vector(0, 0, 25)) - bot:GetShootPos() ):GetNormalized():Angle() ) )
 		
 		if bot:HasWeapon( "weapon_pistol" ) and bot:GetWeapon( "weapon_pistol" ):HasAmmo() and (bot.Enemy:GetPos() - bot:GetPos()):Length() > 400 then
 		
@@ -139,7 +139,7 @@ hook.Add( "StartCommand" , "TutorialBotAIHook" , function( bot , cmd )
 		
 			-- The bot should priortize healing its owner over themself
 			local lerp = math.random(0.4, 0.8)
-			bot:SetEyeAngles( LerpAngle(lerp, bot:EyeAngles(), ( (bot.Owner:GetPos() + Vector(0, 0, 45) ) - bot:GetShootPos() ):GetNormalized():Angle() ) )
+			bot:SetEyeAngles( LerpAngle(lerp, bot:EyeAngles(), ( (bot.Owner:GetPos() + Vector(0, 0, 25) ) - bot:GetShootPos() ):GetNormalized():Angle() ) )
 			cmd:SelectWeapon( bot:GetWeapon( "weapon_medkit" ) )
 			if math.random(2) == 1 then
 				buttons = buttons + IN_ATTACK
@@ -309,34 +309,22 @@ function TutorialBotPathfinder( StartNode , GoalNode )
 	if !IsValid( StartNode ) or !IsValid( GoalNode ) then return false end
 	if ( StartNode == GoalNode ) then return true end
 	
-	StartNode:ClearSearchLists() -- Clear the search lists ready for a new search.
+	Prepare_Path_Find()
 	
-	StartNode:SetCostSoFar( 0 ) -- Sets the cost so far. which is beleive is the GCost.
-	
-	StartNode:SetTotalCost( TutorialBotRangeCheck( StartNode , GoalNode ) ) -- Sets the total cost so far. which im quite sure is the FCost.
-	
-	StartNode:AddToOpenList()
-	
-	StartNode:UpdateOnOpenList()
-	
-	local FinalPath		=	{}
-	
+	StartNode:Add_To_Open_List()
 	local Attempts		=	0 
 	-- Backup Varaible! In case something goes wrong, The game will not get into an infinite loop.
 	
-	while( !StartNode:IsOpenListEmpty() and Attempts < 6500 ) do
+	while( !table.IsEmpty( Open_List ) and Attempts < 6500 ) do
 		Attempts		=	Attempts + 1
 		
-		local Current 	=	StartNode:PopOpenList() -- Get the lowest FCost
+		local Current 	=	Get_Best_Node() -- Get the lowest FCost
 		
 		if ( Current == GoalNode ) then
 			-- We found a path! Now lets retrace it.
 			
-			
-			return TutorialBotRetracePath( Current , FinalPath ) -- Retrace the path and return the table of nodes.
+			return TutorialBotRetracePath( StartNode, GoalNode ) -- Retrace the path and return the table of nodes.
 		end
-		
-		Current:AddToClosedList() -- We don't need to deal with this anymore.
 		
 		for k, neighbor in ipairs( Current:Get_Connected_Areas() ) do
 			local Height = 0
@@ -352,35 +340,26 @@ function TutorialBotPathfinder( StartNode , GoalNode )
 			end
 			
 			-- G + H = F
-			local NewCostSoFar		=	Current:GetCostSoFar() + TutorialBotRangeCheck( Current , neighbor )
+			local NewCostSoFar		=	Current:Get_G_Cost() + TutorialBotRangeCheck( Current , neighbor )
 			
-			if neighbor:Node_Get_Type() == 1 and Current:Node_Get_Type() == 1 then
-				if ( neighbor:IsOpen() or neighbor:IsClosed() ) and neighbor:GetCostSoFar() <= NewCostSoFar then
+			if neighbor:Node_Is_Open() or neighbor:Node_Is_Closed() and neighbor:Get_G_Cost() <= NewCostSoFar then
 					
-					continue
+				continue
 					
-				else
-					neighbor:SetCostSoFar( NewCostSoFar )
-					neighbor:SetTotalCost( NewCostSoFar + TutorialBotRangeCheck( neighbor , GoalNode ) )
+			else
+				neighbor:Set_G_Cost( NewCostSoFar )
+				neighbor:Set_F_Cost( NewCostSoFar + TutorialBotRangeCheck( neighbor , GoalNode ) )
 					
-					if neighbor:IsClosed() then
+				if neighbor:Node_Is_Closed() then
 						
-						neighbor:RemoveFromClosedList()
+					neighbor:Node_Remove_From_Closed_List()
 						
-					end
-					
-					if neighbor:IsOpen() then
-						
-						neighbor:UpdateOnOpenList()
-						
-					else
-						
-						neighbor:AddToOpenList()
-						
-					end
-					-- Parenting of the nodes so we can trace the parents back later.
-					FinalPath[ neighbor:GetID() ]		=	Current
 				end
+					
+				neighbor:Node_Add_To_Open_List()
+				
+				-- Parenting of the nodes so we can trace the parents back later.
+				neighbor:Set_Parent_Node( Current )
 			end
 			
 		end
@@ -394,8 +373,8 @@ end
 
 function TutorialBotRangeCheck( FirstNode , SecondNode )
 	-- Some helper errors.
-	if !IsValid( FirstNode ) then error( "Bad argument #1 CNavArea expected got " .. type( FirstNode ) ) end
-	if !IsValid( FirstNode ) then error( "Bad argument #2 CNavArea expected got " .. type( SecondNode ) ) end
+	if !IsValid( FirstNode ) then error( "Bad argument #1 CNavArea or CNavLadder expected got " .. type( FirstNode ) ) end
+	if !IsValid( FirstNode ) then error( "Bad argument #2 CNavArea or CNavLadder expected got " .. type( SecondNode ) ) end
 	
 	if FirstNode:Node_Get_Type() == 1 and SecondNode:Node_Get_Type() == 1 then
 		return FirstNode:GetCenter():Distance( SecondNode:GetCenter() )
@@ -405,15 +384,19 @@ function TutorialBotRangeCheck( FirstNode , SecondNode )
 end
 
 
-function TutorialBotRetracePath( Current , FinalPath )
+function TutorialBotRetracePath( StartNode , GoalNode )
 	
-	local NodePath		=	{ Current }
+	local NodePath		=	{ GoalNode }
 	
-	while ( FinalPath[ Current:GetID() ] ) do
+	local Current		=	GoalNode
+	
+	local Attempts		=	0
+	
+	while ( Current != StartNode and Attempts < 5001 ) do
 		
-		Current			=	FinalPath[ Current:GetID() ]
+		Attempts = Attempts + 1
 		
-		print(type( Current ))
+		Current			=	CurrentNode:Get_Parent_Node()
 		
 		if Current:Node_Get_Type() == 1 then
 		
@@ -771,6 +754,417 @@ function BOT:TBotUpdateMovement( cmd )
 		cmd:SetViewAngles( MovementAngle )
 		cmd:SetForwardMove( self:GetMaxSpeed() )
 		if !IsValid ( self.Enemy ) then self:SetEyeAngles( LerpAngle(lerp, self:EyeAngles(), ( self.Path[ 1 ] - self:GetPos() ):GetNormalized():Angle() ) ) end
+		
+	end
+	
+end
+
+-- Gives us the best node and removes it from the open list and puts it in the closed list.
+function Get_Best_Node()
+	
+	local BestNode		=	Open_List[ Open_List ]
+	
+	Open_List[ #Open_List ]		=	nil
+	
+	Node_Data[ BestNode:Node_Get_Type() ][ BestNode:GetID() ][ "State" ]	=	false
+	
+	return BestNode
+end
+
+function Sort_Open_List()
+	
+	local SortedList	=	{}
+	local HasDoneLoop	=	false
+	
+	local UnsortedList	=	{}
+	
+	-- List all the nodes in the table.
+	UnsortedList[ 1 ]	=	Open_List[ #Open_List ]
+	Open_List[ #Open_List ]			=	nil
+	
+	if IsValid( Open_List[ #Open_List ] ) then
+		
+		UnsortedList[ 2 ]	=	Open_List[ #Open_List ]
+		Open_List[ #Open_List ]		=	nil
+		
+	end
+	
+	if IsValid( Open_List[ #Open_List ] ) then
+		
+		UnsortedList[ 3 ]	=	Open_List[ #Open_List ]
+		Open_List[ #Open_List ]		=	nil
+		
+	end
+	--[[
+	if IsValid( Open_List[ #Open_List ] ) then
+		
+		UnsortedList[ 4 ]	=	Open_List[ #Open_List ]
+		Open_List[ #Open_List ]				=	nil
+		
+	end
+	
+	if IsValid( Open_List[ #Open_List ] ) then
+		
+		UnsortedList[ 5 ]	=	Open_List[ #Open_List ]
+		Open_List[ #Open_List ]				=	nil
+		
+	end
+	]]
+	
+	for k, v in ipairs( UnsortedList ) do
+		if !IsValid( v ) then continue end
+		
+		if table.IsEmpty( SortedList ) then
+			
+			SortedList[ 1 ]		=	v
+			
+			continue
+		end
+		
+		for j, y in ipairs( SortedList ) do
+			
+			if v == y then
+				
+				HasDoneLoop		=	true
+				
+				break
+			end
+			
+			if v:Get_F_Cost() > y:Get_F_Cost() then
+				
+				if IsValid( SortedList[ j ] ) then
+					
+					if IsValid( SortedList[ j + 1 ] ) then
+						
+						SortedList[ j + 2 ]	=	SortedList[ j + 1 ]
+						
+					end
+					
+					SortedList[ j + 1 ]		=	SortedList[ j ]
+					
+				end
+				
+				SortedList[ j ]		=	v
+				
+				--table.insert( SortedList , j , v )
+				
+				HasDoneLoop		=	true
+				
+				break
+			end
+			
+		end
+		
+		if HasDoneLoop == true then HasDoneLoop		=	false continue end
+		
+		SortedList[ #SortedList + 1 ]	=	v
+		
+	end
+	
+	-- Add back all the sorted nodes to the table
+	for k, v in ipairs( SortedList ) do
+		if !IsValid( v ) then return end
+		
+		Open_List[ #Open_List + 1 ]		=	v
+		
+	end
+	
+end
+
+function Zone:Get_F_Cost()
+	
+	
+	return Node_Data[ 1 ][ self:GetID() ][ "FCost" ]
+end
+
+function Lad:Get_F_Cost()
+	
+	
+	return Node_Data[ 2 ][ self:GetID() ][ "FCost" ]
+end
+
+-- Store the F cost, And no only for optimization.We don't do G + H as doing that everytime will give the same answer.
+function Zone:Set_F_Cost( cost )
+	
+	Node_Data[ 1 ][ self:GetID() ][ "FCost" ]	=	cost
+	
+end
+
+function Lad:Set_F_Cost( cost )
+	
+	Node_Data[ 2 ][ self:GetID() ][ "FCost" ]	=	cost
+	
+end
+
+
+
+
+function Zone:Set_G_Cost( cost )
+	
+	Node_Data[ 1 ][ self:GetID() ][ "GCost" ]	=	cost
+	
+end
+
+function Lad:Set_G_Cost( cost )
+	
+	Node_Data[ 2 ][ self:GetID() ][ "GCost" ]	=	cost
+	
+end
+
+
+
+
+function Zone:Set_H_Cost( cost )
+	
+	Node_Data[ 1 ][ self:GetID() ][ "HCost" ]	=	cost
+	
+end
+
+function Lad:Set_H_Cost( cost )
+	
+	Node_Data[ 2 ][ self:GetID() ][ "HCost" ]	=	cost
+	
+end
+
+
+
+
+function Zone:Get_G_Cost( cost )
+	
+	return Node_Data[ 1 ][ self:GetID() ][ "GCost" ]
+end
+
+function Lad:Get_G_Cost( cost )
+	
+	return Node_Data[ 2 ][ self:GetID() ][ "GCost" ]
+end
+
+
+
+function Zone:Get_H_Cost( cost )
+	
+	return Node_Data[ 1 ][ self:GetID() ][ "HCost" ]
+end
+
+function Lad:Get_H_Cost( cost )
+	
+	return Node_Data[ 2 ][ self:GetID() ][ "HCost" ]
+end
+
+
+
+
+
+
+function Zone:Set_Parent_Node( SecondNode )
+	
+	Node_Data[ 1 ][ self:GetID() ][ "ParentNode" ]	=	SecondNode
+	
+end
+
+function Lad:Set_Parent_Node( SecondNode )
+	
+	Node_Data[ 2 ][ self:GetID() ][ "ParentNode" ]	=	SecondNode
+	
+end
+
+
+
+
+function Zone:Get_Parent_Node()
+	
+	return Node_Data[ 1 ][ self:GetID() ][ "ParentNode" ]
+end
+
+function Lad:Get_Parent_Node()
+	
+	return Node_Data[ 2 ][ self:GetID() ][ "ParentNode" ]
+end
+
+
+
+
+-- Hmm, I think we need this for the reparenting.
+function Zone:Get_Current_Path_Length()
+	
+	
+	return Node_Data[ 1 ][ self:GetID() ][ "PathLen" ]
+end
+
+function Lad:Get_Current_Path_Length()
+	
+	
+	return Node_Data[ 2 ][ self:GetID() ][ "PathLen" ]
+end
+
+
+
+function Zone:Set_Current_Path_Length( cost )
+	
+	Node_Data[ 1 ][ self:GetID() ][ "PathLen" ]		=	cost
+	
+end
+
+function Lad:Set_Current_Path_Length( cost )
+	
+	Node_Data[ 2 ][ self:GetID() ][ "PathLen" ]		=	cost
+	
+end
+
+-- Checking if a node is closed or open without iliteration.
+function Zone:Node_Is_Closed()
+	
+	if Node_Data[ 1 ][ self:GetID() ][ "State" ] == false then return true end
+	
+	return false
+end
+
+function Lad:Node_Is_Closed()
+	
+	if Node_Data[ 2 ][ self:GetID() ][ "State" ] == false then return true end
+	
+	return false
+end
+
+
+function Zone:Node_Is_Open()
+	
+	if Node_Data[ 1 ][ self:GetID() ][ "State" ] == true then return true end
+	
+	return false
+end
+
+function Lad:Node_Is_Open()
+	
+	if Node_Data[ 2 ][ self:GetID() ][ "State" ] == true then return true end
+	
+	return false
+end
+
+
+
+
+-- Remove from the open list.
+-- How to advoid iliteration?
+function Zone:Node_Remove_From_Open_List()
+	
+	for k, v in ipairs( Open_List ) do
+		
+		if v == self then
+			
+			table.remove( Open_List , k )
+			
+			break
+		end
+		
+	end
+	
+	Node_Data[ 1 ][ self:GetID() ][ "State" ]	=	"Unset"
+	
+end
+
+function Lad:Node_Remove_From_Open_List()
+	
+	for k, v in ipairs( Open_List ) do
+		
+		if v == self then
+			
+			table.remove( Open_List , k )
+			
+			break
+		end
+		
+	end
+	
+	Node_Data[ 2 ][ self:GetID() ][ "State" ]	=	"Unset"
+	
+end
+
+-- Add a node to the list.
+-- Fun fact! This would be the first time i have really added any optimization to the open list.
+function Zone:Node_Add_To_Open_List()
+	
+	local OurCost		=		self:Get_F_Cost()
+	
+	Node_Data[ 1 ][ self:GetID() ][ "State" ]	=	true
+	
+	Open_List[ #Open_List + 1 ]			=	self
+	
+	Sort_Open_List()
+	
+end
+
+function Lad:Node_Add_To_Open_List()
+	
+	local OurCost		=		self:Get_F_Cost()
+	
+	Node_Data[ 2 ][ self:GetID() ][ "State" ]	=	true
+	
+	Open_List[ #Open_List + 1 ]			=	self
+	
+	Sort_Open_List()
+	
+end
+
+
+
+
+
+
+
+function Zone:Node_Remove_From_Closed_List()
+	
+	Node_Data[ 1 ][ self:GetID() ][ "State" ]	=	"Unset"
+	
+end
+
+function Lad:Node_Remove_From_Closed_List()
+	
+	Node_Data[ 2 ][ self:GetID() ][ "State" ]	=	"Unset"
+	
+end
+
+-- Prepare everything for a new path find.
+function Prepare_Path_Find()
+	
+	Node_Data	=	{ {} , {} }
+	Open_List	=	{}
+	
+	for k, v in ipairs( navmesh.GetAllNavAreas() ) do
+		
+		local Lads	=	v:GetLadders()
+		
+		if istable( Lads ) then
+			
+			for j, y in ipairs( Lads ) do
+				
+				Node_Data[ 2 ][ y:GetID() ]		=	{
+					
+					Node			=	y,
+					GCost			=	0,
+					HCost			=	0,
+					FCost			=	0,
+					ParentNode		=	nil,
+					State			=	"Unset",
+					PathLen			=	0
+					
+				}
+				
+			end
+			
+		end
+		
+		Node_Data[ 1 ][ v:GetID() ]		=	{
+			
+			Node			=	v,
+			GCost			=	0,
+			HCost			=	0,
+			FCost			=	0,
+			ParentNode		=	nil,
+			State			=	"Unset",
+			PathLen			=	0 -- Incase our path is shorter a different way!
+			
+		}
 		
 	end
 	
