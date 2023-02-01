@@ -1,6 +1,8 @@
 local BOT						=	FindMetaTable( "Player" )
 local Zone		=	FindMetaTable( "CNavArea" )
 local Lad		=	FindMetaTable( "CNavLadder" )
+local OpenList		=	{}
+local NodeData		=	{}
 
 
 
@@ -376,11 +378,10 @@ function TutorialBotPathfinder( StartNode , GoalNode )
 						neighbor:AddToOpenList()
 						
 					end
+					-- Parenting of the nodes so we can trace the parents back later.
+					FinalPath[ neighbor:GetID() ]		=	Current
 				end
 			end
-			-- Parenting of the nodes so we can trace the parents back later.
-			-- if (table.IsEmpty( FinalPath )) then return false end
-			FinalPath[ neighbor:GetID() ]		=	Current
 			
 		end
 		
