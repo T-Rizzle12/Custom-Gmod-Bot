@@ -17,7 +17,7 @@ function TBotCreate( ply , cmd , args )
 	NewBot.DangerDist		=	300 -- This is how far the bot can be from it's owner before it focuses only on following them
 	NewBot.Jump		=	false -- If this is set to true the bot will jump
 	NewBot.Crouch		=	false -- If this is set to true the bot will crouch
-	NewBot.Use			=	false -- If this is set to true the bot use press its use key
+	NewBot.Use			=	false -- If this is set to true the bot will press its use key
 	
 	NewBot:TBotResetAI() -- Fully reset your bots AI.
 	
