@@ -672,7 +672,6 @@ function BOT:TBotCreateNavTimer()
 			if IsVecCloseEnough( self:GetPos() , LastBotPos , 2 ) then
 				
 				self.Jump	=	true
-				self.Crouch	=	true
 				self.Use	=	true
 				
 				if Attempts > 30 then self.Path	=	nil end
