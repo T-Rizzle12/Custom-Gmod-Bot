@@ -96,7 +96,7 @@ hook.Add( "StartCommand" , "TutorialBotAIHook" , function( bot , cmd )
 				buttons = buttons + IN_JUMP 
 				bot.Jump = false 
 			end
-			if bot.Crouch then 
+			if bot.Crouch or !bot:IsOnGround() then 
 				buttons = buttons + IN_DUCK 
 				bot.Crouch = false 
 			end
@@ -173,7 +173,7 @@ hook.Add( "StartCommand" , "TutorialBotAIHook" , function( bot , cmd )
 				buttons = buttons + IN_JUMP 
 				bot.Jump = false 
 			end
-			if bot.Crouch then 
+			if bot.Crouch or !bot:IsOnGround() then 
 				buttons = buttons + IN_DUCK 
 				bot.Crouch = false 
 			end
