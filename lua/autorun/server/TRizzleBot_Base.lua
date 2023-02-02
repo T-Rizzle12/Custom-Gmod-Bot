@@ -112,7 +112,7 @@ hook.Add( "StartCommand" , "TutorialBotAIHook" , function( bot , cmd )
 		
 		cmd:SetButtons( buttons )
 		
-		if isvector( bot.Goal ) and (bot.Owner:GetPos() - bot.Goal):Length() < 64 or isvector( bot.Goal ) and (bot.Enemy:GetPos() - bot.Goal):Length() < 64 then
+		if isvector( bot.Goal ) and (bot.Owner:GetPos() - bot.Goal):Length() < 64 then
 			
 			bot:TBotUpdateMovement( cmd )
 			
