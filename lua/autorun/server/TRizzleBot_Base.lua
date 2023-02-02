@@ -364,7 +364,7 @@ function TutorialBotPathfinder( StartNode , GoalNode )
 			end
 			
 			-- G + H = F
-			local NewCostSoFar		=	Current:Get_G_Cost() + TutorialBotRangeCheck( Current , neighbor )
+			local NewCostSoFar		=	Current:Get_G_Cost() + TutorialBotRangeCheck( Current , neighbor , Height )
 			
 			if neighbor:Node_Is_Open() or neighbor:Node_Is_Closed() and neighbor:Get_G_Cost() <= NewCostSoFar then
 					
@@ -395,7 +395,7 @@ end
 
 
 
-function TutorialBotRangeCheck( FirstNode , SecondNode )
+function TutorialBotRangeCheck( FirstNode , SecondNode , Height )
 	-- Some helper errors.
 	if !IsValid( FirstNode ) then error( "Bad argument #1 CNavArea or CNavLadder expected got " .. type( FirstNode ) ) end
 	if !IsValid( FirstNode ) then error( "Bad argument #2 CNavArea or CNavLadder expected got " .. type( SecondNode ) ) end
