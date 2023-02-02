@@ -9,15 +9,15 @@ local Node_Data		=	{}
 function TBotCreate( ply , cmd , args )
 	if !args[ 1 ] then return end
 	
-	local NewBot				=	player.CreateNextBot( args[ 1 ] ) -- Create the bot and store it in a varaible.
+	local NewBot			=	player.CreateNextBot( args[ 1 ] ) -- Create the bot and store it in a varaible.
 	
-	NewBot.IsTutorialBot		=	true -- Flag this as our bot so we don't control other bots, Only ours!
-	NewBot.Owner		=	ply -- Make the player who created the bot its "owner"
+	NewBot.IsTutorialBot	=	true -- Flag this as our bot so we don't control other bots, Only ours!
+	NewBot.Owner			=	ply -- Make the player who created the bot its "owner"
 	NewBot.FollowDist		=	200 -- This is how close the bot will follow it's owner
 	NewBot.DangerDist		=	300 -- This is how far the bot can be from it's owner before it focuses only on following them
-	NewBot.Jump		=	false -- If this is set to true the bot will jump
-	NewBot.Crouch		=	false -- If this is set to true the bot will crouch
-	NewBot.Use			=	false -- If this is set to true the bot will press its use key
+	NewBot.Jump				=	false -- If this is set to true the bot will jump
+	NewBot.Crouch			=	false -- If this is set to true the bot will crouch
+	NewBot.Use				=	false -- If this is set to true the bot will press its use key
 	
 	NewBot:TBotResetAI() -- Fully reset your bots AI.
 	
@@ -61,10 +61,10 @@ hook.Add( "StartCommand" , "TutorialBotAIHook" , function( bot , cmd )
 		
 		-- Instantly face our enemy!
 		-- CHALLANGE: Can you make them turn smoothly?
-		local lerp = math.random(0.4, 0.8)
-		bot:SetEyeAngles( LerpAngle(lerp, bot:EyeAngles(), ( (bot.Enemy:GetPos() + Vector(0, 0, 45)) - bot:GetShootPos() ):GetNormalized():Angle() ) )
+		local lerp = FrameTime() * math.random(4, 8)
+		bot:SetEyeAngles( LerpAngle(lerp, bot:EyeAngles(), ( (bot.Enemy:GetPos() + Vector(0, 0, 30)) - bot:GetShootPos() ):GetNormalized():Angle() ) )
 		
-		if bot:HasWeapon( "weapon_pistol" ) and bot:GetWeapon( "weapon_pistol" ):HasAmmo() and (bot.Enemy:GetPos() - bot:GetPos()):Length() > 400 then
+		if bot:HasWeapon( "weapon_pistol" ) and bot:GetWeapon( "weapon_pistol" ):HasAmmo() and (bot.Enemy:GetPos() - bot:GetPos()):Length() > 300 then
 		
 			-- If an enemy gets too far the bot should use its pistol
 			cmd:SelectWeapon( bot:GetWeapon( "weapon_pistol" ) )
@@ -83,7 +83,7 @@ hook.Add( "StartCommand" , "TutorialBotAIHook" , function( bot , cmd )
 		
 		local buttons = 0
 		local botWeapon = bot:GetActiveWeapon()
-		if math.random(2) == 1 and bot:GetEyeTrace().Entity == bot.Enemy then
+		if math.random(2) == 1 and ( bot:GetEyeTrace().Entity == bot.Enemy) then
 			buttons = buttons + IN_ATTACK
 		end
 		
@@ -91,20 +91,20 @@ hook.Add( "StartCommand" , "TutorialBotAIHook" , function( bot , cmd )
 			buttons = buttons + IN_RELOAD
 		end
 		
-		if !bot:Is_On_Ladder() then
-			if bot.Jump then 
-				buttons = buttons + IN_JUMP 
-				bot.Jump = false 
-			end
-			if bot.Crouch or !bot:IsOnGround() then 
-				buttons = buttons + IN_DUCK 
-				bot.Crouch = false 
-			end
-			if bot.Use then 
-				buttons = buttons + IN_USE 
-				bot.Use = false 
-			end
-		else
+		if bot.Jump then 
+			buttons = buttons + IN_JUMP 
+			bot.Jump = false 
+		end
+		if bot.Crouch or !bot:IsOnGround() then 
+			buttons = buttons + IN_DUCK 
+			bot.Crouch = false 
+		end
+		if bot.Use and IsDoor( bot:GetEyeTrace().Entity ) then 
+			bot:GetEyeTrace().Entity:Use(bot, bot, USE_TOGGLE, -1)
+			bot.Use = false 
+		end
+		
+		if bot:Is_On_Ladder() then
 		
 			buttons = buttons + IN_FORWARD
 		
@@ -115,10 +115,6 @@ hook.Add( "StartCommand" , "TutorialBotAIHook" , function( bot , cmd )
 		if isvector( bot.Goal ) and (bot.Owner:GetPos() - bot.Goal):Length() < 64 or isvector( bot.Goal ) and (bot.Enemy:GetPos() - bot.Goal):Length() < 64 then
 			
 			bot:TBotUpdateMovement( cmd )
-			
-		elseif bot:GetActiveWeapon():GetClass() == "weapon_crowbar" and (bot.Owner:GetPos() - bot:GetPos()):Length() < bot.DangerDist then
-			
-			bot:TBotSetNewGoal( bot.Enemy:GetPos() ) -- Only chase after targets if we are using a melee weapon.
 			
 		elseif (bot.Owner:GetPos() - bot:GetPos()):Length() > bot.DangerDist then
 			
@@ -138,8 +134,8 @@ hook.Add( "StartCommand" , "TutorialBotAIHook" , function( bot , cmd )
 		if bot:HasWeapon( "weapon_medkit" ) and (bot.Owner:GetPos() - bot:GetPos()):Length() < 80 and bot.Owner:Health() < bot.Owner:GetMaxHealth() then
 		
 			-- The bot should priortize healing its owner over themself
-			local lerp = math.random(0.4, 0.8)
-			bot:SetEyeAngles( LerpAngle(lerp, bot:EyeAngles(), ( (bot.Owner:GetPos() + Vector(0, 0, 45) ) - bot:GetShootPos() ):GetNormalized():Angle() ) )
+			local lerp = FrameTime() * math.random(4, 8)
+			bot:SetEyeAngles( LerpAngle(lerp, bot:EyeAngles(), ( (bot.Owner:GetPos() + Vector(0, 0, 30) ) - bot:GetShootPos() ):GetNormalized():Angle() ) )
 			cmd:SelectWeapon( bot:GetWeapon( "weapon_medkit" ) )
 			if math.random(2) == 1 then
 				buttons = buttons + IN_ATTACK
@@ -168,20 +164,20 @@ hook.Add( "StartCommand" , "TutorialBotAIHook" , function( bot , cmd )
 			buttons = buttons + IN_SPEED 
 		end
 		
-		if !bot:Is_On_Ladder() then
-			if bot.Jump then 
-				buttons = buttons + IN_JUMP 
-				bot.Jump = false 
-			end
-			if bot.Crouch or !bot:IsOnGround() then 
-				buttons = buttons + IN_DUCK 
-				bot.Crouch = false 
-			end
-			if bot.Use then 
-				buttons = buttons + IN_USE 
-				bot.Use = false 
-			end
-		else
+		if bot.Jump then 
+			buttons = buttons + IN_JUMP 
+			bot.Jump = false 
+		end
+		if bot.Crouch or !bot:IsOnGround() then 
+			buttons = buttons + IN_DUCK 
+			bot.Crouch = false 
+		end
+		if bot.Use and IsDoor( bot:GetEyeTrace().Entity ) then 
+			bot:GetEyeTrace().Entity:Use(bot, bot, USE_TOGGLE, -1)
+			bot.Use = false 
+		end
+		
+		if bot:Is_On_Ladder() then
 		
 			buttons = buttons + IN_FORWARD
 		
@@ -205,8 +201,17 @@ end)
 
 
 
+function IsDoor( v )
 
-
+	if (v:GetClass() == "func_door") or (v:GetClass() == "prop_door_rotating") or (v:GetClass() == "func_door_rotating") then
+        
+		return true
+    
+	end
+	
+	return false
+	
+end
 
 
 -- Just a simple way to respawn a bot.
@@ -215,6 +220,25 @@ hook.Add( "PlayerDeath" , "TutorialBotRespawn" , function( ply )
 	if ply:IsBot() and ply.IsTutorialBot then 
 		
 		timer.Simple( 3 , function()
+			
+			if IsValid( ply ) then
+				
+				ply:Spawn()
+				
+			end
+			
+		end)
+		
+	end
+	
+end)
+
+-- Just a simple way to respawn a bot.
+hook.Add( "PlayerSilentDeath" , "TutorialBotRespawn2" , function( ply )
+	
+	if ply:IsBot() and ply.IsTutorialBot then 
+		
+		timer.Simple( 10 , function()
 			
 			if IsValid( ply ) then
 				
@@ -311,7 +335,7 @@ function TutorialBotPathfinder( StartNode , GoalNode )
 	
 	Prepare_Path_Find()
 	
-	StartNode:Add_To_Open_List()
+	StartNode:Node_Add_To_Open_List()
 	local Attempts		=	0 
 	-- Backup Varaible! In case something goes wrong, The game will not get into an infinite loop.
 	
@@ -376,11 +400,51 @@ function TutorialBotRangeCheck( FirstNode , SecondNode )
 	if !IsValid( FirstNode ) then error( "Bad argument #1 CNavArea or CNavLadder expected got " .. type( FirstNode ) ) end
 	if !IsValid( FirstNode ) then error( "Bad argument #2 CNavArea or CNavLadder expected got " .. type( SecondNode ) ) end
 	
-	if FirstNode:Node_Get_Type() == 1 and SecondNode:Node_Get_Type() == 1 then
-		return FirstNode:GetCenter():Distance( SecondNode:GetCenter() )
+	if FirstNode:Node_Get_Type() == 2 then return FirstNode:GetLength()
+	elseif SecondNode:Node_Get_Type() == 2 then return SecondNode:GetLength() end
+	
+	DefaultCost = FirstNode:GetCenter():Distance( SecondNode:GetCenter() )
+	
+	if isnumber( Height ) and Height > 32 then
+		
+		DefaultCost		=	DefaultCost * 5
+		
+		-- Jumping is slower than ground movement.
+		-- And falling is risky taking fall damage.
+		
+		
 	end
 	
-	return SecondNode:GetLength()
+	-- Jump nodes however,We find slightly easier to jump with.Its more recommended than jumping without them.
+	if SecondNode:HasAttributes( NAV_MESH_JUMP ) then 
+		
+		DefaultCost	=	DefaultCost * 3.50
+		
+	end
+	
+	
+	-- Crawling through a vent is very slow.
+	if SecondNode:HasAttributes( NAV_MESH_CROUCH ) then 
+		
+		DefaultCost	=	DefaultCost * 7
+		
+	end
+	
+	-- We are less interested in smaller nodes as it can make less realistic paths.
+	-- Also its easy to get stuck on them.
+	if SecondNode:GetSizeY() <= 50 then
+		
+		DefaultCost		=	DefaultCost * 3
+		
+	end
+	
+	if SecondNode:GetSizeX() <= 50 then
+		
+		DefaultCost		=	DefaultCost * 3
+		
+	end
+	
+	return DefaultCost
 end
 
 
@@ -396,7 +460,7 @@ function TutorialBotRetracePath( StartNode , GoalNode )
 		
 		Attempts = Attempts + 1
 		
-		Current			=	CurrentNode:Get_Parent_Node()
+		Current			=	Current:Get_Parent_Node()
 		
 		if Current:Node_Get_Type() == 1 then
 		
@@ -419,7 +483,7 @@ function BOT:TBotSetNewGoal( NewGoal )
 	self.Goal				=	NewGoal
 	if self.PathTime < CurTime() then
 		self.Path				=	{}
-		self.PathTime			=	CurTime() + 5.0
+		self.PathTime			=	CurTime() + 1.0
 	end
 	self:TBotCreateNavTimer()
 	
@@ -521,7 +585,7 @@ function BOT:ComputeNavmeshVisibility()
 			
 			LastVisPos		=	CloseToStart
 			
-			self.Path[ #self.Path + 1 ]		=	NextNode
+			self.Path[ #self.Path + 1 ]		=	CloseToStart
 			
 			continue
 		end
@@ -532,7 +596,7 @@ function BOT:ComputeNavmeshVisibility()
 			
 			LastVisPos		=	CloseToEnd
 			
-			self.Path[ #self.Path + 1 ]		=	CurrentNode
+			self.Path[ #self.Path + 1 ]		=	CloseToEnd
 			
 			continue
 		end
@@ -581,12 +645,21 @@ function BOT:TBotNavigation()
 			self.Path				=	{} -- Reset that.
 			
 			-- Find a path through the navmesh to our TargetArea
-			self.NavmeshNodes		=	TutorialBotPathfinder( self.StandingOnNode , TargetArea )
+			if self.Goal:Distance( self:GetPos() ) > 6000 then
+				
+				self.NavmeshNodes		=	TutorialBotPathfinderCheap( self.StandingOnNode , TargetArea )
+				
+			else
+				
+				-- Compute the path via the navmesh.
+				self.NavmeshNodes		=	TutorialBotPathfinder( self.StandingOnNode , TargetArea )
+				
+			end
 			
 			
 			-- Prevent spamming the pathfinder.
 			self.BlockPathFind		=	true
-			timer.Simple( 0.25 , function()
+			timer.Simple( 0.50 , function()
 				
 				if IsValid( self ) then
 					
@@ -727,7 +800,7 @@ function BOT:TBotUpdateMovement( cmd )
 	if !istable( self.Path ) or table.IsEmpty( self.Path ) or isbool( self.NavmeshNodes ) then
 		
 		local MovementAngle		=	( self.Goal - self:GetPos() ):GetNormalized():Angle()
-		local lerp = math.random(0.4, 1.0)
+		local lerp = FrameTime() * math.random(1, 4)
 		
 		cmd:SetViewAngles( MovementAngle )
 		cmd:SetForwardMove( self:GetMaxSpeed() )
@@ -748,7 +821,7 @@ function BOT:TBotUpdateMovement( cmd )
 	if self.Path[ 1 ] then
 		
 		local MovementAngle		=	( self.Path[ 1 ] - self:GetPos() ):GetNormalized():Angle()
-		local lerp = math.random(0.4, 1.0)
+		local lerp = FrameTime() * math.random(1, 4)
 		
 		cmd:SetViewAngles( MovementAngle )
 		cmd:SetForwardMove( self:GetMaxSpeed() )
@@ -761,7 +834,7 @@ end
 -- Gives us the best node and removes it from the open list and puts it in the closed list.
 function Get_Best_Node()
 	
-	local BestNode		=	Open_List[ Open_List ]
+	local BestNode		=	Open_List[ #Open_List ]
 	
 	Open_List[ #Open_List ]		=	nil
 	
@@ -1262,4 +1335,152 @@ end
 function Lad:Node_Get_Type()
 	
 	return 2
+end
+
+function TutorialBotPathfinderCheap( StartNode , GoalNode )
+	if !IsValid( StartNode ) or !IsValid( GoalNode ) then return false end
+	if StartNode == GoalNode then return true end
+	
+	StartNode:ClearSearchLists()
+	
+	StartNode:AddToOpenList()
+	
+	StartNode:SetCostSoFar( 0 )
+	
+	StartNode:SetTotalCost( TutorialBotRangeCheckCheap( StartNode , GoalNode ) )
+	
+	StartNode:UpdateOnOpenList()
+	
+	local Final_Path		=	{}
+	local Trys				=	0 -- Backup! Prevent crashing.
+	
+	local GoalCen			=	GoalNode:GetCenter()
+	
+	while ( !StartNode:IsOpenListEmpty() and Trys < 50000 ) do
+		Trys	=	Trys + 1
+		
+		local Current	=	StartNode:PopOpenList()
+		
+		if Current == GoalNode then
+			
+			return TutorialBotRetracePathCheap( Final_Path , Current )
+		end
+		
+		Current:AddToClosedList()
+		
+		for k, neighbor in ipairs( Current:GetAdjacentAreas() ) do
+			local Height	=	Current:ComputeAdjacentConnectionHeightChange( neighbor ) 
+			-- Optimization,Prevent computing the height twice.
+			
+			local NewCostSoFar		=	Current:GetCostSoFar() + TutorialBotRangeCheckCheap( Current , neighbor , Height )
+			
+			
+			if Height > 64 then
+				-- Cant jump that high
+				continue
+			end
+			
+			if neighbor:IsOpen() or neighbor:IsClosed() and neighbor:GetCostSoFar() <= NewCostSoFar then
+				
+				continue
+				
+			else
+				
+				neighbor:SetCostSoFar( NewCostSoFar )
+				neighbor:SetTotalCost( NewCostSoFar + TutorialBotRangeCheckCheap( neighbor , GoalNode ) )
+				
+				if neighbor:IsClosed() then
+					
+					neighbor:RemoveFromClosedList()
+					
+				end
+				
+				if neighbor:IsOpen() then
+					
+					neighbor:UpdateOnOpenList()
+					
+				else
+					
+					neighbor:AddToOpenList()
+					
+				end
+				
+				
+				Final_Path[ neighbor:GetID() ]	=	Current:GetID()
+			end
+			
+			
+		end
+		
+		
+	end
+	
+	
+	return false
+end
+
+
+function TutorialBotRangeCheckCheap( FirstNode , SecondNode , Height )
+	
+	--local DefaultCost	=	( CurrentCen - NeighborCen ):Length()
+	local DefaultCost	=	FirstNode:GetCenter():Distance( SecondNode:GetCenter() )
+	
+	if isnumber( Height ) and Height > 32 then
+		
+		DefaultCost		=	DefaultCost * 5
+		
+		-- Jumping is slower than ground movement.
+		-- And falling is risky taking fall damage.
+		
+		
+	end
+	
+	-- Jump nodes however,We find slightly easier to jump with.Its more recommended than jumping without them.
+	if SecondNode:HasAttributes( NAV_MESH_JUMP ) then 
+		
+		DefaultCost	=	DefaultCost * 3.50
+		
+	end
+	
+	
+	-- Crawling through a vent is very slow.
+	if SecondNode:HasAttributes( NAV_MESH_CROUCH ) then 
+		
+		DefaultCost	=	DefaultCost * 7
+		
+	end
+	
+	-- We are less interested in smaller nodes as it can make less realistic paths.
+	-- Also its easy to get stuck on them.
+	if SecondNode:GetSizeY() <= 50 then
+		
+		DefaultCost		=	DefaultCost * 3
+		
+	end
+	
+	if SecondNode:GetSizeX() <= 50 then
+		
+		DefaultCost		=	DefaultCost * 3
+		
+	end
+	
+	
+	return DefaultCost
+end
+
+
+function TutorialBotRetracePathCheap( Final_Path , Current )
+	
+	local NewPath	=	{ Current }
+	
+	Current			=	Current:GetID()
+	
+	while( Final_Path[ Current ] ) do
+		
+		Current		=	Final_Path[ Current ]
+		table.insert( NewPath , navmesh.GetNavAreaByID( Current ) )
+		
+	end
+	
+	return NewPath
 end
