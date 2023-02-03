@@ -4,9 +4,9 @@ local Lad		=	FindMetaTable( "CNavLadder" )
 local Open_List		=	{}
 local Node_Data		=	{}
 
-CreateConVar( "TutorialBot_Melee", "weapon_pistol", FCVAR_NONE, "This is the pistol the bot will use." )
-CreateConVar( "TutorialBot_Pistol", "weapon_pistol, FCVAR_NONE, "This is the pistol the bot will use." )
-CreateConVar( "TutorialBot_Pistol", "weapon_pistol, FCVAR_NONE, "This is the pistol the bot will use." )
+local Melee		=	CreateConVar( "TutorialBot_Melee", "weapon_crowbar", FCVAR_NONE, "This is the melee weapon the bot will use." )
+local Pistol		=	CreateConVar( "TutorialBot_Pistol", "weapon_pistol", FCVAR_NONE, "This is the pistol the bot will use." )
+local Shotgun		=	CreateConVar( "TutorialBot_Shotgun", "weapon_shotgun", FCVAR_NONE, "This is the shotgun the bot will use." )
 
 function TBotCreate( ply , cmd , args )
 	if !args[ 1 ] then return end
@@ -66,10 +66,10 @@ hook.Add( "StartCommand" , "TutorialBotAIHook" , function( bot , cmd )
 		local lerp = FrameTime() * math.random(4, 8)
 		bot:SetEyeAngles( LerpAngle(lerp, bot:EyeAngles(), ( (bot.Enemy:GetPos() + Vector(0, 0, 30)) - bot:GetShootPos() ):GetNormalized():Angle() ) )
 		
-		if bot:HasWeapon( "weapon_pistol" ) and bot:GetWeapon( "weapon_pistol" ):HasAmmo() and (bot.Enemy:GetPos() - bot:GetPos()):Length() > 300 then
+		if bot:HasWeapon( Pistol:GetString() ) and bot:GetWeapon( Pistol:GetString() ):HasAmmo() and (bot.Enemy:GetPos() - bot:GetPos()):Length() > 300 then
 		
 			-- If an enemy gets too far the bot should use its pistol
-			cmd:SelectWeapon( bot:GetWeapon( "weapon_pistol" ) )
+			cmd:SelectWeapon( bot:GetWeapon( Pistol:GetString() ) )
 		
 		elseif bot:HasWeapon( "weapon_shotgun" ) and bot:GetWeapon( "weapon_shotgun" ):HasAmmo() and (bot.Enemy:GetPos() - bot:GetPos()):Length() > 80 then
 		
@@ -149,7 +149,7 @@ hook.Add( "StartCommand" , "TutorialBotAIHook" , function( bot , cmd )
 			if math.random(2) == 1 then
 				buttons = buttons + IN_ATTACK2
 			end
-		elseif bot:HasWeapon( "weapon_pistol" ) and bot:GetWeapon( "weapon_pistol" ):Clip1() < bot:GetWeapon( "weapon_pistol" ):GetMaxClip1() then
+		elseif bot:HasWeapon( Pistol:GetString() ) and bot:GetWeapon( Pistol:GetString() ):Clip1() < bot:GetWeapon( Pistol:GetString() ):GetMaxClip1() then
 		
 			-- The bot should reload weapons that need to be reloaded
 			cmd:SelectWeapon( bot:GetWeapon( "weapon_pistol" ) )
