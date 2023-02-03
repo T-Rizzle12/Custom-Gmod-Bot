@@ -1,23 +1,25 @@
-local BOT						=	FindMetaTable( "Player" )
+local BOT		=	FindMetaTable( "Player" )
 local Zone		=	FindMetaTable( "CNavArea" )
 local Lad		=	FindMetaTable( "CNavLadder" )
 local Open_List		=	{}
 local Node_Data		=	{}
 
-
+CreateConVar( "TutorialBot_Melee", "weapon_pistol", FCVAR_NONE, "This is the pistol the bot will use." )
+CreateConVar( "TutorialBot_Pistol", "weapon_pistol, FCVAR_NONE, "This is the pistol the bot will use." )
+CreateConVar( "TutorialBot_Pistol", "weapon_pistol, FCVAR_NONE, "This is the pistol the bot will use." )
 
 function TBotCreate( ply , cmd , args )
 	if !args[ 1 ] then return end
 	
 	local NewBot			=	player.CreateNextBot( args[ 1 ] ) -- Create the bot and store it in a varaible.
 	
-	NewBot.IsTutorialBot	=	true -- Flag this as our bot so we don't control other bots, Only ours!
+	NewBot.IsTutorialBot		=	true -- Flag this as our bot so we don't control other bots, Only ours!
 	NewBot.Owner			=	ply -- Make the player who created the bot its "owner"
 	NewBot.FollowDist		=	200 -- This is how close the bot will follow it's owner
 	NewBot.DangerDist		=	300 -- This is how far the bot can be from it's owner before it focuses only on following them
-	NewBot.Jump				=	false -- If this is set to true the bot will jump
+	NewBot.Jump			=	false -- If this is set to true the bot will jump
 	NewBot.Crouch			=	false -- If this is set to true the bot will crouch
-	NewBot.Use				=	false -- If this is set to true the bot will press its use key
+	NewBot.Use			=	false -- If this is set to true the bot will press its use key
 	
 	NewBot:TBotResetAI() -- Fully reset your bots AI.
 	
@@ -32,15 +34,15 @@ concommand.Add( "TutorialCreateBot" , TBotCreate )
 
 function BOT:TBotResetAI()
 	
-	self.Enemy				=	nil -- Refresh our enemy.
+	self.Enemy			=	nil -- Refresh our enemy.
 	self.NumEnemies			=	0 -- How many enemies do we currently see
 	self.Jump			=	false -- Stop jumping
 	self.Crouch			=	false -- Stop crouching
 	self.Use			=	false -- Stop using
 	
-	self.Goal				=	nil -- The vector goal we want to get to.
+	self.Goal			=	nil -- The vector goal we want to get to.
 	self.NavmeshNodes		=	{} -- The nodes given to us by the pathfinder
-	self.Path				=	nil -- The nodes converted into waypoints by our visiblilty checking.
+	self.Path			=	nil -- The nodes converted into waypoints by our visiblilty checking.
 	self.PathTime			=	CurTime() + 1.0 -- This will limit how often the path gets recreated
 	
 	self:TBotCreateThinking() -- Start our AI
