@@ -14,7 +14,7 @@ This mod is also in Beta, there will be bugs, but constant updates with new feat
 
 # Current Commands
 - CommandName, CommandParameters
-- "CreateTRizzleBot", botname
+- "TRizzleCreateBot", botname
 
 # Current Features
 - The bot is a player bot
