@@ -13,8 +13,8 @@ This mod is also in Beta, there will be bugs, but constant updates with new feat
 - "TRizzleBot_Rifle", "weapon_smg1", FCVAR_NONE, "This is the rifle/smg the bot will use."
 
 # Current Commands
-- CommandName, CommandParameters
-- "TRizzleCreateBot", botname
+- CommandName, CommandParameters, Example
+- "TRizzleCreateBot", botname, "TRizzleCreateBot Bot"
 
 # Current Features
 - The bot is a player bot
