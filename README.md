@@ -23,7 +23,7 @@ This mod is also in Beta, there will be bugs, but constant updates with new feat
 - The bot can open doors
 - The bot supports most custom/modded weapons
 - The bot will use its flashlight when in combat or the player they are following has it on
-- The bot will attack anything that attacks then and its owner, "the player that created it."
+- The bot will attack any NPC that attacks them and its owner, "the player that created it."
 - The bot, if it has a medkit, will heal itself and its owner
 
 # Bot Cheats
