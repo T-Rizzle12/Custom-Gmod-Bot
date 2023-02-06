@@ -6,6 +6,7 @@ This is a player bot so you will need to set the game to multiplayer and have a 
 This mod is also in Beta, there will be bugs, but constant updates with new features.
 
 # Current Cvars
+- CvarName, DefaultValue, CvarFlags, CvarDescription
 - "TRizzleBot_Melee", "weapon_crowbar", FCVAR_NONE, "This is the melee weapon the bot will use."
 - "TRizzleBot_Pistol", "weapon_pistol", FCVAR_NONE, "This is the pistol the bot will use."
 - "TRizzleBot_Shotgun", "weapon_shotgun", FCVAR_NONE, "This is the shotgun the bot will use."
