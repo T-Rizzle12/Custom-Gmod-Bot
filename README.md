@@ -1,5 +1,5 @@
 # Why I made this mod
-I made this bot because I usually have to play Gmod alone and I also wanted to see what I could do with the nextbot system.
+I made this because I usually have to play Gmod alone and I also wanted to see what I could do with the nextbot system.
 
 # Important
 This is a player bot so you will need to set the game to multiplayer and have a open player spot to create one.
