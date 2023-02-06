@@ -4,10 +4,10 @@ local Lad		=	FindMetaTable( "CNavLadder" )
 local Open_List		=	{}
 local Node_Data		=	{}
 
-local Melee			=	CreateConVar( "TutorialBot_Melee", "weapon_crowbar", FCVAR_NONE, "This is the melee weapon the bot will use." )
-local Pistol		=	CreateConVar( "TutorialBot_Pistol", "weapon_pistol", FCVAR_NONE, "This is the pistol the bot will use." )
-local Shotgun		=	CreateConVar( "TutorialBot_Shotgun", "weapon_shotgun", FCVAR_NONE, "This is the shotgun the bot will use." )
-local Rifle			=	CreateConVar( "TutorialBot_Rifle", "weapon_smg1", FCVAR_NONE, "This is the rifle/smg the bot will use." )
+local Melee			=	CreateConVar( "TRizzleBot_Melee", "weapon_crowbar", FCVAR_NONE, "This is the melee weapon the bot will use." )
+local Pistol		=	CreateConVar( "TRizzleBot_Pistol", "weapon_pistol", FCVAR_NONE, "This is the pistol the bot will use." )
+local Shotgun		=	CreateConVar( "TRizzleBot_Shotgun", "weapon_shotgun", FCVAR_NONE, "This is the shotgun the bot will use." )
+local Rifle			=	CreateConVar( "TRizzleBot_Rifle", "weapon_smg1", FCVAR_NONE, "This is the rifle/smg the bot will use." )
 
 function TBotCreate( ply , cmd , args )
 	if !args[ 1 ] then return end
@@ -17,7 +17,7 @@ function TBotCreate( ply , cmd , args )
 	NewBot.IsTutorialBot	=	true -- Flag this as our bot so we don't control other bots, Only ours!
 	NewBot.Owner			=	ply -- Make the player who created the bot its "owner"
 	NewBot.FollowDist		=	200 -- This is how close the bot will follow it's owner
-	NewBot.DangerDist		=	300 -- This is how far the bot can be from it's owner before it focuses only on following them
+	NewBot.DangerDist		=	300 -- This is how far the bot can be from it's owner when in combat
 	NewBot.Jump				=	false -- If this is set to true the bot will jump
 	NewBot.Crouch			=	false -- If this is set to true the bot will crouch
 	NewBot.Use				=	false -- If this is set to true the bot will press its use key
@@ -52,7 +52,7 @@ function BOT:TBotResetAI()
 end
 
 
-hook.Add( "StartCommand" , "TutorialBotAIHook" , function( bot , cmd )
+hook.Add( "StartCommand" , "TRizzleBotAIHook" , function( bot , cmd )
 	if !IsValid( bot ) or !bot:IsBot() or !bot:Alive() or !bot.IsTutorialBot then return end
 	-- Make sure we can control this bot and its not a player.
 	
@@ -62,8 +62,7 @@ hook.Add( "StartCommand" , "TutorialBotAIHook" , function( bot , cmd )
 	-- Better make sure they exist of course.
 	if IsValid( bot.Enemy ) then
 		
-		-- Instantly face our enemy!
-		-- CHALLANGE: Can you make them turn smoothly?
+		-- Turn and face our enemy!
 		local lerp = FrameTime() * math.random(4, 8)
 		bot:SetEyeAngles( LerpAngle(lerp, bot:EyeAngles(), ( bot.Enemy:WorldSpaceCenter() - bot:GetShootPos() ):GetNormalized():Angle() ) )
 		
@@ -158,7 +157,7 @@ hook.Add( "StartCommand" , "TutorialBotAIHook" , function( bot , cmd )
 			end
 		elseif bot:HasWeapon( "weapon_medkit" ) and bot:Health() < bot:GetMaxHealth() then
 		
-			-- The bot will heal themself if their owner has full health
+			-- The bot will heal themself if their owner has full health or is not close enough
 			cmd:SelectWeapon( bot:GetWeapon( "weapon_medkit" ) )
 			if math.random(2) == 1 then
 				buttons = buttons + IN_ATTACK2
@@ -257,19 +256,19 @@ function BOT:RestoreAmmo()
 	if IsValid ( rifle ) then rifle_ammo	=	self:GetAmmoCount( rifle:GetPrimaryAmmoType() ) end
 	if IsValid ( shotgun ) then shotgun_ammo	=	self:GetAmmoCount( shotgun:GetPrimaryAmmoType() ) end
 	
-	if pistol_ammo != nil and self:HasWeapon( Pistol:GetString() ) and pistol_ammo < 100 then
+	if pistol_ammo != nil and self:HasWeapon( pistol ) and pistol_ammo < 100 then
 		
 		self:GiveAmmo( 1, pistol:GetPrimaryAmmoType(), true )
 		
 	end
 	
-	if rifle_ammo != nil and self:HasWeapon( Rifle:GetString() ) and rifle_ammo < 250 then
+	if rifle_ammo != nil and self:HasWeapon( rifle ) and rifle_ammo < 250 then
 		
 		self:GiveAmmo( 1, rifle:GetPrimaryAmmoType(), true )
 		
 	end
 	
-	if shotgun_ammo != nil and self:HasWeapon( Shotgun:GetString() ) and shotgun_ammo < 60 then
+	if shotgun_ammo != nil and self:HasWeapon( shotgun ) and shotgun_ammo < 60 then
 		
 		self:GiveAmmo( 1, shotgun:GetPrimaryAmmoType(), true )
 		
@@ -291,9 +290,9 @@ end
 
 
 -- Just a simple way to respawn a bot.
-hook.Add( "PlayerDeath" , "TutorialBotRespawn" , function( ply )
+hook.Add( "PlayerDeath" , "TRizzleBotRespawn" , function( ply )
 	
-	if ply:IsBot() and ply.IsTutorialBot then 
+	if ply:IsBot() and ply.IsTRizzleBot then 
 		
 		timer.Simple( 3 , function()
 			
@@ -310,9 +309,9 @@ hook.Add( "PlayerDeath" , "TutorialBotRespawn" , function( ply )
 end)
 
 -- Just a simple way to respawn a bot.
-hook.Add( "PlayerSilentDeath" , "TutorialBotRespawn2" , function( ply )
+hook.Add( "PlayerSilentDeath" , "TRizzleBotRespawn2" , function( ply )
 	
-	if ply:IsBot() and ply.IsTutorialBot then 
+	if ply:IsBot() and ply.IsTRizzleBot then 
 		
 		timer.Simple( 10 , function()
 			
@@ -329,9 +328,9 @@ hook.Add( "PlayerSilentDeath" , "TutorialBotRespawn2" , function( ply )
 end)
 
 -- Reset their AI on spawn.
-hook.Add( "PlayerSpawn" , "TutorialBotSpawnHook" , function( ply )
+hook.Add( "PlayerSpawn" , "TRizzleBotSpawnHook" , function( ply )
 	
-	if ply:IsBot() and ply.IsTutorialBot then
+	if ply:IsBot() and ply.IsTRizzleBot then
 		
 		ply:TBotResetAI()
 		
@@ -352,12 +351,12 @@ function BOT:TBotCreateThinking()
 	
 	-- I used math.Rand as a personal preference, It just prevents all the timers being ran at the same time
 	-- as other bots timers.
-	timer.Create( "tutorial_bot_think" .. index , math.Rand( 0.08 , 0.15 ) , 0 , function()
+	timer.Create( "trizzle_bot_think" .. index , math.Rand( 0.08 , 0.15 ) , 0 , function()
 		
 		if IsValid( self ) and self:Alive() then
 			
 			-- A quick condition statement to check if our enemy is no longer a threat.
-			-- Most likely done best in its own function. But for this tutorial we will make it simple.
+			-- Most likely done best in its own function. But for now we will make it simple.
 			if !IsValid( self.Enemy ) then self.Enemy		=	nil
 			elseif self.Enemy:IsPlayer() and !self.Enemy:Alive() then self.Enemy		=	nil
 			elseif !self.Enemy:Visible( self ) then self.Enemy		=	nil
@@ -369,7 +368,7 @@ function BOT:TBotCreateThinking()
 			
 		else
 			
-			timer.Remove( "tutorial_bot_think" .. index ) -- We don't need to think while dead.
+			timer.Remove( "trizzle_bot_think" .. index ) -- We don't need to think while dead.
 			
 		end
 		
@@ -526,7 +525,7 @@ function TutorialBotRangeCheck( FirstNode , SecondNode , Height )
 end
 
 
-function TutorialBotRetracePath( StartNode , GoalNode )
+function TRizzleBotRetracePath( StartNode , GoalNode )
 	
 	local NodePath		=	{ GoalNode }
 	
@@ -645,8 +644,7 @@ function BOT:ComputeNavmeshVisibility()
 	local LastVisPos		=	self:GetPos()
 	
 	for k, CurrentNode in ipairs( self.NavmeshNodes ) do
-		-- You should also make sure that the nodes exist as this is called 0.03 seconds after the pathfind.
-		-- For tutorial sakes ill keep this simple.
+		-- I should also make sure that the nodes exist as this is called 0.03 seconds after the pathfind.
 		
 		local NextNode		=	self.NavmeshNodes[ k + 1 ]
 		
@@ -723,7 +721,7 @@ function BOT:TBotNavigation()
 			self.Path				=	{} -- Reset that.
 			
 			-- Find a path through the navmesh to our TargetArea
-			self.NavmeshNodes		=	TutorialBotPathfinder( self.StandingOnNode , TargetArea )
+			self.NavmeshNodes		=	TRizzleBotPathfinder( self.StandingOnNode , TargetArea )
 			
 			
 			-- Prevent spamming the pathfinder.
@@ -801,7 +799,7 @@ function BOT:TBotCreateNavTimer()
 	local Attempts		=	0
 	
 	
-	timer.Create( "tutorialbot_nav" .. index , 0.09 , 0 , function()
+	timer.Create( "trizzle_bot_nav" .. index , 0.09 , 0 , function()
 		
 		if IsValid( self ) and self:Alive() and isvector( self.Goal ) then
 			
@@ -816,8 +814,8 @@ function BOT:TBotCreateNavTimer()
 				self.Jump	=	true
 				self.Use	=	true
 				
-				if Attempts > 30 then self.Path	=	nil end
-				if Attempts > 60 then self.Goal =	nil end
+				if Attempts > 10 then self.Path	=	nil end
+				if Attempts > 20 then self.Goal =	nil end
 				Attempts = Attempts + 1
 				-- TODO/Challange: Make the bot jump a few times, If that does not work. Then recreate the path.
 				
@@ -828,7 +826,7 @@ function BOT:TBotCreateNavTimer()
 			
 		else
 			
-			timer.Remove( "tutorialbot_nav" .. index )
+			timer.Remove( "trizzlebot_nav" .. index )
 			
 		end
 		
@@ -876,8 +874,6 @@ function BOT:TBotUpdateMovement( cmd )
 		if !IsValid( self.Enemy ) then self:SetEyeAngles( LerpAngle(lerp, self:EyeAngles(), ( self.Goal - self:GetPos() ):GetNormalized():Angle() ) ) end
 		
 		local GoalIn2D			=	Vector( self.Goal.x , self.Goal.y , self:GetPos().z )
-		-- Optionaly you could convert this to 2D navigation as well if you like.
-		-- I prefer not to.
 		if IsVecCloseEnough( self:GetPos() , GoalIn2D , 32 ) then
 			
 			self.Goal			=		nil -- We have reached our goal!
