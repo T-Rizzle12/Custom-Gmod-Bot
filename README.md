@@ -12,6 +12,10 @@ This mod is also in Beta, there will be bugs, but constant updates with new feat
 - "TRizzleBot_Shotgun", "weapon_shotgun", FCVAR_NONE, "This is the shotgun the bot will use."
 - "TRizzleBot_Rifle", "weapon_smg1", FCVAR_NONE, "This is the rifle/smg the bot will use."
 
+# Current Commands
+- CommandName, CommandParameters
+- "CreateTRizzleBot", botname
+
 # Current Features
 - The bot is a player bot
 - The bot can use ladders
