@@ -27,7 +27,7 @@ function TBotCreate( ply , cmd , args )
 	
 end
 
-concommand.Add( "TutorialCreateBot" , TBotCreate )
+concommand.Add( "TRizzleCreateBot" , TBotCreate )
 
 
 -------------------------------------------------------------------|
