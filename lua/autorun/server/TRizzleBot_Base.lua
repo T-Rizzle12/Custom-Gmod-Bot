@@ -4,22 +4,24 @@ local Lad		=	FindMetaTable( "CNavLadder" )
 local Open_List		=	{}
 local Node_Data		=	{}
 
-local Melee		=	CreateConVar( "TutorialBot_Melee", "weapon_crowbar", FCVAR_NONE, "This is the melee weapon the bot will use." )
+local Melee			=	CreateConVar( "TutorialBot_Melee", "weapon_crowbar", FCVAR_NONE, "This is the melee weapon the bot will use." )
 local Pistol		=	CreateConVar( "TutorialBot_Pistol", "weapon_pistol", FCVAR_NONE, "This is the pistol the bot will use." )
 local Shotgun		=	CreateConVar( "TutorialBot_Shotgun", "weapon_shotgun", FCVAR_NONE, "This is the shotgun the bot will use." )
+local Rifle			=	CreateConVar( "TutorialBot_Rifle", "weapon_smg1", FCVAR_NONE, "This is the rifle/smg the bot will use." )
 
 function TBotCreate( ply , cmd , args )
 	if !args[ 1 ] then return end
 	
 	local NewBot			=	player.CreateNextBot( args[ 1 ] ) -- Create the bot and store it in a varaible.
 	
-	NewBot.IsTutorialBot		=	true -- Flag this as our bot so we don't control other bots, Only ours!
+	NewBot.IsTutorialBot	=	true -- Flag this as our bot so we don't control other bots, Only ours!
 	NewBot.Owner			=	ply -- Make the player who created the bot its "owner"
 	NewBot.FollowDist		=	200 -- This is how close the bot will follow it's owner
 	NewBot.DangerDist		=	300 -- This is how far the bot can be from it's owner before it focuses only on following them
-	NewBot.Jump			=	false -- If this is set to true the bot will jump
+	NewBot.Jump				=	false -- If this is set to true the bot will jump
 	NewBot.Crouch			=	false -- If this is set to true the bot will crouch
-	NewBot.Use			=	false -- If this is set to true the bot will press its use key
+	NewBot.Use				=	false -- If this is set to true the bot will press its use key
+	NewBot.LastCombatTime	=	CurTime() -- This was how long ago the bot was in combat
 	
 	NewBot:TBotResetAI() -- Fully reset your bots AI.
 	
@@ -57,43 +59,54 @@ hook.Add( "StartCommand" , "TutorialBotAIHook" , function( bot , cmd )
 	cmd:ClearButtons() -- Clear the bots buttons. Shooting, Running , jumping etc...
 	cmd:ClearMovement() -- For when the bot is moving around.
 	
-	
 	-- Better make sure they exist of course.
 	if IsValid( bot.Enemy ) then
 		
 		-- Instantly face our enemy!
 		-- CHALLANGE: Can you make them turn smoothly?
 		local lerp = FrameTime() * math.random(4, 8)
-		bot:SetEyeAngles( LerpAngle(lerp, bot:EyeAngles(), ( (bot.Enemy:GetPos() + Vector(0, 0, 30)) - bot:GetShootPos() ):GetNormalized():Angle() ) )
+		bot:SetEyeAngles( LerpAngle(lerp, bot:EyeAngles(), ( bot.Enemy:WorldSpaceCenter() - bot:GetShootPos() ):GetNormalized():Angle() ) )
 		
-		if bot:HasWeapon( Pistol:GetString() ) and bot:GetWeapon( Pistol:GetString() ):HasAmmo() and (bot.Enemy:GetPos() - bot:GetPos()):Length() > 300 then
+		if bot:HasWeapon( "weapon_medkit" ) and 25 < bot:Health() then
+		
+			-- The bot will heal themself if they get too injured during combat
+			cmd:SelectWeapon( bot:GetWeapon( "weapon_medkit" ) )
+			if math.random(2) == 1 then
+				buttons = buttons + IN_ATTACK2
+			end
+		elseif bot:HasWeapon( Pistol:GetString() ) and bot:GetWeapon( Pistol:GetString() ):HasAmmo() and (bot.Enemy:GetPos() - bot:GetPos()):Length() > 900 then
 		
 			-- If an enemy gets too far the bot should use its pistol
 			cmd:SelectWeapon( bot:GetWeapon( Pistol:GetString() ) )
 		
-		elseif bot:HasWeapon( "weapon_shotgun" ) and bot:GetWeapon( "weapon_shotgun" ):HasAmmo() and (bot.Enemy:GetPos() - bot:GetPos()):Length() > 80 then
+		elseif bot:HasWeapon( Rifle:GetString() ) and bot:GetWeapon( Rifle:GetString() ):HasAmmo() and (bot.Enemy:GetPos() - bot:GetPos()):Length() > 300 then
+		
+			-- If an enemy gets too far but is still close the bot should use its rifle
+			cmd:SelectWeapon( bot:GetWeapon( Rifle:GetString() ) )
+		
+		elseif bot:HasWeapon( Shotgun:GetString() ) and bot:GetWeapon( Shotgun:GetString() ):HasAmmo() and (bot.Enemy:GetPos() - bot:GetPos()):Length() > 80 then
 		
 			-- If an enemy gets too far but is still close the bot should use its shotgun
-			cmd:SelectWeapon( bot:GetWeapon( "weapon_shotgun" ) )
+			cmd:SelectWeapon( bot:GetWeapon( Shotgun:GetString() ) )
 		
-		elseif bot:HasWeapon( "weapon_crowbar" ) then
+		elseif bot:HasWeapon( Melee:GetString() ) then
 		
 			-- If an enemy gets too close the bot should use its crowbar
-			cmd:SelectWeapon( bot:GetWeapon( "weapon_crowbar" ) )
+			cmd:SelectWeapon( bot:GetWeapon( Melee:GetString() ) )
 		
 		end
 		
 		local buttons = 0
 		local botWeapon = bot:GetActiveWeapon()
-		if math.random(2) == 1 and ( bot:GetEyeTrace().Entity == bot.Enemy) then
+		if math.random(2) == 1 and bot:GetEyeTrace().Entity == bot.Enemy then
 			buttons = buttons + IN_ATTACK
 		end
 		
-		if math.random(2) == 1 and botWeapon:Clip1() == 0 then
+		if math.random(2) == 1 and botWeapon:IsWeapon() and botWeapon:Clip1() == 0 then
 			buttons = buttons + IN_RELOAD
 		end
 		
-		if bot.Jump then 
+		if bot.Jump and !bot:Is_On_Ladder() then 
 			buttons = buttons + IN_JUMP 
 			bot.Jump = false 
 		end
@@ -113,11 +126,12 @@ hook.Add( "StartCommand" , "TutorialBotAIHook" , function( bot , cmd )
 		end
 		
 		cmd:SetButtons( buttons )
+		bot:TBotUpdateMovement( cmd )
 		
-		if isvector( bot.Goal ) and (bot.Owner:GetPos() - bot.Goal):Length() < 64 then
-			
+		if isvector( bot.Goal ) and (bot.Owner:GetPos() - bot.Goal):Length() < bot.FollowDist then
+		
 			bot:TBotUpdateMovement( cmd )
-			
+		
 		elseif (bot.Owner:GetPos() - bot:GetPos()):Length() > bot.DangerDist then
 			
 			bot:TBotSetNewGoal( bot.Owner:GetPos() )
@@ -128,7 +142,7 @@ hook.Add( "StartCommand" , "TutorialBotAIHook" , function( bot , cmd )
 		
 		local buttons = 0
 		local botWeapon = bot:GetActiveWeapon()
-		if math.random(2) == 1 and botWeapon:Clip1() < botWeapon:GetMaxClip1() then
+		if math.random(2) == 1 and botWeapon:IsWeapon() and botWeapon:Clip1() < botWeapon:GetMaxClip1() then
 			buttons = buttons + IN_RELOAD
 		end
 		
@@ -137,12 +151,12 @@ hook.Add( "StartCommand" , "TutorialBotAIHook" , function( bot , cmd )
 		
 			-- The bot should priortize healing its owner over themself
 			local lerp = FrameTime() * math.random(4, 8)
-			bot:SetEyeAngles( LerpAngle(lerp, bot:EyeAngles(), ( (bot.Owner:GetPos() + Vector(0, 0, 30) ) - bot:GetShootPos() ):GetNormalized():Angle() ) )
+			bot:SetEyeAngles( LerpAngle(lerp, bot:EyeAngles(), ( bot.Owner:WorldSpaceCenter() - bot:GetShootPos() ):GetNormalized():Angle() ) )
 			cmd:SelectWeapon( bot:GetWeapon( "weapon_medkit" ) )
 			if math.random(2) == 1 then
 				buttons = buttons + IN_ATTACK
 			end
-		elseif bot:HasWeapon( "weapon_medkit" ) and (bot.Owner:GetPos() - bot:GetPos()):Length() < 80 and bot:Health() < bot:GetMaxHealth() then
+		elseif bot:HasWeapon( "weapon_medkit" ) and bot:Health() < bot:GetMaxHealth() then
 		
 			-- The bot will heal themself if their owner has full health
 			cmd:SelectWeapon( bot:GetWeapon( "weapon_medkit" ) )
@@ -152,11 +166,15 @@ hook.Add( "StartCommand" , "TutorialBotAIHook" , function( bot , cmd )
 		elseif bot:HasWeapon( Pistol:GetString() ) and bot:GetWeapon( Pistol:GetString() ):Clip1() < bot:GetWeapon( Pistol:GetString() ):GetMaxClip1() then
 		
 			-- The bot should reload weapons that need to be reloaded
-			cmd:SelectWeapon( bot:GetWeapon( "weapon_pistol" ) )
+			cmd:SelectWeapon( bot:GetWeapon( Pistol:GetString() ) )
 		
-		elseif bot:HasWeapon( "weapon_shotgun" ) and bot:GetWeapon( "weapon_shotgun" ):Clip1() < bot:GetWeapon( "weapon_shotgun" ):GetMaxClip1() then
+		elseif bot:HasWeapon( Rifle:GetString() ) and bot:GetWeapon( Rifle:GetString() ):Clip1() < bot:GetWeapon( Rifle:GetString() ):GetMaxClip1() then
 		
-			cmd:SelectWeapon( bot:GetWeapon( "weapon_shotgun" ) )
+			cmd:SelectWeapon( bot:GetWeapon( Rifle:GetString() ) )
+			
+		elseif bot:HasWeapon( Shotgun:GetString() ) and bot:GetWeapon( Shotgun:GetString() ):Clip1() < bot:GetWeapon( Shotgun:GetString() ):GetMaxClip1() then
+		
+			cmd:SelectWeapon( bot:GetWeapon( Shotgun:GetString() ) )
 			
 		end
 		-- Possibly add support for the bot to heal nearby players?
@@ -166,7 +184,7 @@ hook.Add( "StartCommand" , "TutorialBotAIHook" , function( bot , cmd )
 			buttons = buttons + IN_SPEED 
 		end
 		
-		if bot.Jump then 
+		if bot.Jump and !bot:Is_On_Ladder() then 
 			buttons = buttons + IN_JUMP 
 			bot.Jump = false 
 		end
@@ -186,11 +204,12 @@ hook.Add( "StartCommand" , "TutorialBotAIHook" , function( bot , cmd )
 		end
 		
 		cmd:SetButtons( buttons )
+		bot:TBotUpdateMovement( cmd )
 		
-		if isvector( bot.Goal ) and (bot.Owner:GetPos() - bot.Goal):Length() < 64 then
+		if isvector( bot.Goal ) and (bot.Owner:GetPos() - bot.Goal):Length() < bot.FollowDist then
 			
-			bot:TBotUpdateMovement( cmd ) -- Move when we need to.
-			
+			bot:TBotUpdateMovement( cmd )
+		
 		elseif (bot.Owner:GetPos() - bot:GetPos()):Length() > bot.FollowDist then
 			
 			bot:TBotSetNewGoal( bot.Owner:GetPos() )
@@ -198,10 +217,65 @@ hook.Add( "StartCommand" , "TutorialBotAIHook" , function( bot , cmd )
 		end
 	end
 	
-	
+	if bot:CanUseFlashlight() and !bot:FlashlightIsOn() and (bot.Owner:FlashlightIsOn() or bot:IsInCombat() ) then
+		
+		bot:Flashlight( true )
+		
+	elseif bot:CanUseFlashlight() and bot:FlashlightIsOn() and !bot.Owner:FlashlightIsOn() and !bot:IsInCombat() then
+		
+		bot:Flashlight( false )
+		
+	end
 end)
 
+function BOT:IsInCombat()
 
+	if IsValid ( self.Enemy ) then
+	
+		self.LastCombatTime = CurTime() + 5.0
+		return true
+		
+	end
+	
+	if self.LastCombatTime > CurTime() then return true end
+	
+	return false
+	
+end
+
+function BOT:RestoreAmmo()
+	
+	-- This is kind of a cheat, but the bot will only slowly recover ammo when not in combat
+	local pistol	=	self:GetWeapon( Pistol:GetString() )
+	local rifle		=	self:GetWeapon( Rifle:GetString() )
+	local shotgun	=	self:GetWeapon( Shotgun:GetString() )
+	local pistol_ammo	=	nil
+	local rifle_ammo	=	nil
+	local shotgun_ammo	=	nil
+	
+	if IsValid ( pistol ) then pistol_ammo	=	self:GetAmmoCount( pistol:GetPrimaryAmmoType() ) end
+	if IsValid ( rifle ) then rifle_ammo	=	self:GetAmmoCount( rifle:GetPrimaryAmmoType() ) end
+	if IsValid ( shotgun ) then shotgun_ammo	=	self:GetAmmoCount( shotgun:GetPrimaryAmmoType() ) end
+	
+	if pistol_ammo != nil and self:HasWeapon( Pistol:GetString() ) and pistol_ammo < 100 then
+		
+		self:GiveAmmo( 1, pistol:GetPrimaryAmmoType(), true )
+		
+	end
+	
+	if rifle_ammo != nil and self:HasWeapon( Rifle:GetString() ) and rifle_ammo < 250 then
+		
+		self:GiveAmmo( 1, rifle:GetPrimaryAmmoType(), true )
+		
+	end
+	
+	if shotgun_ammo != nil and self:HasWeapon( Shotgun:GetString() ) and shotgun_ammo < 60 then
+		
+		self:GiveAmmo( 1, shotgun:GetPrimaryAmmoType(), true )
+		
+	end
+	
+end
 
 function IsDoor( v )
 
@@ -291,6 +365,8 @@ function BOT:TBotCreateThinking()
 			
 			self:TBotFindRandomEnemy()
 			
+			if !self:IsInCombat() then self:RestoreAmmo() end
+			
 		else
 			
 			timer.Remove( "tutorial_bot_think" .. index ) -- We don't need to think while dead.
@@ -369,19 +445,19 @@ function TutorialBotPathfinder( StartNode , GoalNode )
 			local NewCostSoFar		=	Current:Get_G_Cost() + TutorialBotRangeCheck( Current , neighbor , Height )
 			
 			if neighbor:Node_Is_Open() or neighbor:Node_Is_Closed() and neighbor:Get_G_Cost() <= NewCostSoFar then
-					
+				
 				continue
-					
+				
 			else
 				neighbor:Set_G_Cost( NewCostSoFar )
 				neighbor:Set_F_Cost( NewCostSoFar + TutorialBotRangeCheck( neighbor , GoalNode ) )
-					
+				
 				if neighbor:Node_Is_Closed() then
-						
-					neighbor:Node_Remove_From_Closed_List()
-						
-				end
 					
+					neighbor:Node_Remove_From_Closed_List()
+					
+				end
+				
 				neighbor:Node_Add_To_Open_List()
 				
 				-- Parenting of the nodes so we can trace the parents back later.
@@ -647,16 +723,7 @@ function BOT:TBotNavigation()
 			self.Path				=	{} -- Reset that.
 			
 			-- Find a path through the navmesh to our TargetArea
-			if self.Goal:Distance( self:GetPos() ) > 6000 then
-				
-				self.NavmeshNodes		=	TutorialBotPathfinderCheap( self.StandingOnNode , TargetArea )
-				
-			else
-				
-				-- Compute the path via the navmesh.
-				self.NavmeshNodes		=	TutorialBotPathfinder( self.StandingOnNode , TargetArea )
-				
-			end
+			self.NavmeshNodes		=	TutorialBotPathfinder( self.StandingOnNode , TargetArea )
 			
 			
 			-- Prevent spamming the pathfinder.
@@ -1337,152 +1404,4 @@ end
 function Lad:Node_Get_Type()
 	
 	return 2
-end
-
-function TutorialBotPathfinderCheap( StartNode , GoalNode )
-	if !IsValid( StartNode ) or !IsValid( GoalNode ) then return false end
-	if StartNode == GoalNode then return true end
-	
-	StartNode:ClearSearchLists()
-	
-	StartNode:AddToOpenList()
-	
-	StartNode:SetCostSoFar( 0 )
-	
-	StartNode:SetTotalCost( TutorialBotRangeCheckCheap( StartNode , GoalNode ) )
-	
-	StartNode:UpdateOnOpenList()
-	
-	local Final_Path		=	{}
-	local Trys				=	0 -- Backup! Prevent crashing.
-	
-	local GoalCen			=	GoalNode:GetCenter()
-	
-	while ( !StartNode:IsOpenListEmpty() and Trys < 50000 ) do
-		Trys	=	Trys + 1
-		
-		local Current	=	StartNode:PopOpenList()
-		
-		if Current == GoalNode then
-			
-			return TutorialBotRetracePathCheap( Final_Path , Current )
-		end
-		
-		Current:AddToClosedList()
-		
-		for k, neighbor in ipairs( Current:GetAdjacentAreas() ) do
-			local Height	=	Current:ComputeAdjacentConnectionHeightChange( neighbor ) 
-			-- Optimization,Prevent computing the height twice.
-			
-			local NewCostSoFar		=	Current:GetCostSoFar() + TutorialBotRangeCheckCheap( Current , neighbor , Height )
-			
-			
-			if Height > 64 then
-				-- Cant jump that high
-				continue
-			end
-			
-			if neighbor:IsOpen() or neighbor:IsClosed() and neighbor:GetCostSoFar() <= NewCostSoFar then
-				
-				continue
-				
-			else
-				
-				neighbor:SetCostSoFar( NewCostSoFar )
-				neighbor:SetTotalCost( NewCostSoFar + TutorialBotRangeCheckCheap( neighbor , GoalNode ) )
-				
-				if neighbor:IsClosed() then
-					
-					neighbor:RemoveFromClosedList()
-					
-				end
-				
-				if neighbor:IsOpen() then
-					
-					neighbor:UpdateOnOpenList()
-					
-				else
-					
-					neighbor:AddToOpenList()
-					
-				end
-				
-				
-				Final_Path[ neighbor:GetID() ]	=	Current:GetID()
-			end
-			
-			
-		end
-		
-		
-	end
-	
-	
-	return false
-end
-
-
-function TutorialBotRangeCheckCheap( FirstNode , SecondNode , Height )
-	
-	--local DefaultCost	=	( CurrentCen - NeighborCen ):Length()
-	local DefaultCost	=	FirstNode:GetCenter():Distance( SecondNode:GetCenter() )
-	
-	if isnumber( Height ) and Height > 32 then
-		
-		DefaultCost		=	DefaultCost * 5
-		
-		-- Jumping is slower than ground movement.
-		-- And falling is risky taking fall damage.
-		
-		
-	end
-	
-	-- Jump nodes however,We find slightly easier to jump with.Its more recommended than jumping without them.
-	if SecondNode:HasAttributes( NAV_MESH_JUMP ) then 
-		
-		DefaultCost	=	DefaultCost * 3.50
-		
-	end
-	
-	
-	-- Crawling through a vent is very slow.
-	if SecondNode:HasAttributes( NAV_MESH_CROUCH ) then 
-		
-		DefaultCost	=	DefaultCost * 7
-		
-	end
-	
-	-- We are less interested in smaller nodes as it can make less realistic paths.
-	-- Also its easy to get stuck on them.
-	if SecondNode:GetSizeY() <= 50 then
-		
-		DefaultCost		=	DefaultCost * 3
-		
-	end
-	
-	if SecondNode:GetSizeX() <= 50 then
-		
-		DefaultCost		=	DefaultCost * 3
-		
-	end
-	
-	
-	return DefaultCost
-end
-
-
-function TutorialBotRetracePathCheap( Final_Path , Current )
-	
-	local NewPath	=	{ Current }
-	
-	Current			=	Current:GetID()
-	
-	while( Final_Path[ Current ] ) do
-		
-		Current		=	Final_Path[ Current ]
-		table.insert( NewPath , navmesh.GetNavAreaByID( Current ) )
-		
-	end
-	
-	return NewPath
 end
