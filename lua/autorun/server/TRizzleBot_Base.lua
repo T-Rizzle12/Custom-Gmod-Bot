@@ -14,7 +14,7 @@ function TBotCreate( ply , cmd , args )
 	
 	local NewBot			=	player.CreateNextBot( args[ 1 ] ) -- Create the bot and store it in a varaible.
 	
-	NewBot.IsTutorialBot	=	true -- Flag this as our bot so we don't control other bots, Only ours!
+	NewBot.IsTRizzleBot	=	true -- Flag this as our bot so we don't control other bots, Only ours!
 	NewBot.Owner			=	ply -- Make the player who created the bot its "owner"
 	NewBot.FollowDist		=	200 -- This is how close the bot will follow it's owner
 	NewBot.DangerDist		=	300 -- This is how far the bot can be from it's owner when in combat
@@ -53,7 +53,7 @@ end
 
 
 hook.Add( "StartCommand" , "TRizzleBotAIHook" , function( bot , cmd )
-	if !IsValid( bot ) or !bot:IsBot() or !bot:Alive() or !bot.IsTutorialBot then return end
+	if !IsValid( bot ) or !bot:IsBot() or !bot:Alive() or !bot.IsTRizzleBot then return end
 	-- Make sure we can control this bot and its not a player.
 	
 	cmd:ClearButtons() -- Clear the bots buttons. Shooting, Running , jumping etc...
@@ -424,7 +424,7 @@ function TutorialBotPathfinder( StartNode , GoalNode )
 		if ( Current == GoalNode ) then
 			-- We found a path! Now lets retrace it.
 			
-			return TutorialBotRetracePath( StartNode, GoalNode ) -- Retrace the path and return the table of nodes.
+			return TRizzleBotRetracePath( StartNode, GoalNode ) -- Retrace the path and return the table of nodes.
 		end
 		
 		for k, neighbor in ipairs( Current:Get_Connected_Areas() ) do
@@ -441,7 +441,7 @@ function TutorialBotPathfinder( StartNode , GoalNode )
 			end
 			
 			-- G + H = F
-			local NewCostSoFar		=	Current:Get_G_Cost() + TutorialBotRangeCheck( Current , neighbor , Height )
+			local NewCostSoFar		=	Current:Get_G_Cost() + TRizzleBotRangeCheck( Current , neighbor , Height )
 			
 			if neighbor:Node_Is_Open() or neighbor:Node_Is_Closed() and neighbor:Get_G_Cost() <= NewCostSoFar then
 				
@@ -449,7 +449,7 @@ function TutorialBotPathfinder( StartNode , GoalNode )
 				
 			else
 				neighbor:Set_G_Cost( NewCostSoFar )
-				neighbor:Set_F_Cost( NewCostSoFar + TutorialBotRangeCheck( neighbor , GoalNode ) )
+				neighbor:Set_F_Cost( NewCostSoFar + TRizzleBotRangeCheck( neighbor , GoalNode ) )
 				
 				if neighbor:Node_Is_Closed() then
 					
@@ -472,7 +472,7 @@ end
 
 
 
-function TutorialBotRangeCheck( FirstNode , SecondNode , Height )
+function TRizzleBotRangeCheck( FirstNode , SecondNode , Height )
 	-- Some helper errors.
 	if !IsValid( FirstNode ) then error( "Bad argument #1 CNavArea or CNavLadder expected got " .. type( FirstNode ) ) end
 	if !IsValid( FirstNode ) then error( "Bad argument #2 CNavArea or CNavLadder expected got " .. type( SecondNode ) ) end
