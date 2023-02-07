@@ -1,6 +1,8 @@
 # Why I made this mod
 I made this because I usually have to play Gmod alone and I also wanted to see what I could do with the nextbot system.
 
+Special thanks to [Zenlenafelex [PSF]](https://steamcommunity.com/profiles/76561198976669728) for helping me with the pathfinding code for the bot.
+
 # Important
 This is a player bot so you will need to set the game to multiplayer and have a open player spot to create one.
 This mod is also in Beta, there will be bugs, but constant updates with new features.
