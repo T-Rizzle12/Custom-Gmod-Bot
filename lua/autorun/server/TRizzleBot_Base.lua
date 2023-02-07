@@ -66,7 +66,7 @@ hook.Add( "StartCommand" , "TRizzleBotAIHook" , function( bot , cmd )
 		local lerp = FrameTime() * math.random(4, 8)
 		bot:SetEyeAngles( LerpAngle(lerp, bot:EyeAngles(), ( bot.Enemy:WorldSpaceCenter() - bot:GetShootPos() ):GetNormalized():Angle() ) )
 		
-		if bot:HasWeapon( "weapon_medkit" ) and 25 < bot:Health() then
+		if bot:HasWeapon( "weapon_medkit" ) and 25 > bot:Health() then
 		
 			-- The bot will heal themself if they get too injured during combat
 			cmd:SelectWeapon( bot:GetWeapon( "weapon_medkit" ) )
@@ -256,19 +256,19 @@ function BOT:RestoreAmmo()
 	if IsValid ( rifle ) then rifle_ammo	=	self:GetAmmoCount( rifle:GetPrimaryAmmoType() ) end
 	if IsValid ( shotgun ) then shotgun_ammo	=	self:GetAmmoCount( shotgun:GetPrimaryAmmoType() ) end
 	
-	if pistol_ammo != nil and self:HasWeapon( pistol ) and pistol_ammo < 100 then
+	if pistol_ammo != nil and self:HasWeapon( Pistol:GetString() ) and pistol_ammo < 100 then
 		
 		self:GiveAmmo( 1, pistol:GetPrimaryAmmoType(), true )
 		
 	end
 	
-	if rifle_ammo != nil and self:HasWeapon( rifle ) and rifle_ammo < 250 then
+	if rifle_ammo != nil and self:HasWeapon( Rifle:GetSring() ) and rifle_ammo < 250 then
 		
 		self:GiveAmmo( 1, rifle:GetPrimaryAmmoType(), true )
 		
 	end
 	
-	if shotgun_ammo != nil and self:HasWeapon( shotgun ) and shotgun_ammo < 60 then
+	if shotgun_ammo != nil and self:HasWeapon( Shotgun:GetString ) and shotgun_ammo < 60 then
 		
 		self:GiveAmmo( 1, shotgun:GetPrimaryAmmoType(), true )
 		
@@ -356,7 +356,7 @@ function BOT:TBotCreateThinking()
 		if IsValid( self ) and self:Alive() then
 			
 			-- A quick condition statement to check if our enemy is no longer a threat.
-			-- Most likely done best in its own function. But for now we will make it simple.
+			-- Most likely done best in its own function. But for now I will make it simple.
 			if !IsValid( self.Enemy ) then self.Enemy		=	nil
 			elseif self.Enemy:IsPlayer() and !self.Enemy:Alive() then self.Enemy		=	nil
 			elseif !self.Enemy:Visible( self ) then self.Enemy		=	nil
@@ -380,7 +380,7 @@ end
 
 -- Target any player or bot that is visible to us.
 function BOT:TBotFindRandomEnemy()
-	local VisibleEnemies	=	{} -- So we can select a random enemy.
+	local VisibleEnemies	=	{} -- This is how many enemies the bot can see.
 	local targetdist		=	10000 -- This will allow the bot to select the closest enemy to it.
 	local target			=	nil -- This is the closest enemy to the bot.
 	
@@ -388,7 +388,7 @@ function BOT:TBotFindRandomEnemy()
 		
 		if IsValid ( v ) and v:IsNPC() and v:GetNPCState() != NPC_STATE_DEAD and (v:GetEnemy() == self or v:GetEnemy() == self.Owner) then -- The bot should attack any NPC that is attacking them or their owner
 			
-			if v:Visible( self ) then -- Using Visible() as an example of why we should delay the thinking.
+			if v:Visible( self ) then -- Using Visible() as an example of why we should delay the thinking. It also allows the bot to see right behind it, I will have to make my own function for line of sight.
 				
 				VisibleEnemies[ #VisibleEnemies + 1 ]		=	v
 				if (v:GetPos() - self:GetPos()):Length() < targetdist then 
@@ -817,7 +817,6 @@ function BOT:TBotCreateNavTimer()
 				if Attempts > 10 then self.Path	=	nil end
 				if Attempts > 20 then self.Goal =	nil end
 				Attempts = Attempts + 1
-				-- TODO/Challange: Make the bot jump a few times, If that does not work. Then recreate the path.
 				
 			else
 				Attempts = 0
@@ -1262,6 +1261,7 @@ function Lad:Node_Remove_From_Closed_List()
 end
 
 -- Prepare everything for a new path find.
+-- I might have a way to use this to optimize the open list
 function Prepare_Path_Find()
 	
 	Node_Data	=	{ {} , {} }
