@@ -44,7 +44,7 @@ I know what you are thinking, but these are needed to make the bot fun and easy 
 - [ ] Get the bot to detect vehicles the bot's owner is in and make the bot enter said vehicle
 - [ ] Optimize the pathfinding code
 - [ ] Get the bot to detect Nextbots
-- [ ] #1
+- [ ] https://github.com/T-Rizzle12/Custom-Gmod-Bot/issues/1
 - [ ] Allow players to change the bot's playermodel
 - [ ] Get the bot to detect if its in the dark and turn on and off its flashlight
 - [ ] Get the bot to detect and jump across gaps
