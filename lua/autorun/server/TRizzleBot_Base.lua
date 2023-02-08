@@ -1,6 +1,6 @@
-local BOT		=	FindMetaTable( "Player" )
-local Zone		=	FindMetaTable( "CNavArea" )
-local Lad		=	FindMetaTable( "CNavLadder" )
+local BOT			=	FindMetaTable( "Player" )
+local Zone			=	FindMetaTable( "CNavArea" )
+local Lad			=	FindMetaTable( "CNavLadder" )
 local Open_List		=	{}
 local Node_Data		=	{}
 
@@ -14,7 +14,7 @@ function TBotCreate( ply , cmd , args )
 	
 	local NewBot			=	player.CreateNextBot( args[ 1 ] ) -- Create the bot and store it in a varaible.
 	
-	NewBot.IsTRizzleBot	=	true -- Flag this as our bot so we don't control other bots, Only ours!
+	NewBot.IsTRizzleBot		=	true -- Flag this as our bot so we don't control other bots, Only ours!
 	NewBot.Owner			=	ply -- Make the player who created the bot its "owner"
 	NewBot.FollowDist		=	200 -- This is how close the bot will follow it's owner
 	NewBot.DangerDist		=	300 -- This is how far the bot can be from it's owner when in combat
@@ -37,15 +37,15 @@ concommand.Add( "TRizzleCreateBot" , TBotCreate )
 function BOT:TBotResetAI()
 	
 	self.Enemy			=	nil -- Refresh our enemy.
-	self.NumEnemies			=	0 -- How many enemies do we currently see
+	self.NumEnemies		=	0 -- How many enemies do we currently see
 	self.Jump			=	false -- Stop jumping
 	self.Crouch			=	false -- Stop crouching
 	self.Use			=	false -- Stop using
 	
 	self.Goal			=	nil -- The vector goal we want to get to.
-	self.NavmeshNodes		=	{} -- The nodes given to us by the pathfinder
+	self.NavmeshNodes	=	{} -- The nodes given to us by the pathfinder
 	self.Path			=	nil -- The nodes converted into waypoints by our visiblilty checking.
-	self.PathTime			=	CurTime() + 1.0 -- This will limit how often the path gets recreated
+	self.PathTime		=	CurTime() + 1.0 -- This will limit how often the path gets recreated
 	
 	self:TBotCreateThinking() -- Start our AI
 	
@@ -58,6 +58,7 @@ hook.Add( "StartCommand" , "TRizzleBotAIHook" , function( bot , cmd )
 	
 	cmd:ClearButtons() -- Clear the bots buttons. Shooting, Running , jumping etc...
 	cmd:ClearMovement() -- For when the bot is moving around.
+	local buttons = 0
 	
 	-- Better make sure they exist of course.
 	if IsValid( bot.Enemy ) then
@@ -95,7 +96,6 @@ hook.Add( "StartCommand" , "TRizzleBotAIHook" , function( bot , cmd )
 		
 		end
 		
-		local buttons = 0
 		local botWeapon = bot:GetActiveWeapon()
 		if math.random(2) == 1 and bot:GetEyeTrace().Entity == bot.Enemy then
 			buttons = buttons + IN_ATTACK
@@ -105,24 +105,7 @@ hook.Add( "StartCommand" , "TRizzleBotAIHook" , function( bot , cmd )
 			buttons = buttons + IN_RELOAD
 		end
 		
-		if bot.Jump and !bot:Is_On_Ladder() then 
-			buttons = buttons + IN_JUMP 
-			bot.Jump = false 
-		end
-		if bot.Crouch or !bot:IsOnGround() then 
-			buttons = buttons + IN_DUCK 
-			bot.Crouch = false 
-		end
-		if bot.Use and IsDoor( bot:GetEyeTrace().Entity ) then 
-			bot:GetEyeTrace().Entity:Use(bot, bot, USE_TOGGLE, -1)
-			bot.Use = false 
-		end
-		
-		if bot:Is_On_Ladder() then
-		
-			buttons = buttons + IN_FORWARD
-		
-		end
+		buttons = bot:HandleButtons( buttons )
 		
 		cmd:SetButtons( buttons )
 		bot:TBotUpdateMovement( cmd )
@@ -139,7 +122,6 @@ hook.Add( "StartCommand" , "TRizzleBotAIHook" , function( bot , cmd )
 		
 	elseif IsValid( bot.Owner ) and bot.Owner:Alive() then
 		
-		local buttons = 0
 		local botWeapon = bot:GetActiveWeapon()
 		if math.random(2) == 1 and botWeapon:IsWeapon() and botWeapon:Clip1() < botWeapon:GetMaxClip1() then
 			buttons = buttons + IN_RELOAD
@@ -178,29 +160,7 @@ hook.Add( "StartCommand" , "TRizzleBotAIHook" , function( bot , cmd )
 		end
 		-- Possibly add support for the bot to heal nearby players?
 		
-		-- Run if we are too far from our owner
-		if (bot.Owner:GetPos() - bot:GetPos()):Length() > bot.DangerDist then 
-			buttons = buttons + IN_SPEED 
-		end
-		
-		if bot.Jump and !bot:Is_On_Ladder() then 
-			buttons = buttons + IN_JUMP 
-			bot.Jump = false 
-		end
-		if bot.Crouch or !bot:IsOnGround() then 
-			buttons = buttons + IN_DUCK 
-			bot.Crouch = false 
-		end
-		if bot.Use and IsDoor( bot:GetEyeTrace().Entity ) then 
-			bot:GetEyeTrace().Entity:Use(bot, bot, USE_TOGGLE, -1)
-			bot.Use = false 
-		end
-		
-		if bot:Is_On_Ladder() then
-		
-			buttons = buttons + IN_FORWARD
-		
-		end
+		buttons = bot:HandleButtons( buttons )
 		
 		cmd:SetButtons( buttons )
 		bot:TBotUpdateMovement( cmd )
@@ -226,6 +186,82 @@ hook.Add( "StartCommand" , "TRizzleBotAIHook" , function( bot , cmd )
 		
 	end
 end)
+
+function BOT:HandleButtons( buttons )
+
+	local SmartJump		=	util.TraceLine({
+		
+		start			=	self:GetPos(),
+		endpos			=	self:GetPos() + Vector( 0 , 0 , -16 ),
+		filter			=	self,
+		mask			=	MASK_SOLID,
+		collisiongroup	=	COLLISION_GROUP_DEBRIS
+		
+	})
+	
+	-- This tells the bot to jump if it detects a gap in the ground
+	if !SmartJump.Hit then
+		
+		self.Jump	=	true
+
+	end
+	
+	local Close								=	navmesh.GetNearestNavArea( self:GetPos() )
+	
+	if Close:HasAttributes( NAV_MESH_JUMP ) then
+		
+		self.Jump		=	true
+	end
+	
+	if Close:HasAttributes( NAV_MESH_CROUCH ) then
+		
+		self.Crouch		=	true
+		
+	end
+	
+	-- Run if we are too far from our owner
+	if self:IsOnGround() and !self.Crouch and (self.Owner:GetPos() - self:GetPos()):Length() > self.DangerDist then 
+		buttons = buttons + IN_SPEED 
+	end
+	
+	if self.Crouch or !self:IsOnGround() then 
+	
+		buttons = buttons + IN_DUCK
+		
+		timer.Simple( 0.3 , function()
+			
+			self.Crouch = false 
+			
+		end)
+		
+	end
+	
+	if self:Is_On_Ladder() then
+		
+		buttons = buttons + IN_FORWARD
+		return buttons
+		
+	end
+	
+	if self.Jump then 
+	
+		buttons = buttons + IN_JUMP 
+		self.Jump = false 
+		
+	end
+	
+	local door = self:GetEyeTrace().Entity
+	
+	if self.Use and IsDoor( door ) and (door:GetPos() - self:GetPos()):Length() < 80 then 
+	
+		self:GetEyeTrace().Entity:Use(self, self, USE_TOGGLE, -1)
+		self.Use = false 
+		
+	end
+	
+	return buttons
+	
+end
 
 function BOT:IsInCombat()
 
@@ -262,13 +298,13 @@ function BOT:RestoreAmmo()
 		
 	end
 	
-	if rifle_ammo != nil and self:HasWeapon( Rifle:GetSring() ) and rifle_ammo < 250 then
+	if rifle_ammo != nil and self:HasWeapon( Rifle:GetString() ) and rifle_ammo < 250 then
 		
 		self:GiveAmmo( 1, rifle:GetPrimaryAmmoType(), true )
 		
 	end
 	
-	if shotgun_ammo != nil and self:HasWeapon( Shotgun:GetString ) and shotgun_ammo < 60 then
+	if shotgun_ammo != nil and self:HasWeapon( Shotgun:GetString() ) and shotgun_ammo < 60 then
 		
 		self:GiveAmmo( 1, shotgun:GetPrimaryAmmoType(), true )
 		
@@ -406,7 +442,7 @@ function BOT:TBotFindRandomEnemy()
 	
 end
 
-function TutorialBotPathfinder( StartNode , GoalNode )
+function TRizzleBotPathfinder( StartNode , GoalNode )
 	if !IsValid( StartNode ) or !IsValid( GoalNode ) then return false end
 	if ( StartNode == GoalNode ) then return true end
 	
