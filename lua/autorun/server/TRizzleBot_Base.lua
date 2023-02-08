@@ -263,6 +263,15 @@ function BOT:HandleButtons( buttons )
 	
 end
 
+-- Got this function from leadbots, this will check if a two vectors is in the set angle "FOV"
+function IsPointWithinViewAngle(pos, targetpos, lookdir, fov)
+	pos = targetpos - pos
+	local diff = lookdir:Dot(pos)
+	if diff < 0 then return false end
+	local len = pos:LengthSqr()
+	return diff * diff > len * fov * fov
+end
+
 function BOT:IsInCombat()
 
 	if IsValid ( self.Enemy ) then
