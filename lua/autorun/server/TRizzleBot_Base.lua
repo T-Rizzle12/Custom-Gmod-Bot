@@ -1,13 +1,13 @@
-local BOT			=	FindMetaTable( "Player" )
-local Zone			=	FindMetaTable( "CNavArea" )
-local Lad			=	FindMetaTable( "CNavLadder" )
+local BOT		=	FindMetaTable( "Player" )
+local Zone		=	FindMetaTable( "CNavArea" )
+local Lad		=	FindMetaTable( "CNavLadder" )
 local Open_List		=	{}
 local Node_Data		=	{}
 
-local Melee			=	CreateConVar( "TRizzleBot_Melee", "weapon_crowbar", FCVAR_NONE, "This is the melee weapon the bot will use." )
+local Melee		=	CreateConVar( "TRizzleBot_Melee", "weapon_crowbar", FCVAR_NONE, "This is the melee weapon the bot will use." )
 local Pistol		=	CreateConVar( "TRizzleBot_Pistol", "weapon_pistol", FCVAR_NONE, "This is the pistol the bot will use." )
 local Shotgun		=	CreateConVar( "TRizzleBot_Shotgun", "weapon_shotgun", FCVAR_NONE, "This is the shotgun the bot will use." )
-local Rifle			=	CreateConVar( "TRizzleBot_Rifle", "weapon_smg1", FCVAR_NONE, "This is the rifle/smg the bot will use." )
+local Rifle		=	CreateConVar( "TRizzleBot_Rifle", "weapon_smg1", FCVAR_NONE, "This is the rifle/smg the bot will use." )
 
 function TBotCreate( ply , cmd , args )
 	if !args[ 1 ] then return end
@@ -18,10 +18,10 @@ function TBotCreate( ply , cmd , args )
 	NewBot.Owner			=	ply -- Make the player who created the bot its "owner"
 	NewBot.FollowDist		=	200 -- This is how close the bot will follow it's owner
 	NewBot.DangerDist		=	300 -- This is how far the bot can be from it's owner when in combat
-	NewBot.Jump				=	false -- If this is set to true the bot will jump
+	NewBot.Jump			=	false -- If this is set to true the bot will jump
 	NewBot.Crouch			=	false -- If this is set to true the bot will crouch
-	NewBot.Use				=	false -- If this is set to true the bot will press its use key
-	NewBot.LastCombatTime	=	CurTime() -- This was how long ago the bot was in combat
+	NewBot.Use			=	false -- If this is set to true the bot will press its use key
+	NewBot.LastCombatTime		=	CurTime() -- This was how long ago the bot was in combat
 	
 	NewBot:TBotResetAI() -- Fully reset your bots AI.
 	
@@ -37,15 +37,16 @@ concommand.Add( "TRizzleCreateBot" , TBotCreate )
 function BOT:TBotResetAI()
 	
 	self.Enemy			=	nil -- Refresh our enemy.
-	self.NumEnemies		=	0 -- How many enemies do we currently see
+	self.EnemyList			=	{} -- This is the list of enemies the bot can see.
 	self.Jump			=	false -- Stop jumping
 	self.Crouch			=	false -- Stop crouching
 	self.Use			=	false -- Stop using
+	self.RandomLook			=	0 -- This is the area the bot will attempt to look at
 	
 	self.Goal			=	nil -- The vector goal we want to get to.
-	self.NavmeshNodes	=	{} -- The nodes given to us by the pathfinder
+	self.NavmeshNodes		=	{} -- The nodes given to us by the pathfinder
 	self.Path			=	nil -- The nodes converted into waypoints by our visiblilty checking.
-	self.PathTime		=	CurTime() + 1.0 -- This will limit how often the path gets recreated
+	self.PathTime			=	CurTime() + 1.0 -- This will limit how often the path gets recreated
 	
 	self:TBotCreateThinking() -- Start our AI
 	
@@ -59,6 +60,10 @@ hook.Add( "StartCommand" , "TRizzleBotAIHook" , function( bot , cmd )
 	cmd:ClearButtons() -- Clear the bots buttons. Shooting, Running , jumping etc...
 	cmd:ClearMovement() -- For when the bot is moving around.
 	local buttons = 0
+	local pistol	=	Pistol:GetString()
+	local rifle	=	Rifle:GetString()
+	local shotgun 	=	Shotgun:GetString()
+	local melee	=	Melee:GetString()
 	
 	-- Better make sure they exist of course.
 	if IsValid( bot.Enemy ) then
@@ -74,25 +79,25 @@ hook.Add( "StartCommand" , "TRizzleBotAIHook" , function( bot , cmd )
 			if math.random(2) == 1 then
 				buttons = buttons + IN_ATTACK2
 			end
-		elseif bot:HasWeapon( Pistol:GetString() ) and bot:GetWeapon( Pistol:GetString() ):HasAmmo() and (bot.Enemy:GetPos() - bot:GetPos()):Length() > 900 then
+		elseif bot:HasWeapon( pistol ) and bot:GetWeapon( pistol ):HasAmmo() and (bot.Enemy:GetPos() - bot:GetPos()):Length() > 900 then
 		
 			-- If an enemy gets too far the bot should use its pistol
-			cmd:SelectWeapon( bot:GetWeapon( Pistol:GetString() ) )
+			cmd:SelectWeapon( bot:GetWeapon( pistol ) )
 		
-		elseif bot:HasWeapon( Rifle:GetString() ) and bot:GetWeapon( Rifle:GetString() ):HasAmmo() and (bot.Enemy:GetPos() - bot:GetPos()):Length() > 300 then
+		elseif bot:HasWeapon( rifle ) and bot:GetWeapon( rifle ):HasAmmo() and (bot.Enemy:GetPos() - bot:GetPos()):Length() > 300 then
 		
 			-- If an enemy gets too far but is still close the bot should use its rifle
-			cmd:SelectWeapon( bot:GetWeapon( Rifle:GetString() ) )
+			cmd:SelectWeapon( bot:GetWeapon( rifle ) )
 		
-		elseif bot:HasWeapon( Shotgun:GetString() ) and bot:GetWeapon( Shotgun:GetString() ):HasAmmo() and (bot.Enemy:GetPos() - bot:GetPos()):Length() > 80 then
+		elseif bot:HasWeapon( shotgun ) and bot:GetWeapon( shotgun ):HasAmmo() and (bot.Enemy:GetPos() - bot:GetPos()):Length() > 80 then
 		
 			-- If an enemy gets too far but is still close the bot should use its shotgun
-			cmd:SelectWeapon( bot:GetWeapon( Shotgun:GetString() ) )
+			cmd:SelectWeapon( bot:GetWeapon( shotgun ) )
 		
-		elseif bot:HasWeapon( Melee:GetString() ) then
+		elseif bot:HasWeapon( melee ) then
 		
 			-- If an enemy gets too close the bot should use its crowbar
-			cmd:SelectWeapon( bot:GetWeapon( Melee:GetString() ) )
+			cmd:SelectWeapon( bot:GetWeapon( melee ) )
 		
 		end
 		
@@ -144,18 +149,18 @@ hook.Add( "StartCommand" , "TRizzleBotAIHook" , function( bot , cmd )
 			if math.random(2) == 1 then
 				buttons = buttons + IN_ATTACK2
 			end
-		elseif bot:HasWeapon( Pistol:GetString() ) and bot:GetWeapon( Pistol:GetString() ):Clip1() < bot:GetWeapon( Pistol:GetString() ):GetMaxClip1() then
+		elseif bot:HasWeapon( pistol ) and bot:GetWeapon( pistol ):Clip1() < bot:GetWeapon( pistol ):GetMaxClip1() then
 		
 			-- The bot should reload weapons that need to be reloaded
 			cmd:SelectWeapon( bot:GetWeapon( Pistol:GetString() ) )
 		
-		elseif bot:HasWeapon( Rifle:GetString() ) and bot:GetWeapon( Rifle:GetString() ):Clip1() < bot:GetWeapon( Rifle:GetString() ):GetMaxClip1() then
+		elseif bot:HasWeapon( rifle ) and bot:GetWeapon( rifle ):Clip1() < bot:GetWeapon( rifle ):GetMaxClip1() then
 		
 			cmd:SelectWeapon( bot:GetWeapon( Rifle:GetString() ) )
 			
-		elseif bot:HasWeapon( Shotgun:GetString() ) and bot:GetWeapon( Shotgun:GetString() ):Clip1() < bot:GetWeapon( Shotgun:GetString() ):GetMaxClip1() then
+		elseif bot:HasWeapon( shotgun ) and bot:GetWeapon( shotgun ):Clip1() < bot:GetWeapon( shotgun ):GetMaxClip1() then
 		
-			cmd:SelectWeapon( bot:GetWeapon( Shotgun:GetString() ) )
+			cmd:SelectWeapon( bot:GetWeapon( shotgun ) )
 			
 		end
 		-- Possibly add support for the bot to heal nearby players?
@@ -263,7 +268,7 @@ function BOT:HandleButtons( buttons )
 	
 end
 
--- Got this function from leadbots, this will check if a two vectors is in the set angle "FOV"
+-- Got this function from leadbot, this will check if a two vectors is in the set angle "FOV"
 function IsPointWithinViewAngle(pos, targetpos, lookdir, fov)
 	pos = targetpos - pos
 	local diff = lookdir:Dot(pos)
@@ -425,7 +430,7 @@ end
 
 -- Target any player or bot that is visible to us.
 function BOT:TBotFindRandomEnemy()
-	local VisibleEnemies	=	{} -- This is how many enemies the bot can see.
+	local VisibleEnemies		=	{} -- This is how many enemies the bot can see.
 	local targetdist		=	10000 -- This will allow the bot to select the closest enemy to it.
 	local target			=	nil -- This is the closest enemy to the bot.
 	
@@ -433,7 +438,15 @@ function BOT:TBotFindRandomEnemy()
 		
 		if IsValid ( v ) and v:IsNPC() and v:GetNPCState() != NPC_STATE_DEAD and (v:GetEnemy() == self or v:GetEnemy() == self.Owner) then -- The bot should attack any NPC that is attacking them or their owner
 			
-			if v:Visible( self ) then -- Using Visible() as an example of why we should delay the thinking. It also allows the bot to see right behind it, I will have to make my own function for line of sight.
+			if IsPointWithinViewAngle( self:EyePos(), v:WorldSpaceCenter(), self:GetAimVector(), 70 ) then -- I'm going to leave the FOV with a place holder until I can test this code
+				
+				VisibleEnemies[ #VisibleEnemies + 1 ]		=	v
+				if (v:GetPos() - self:GetPos()):Length() < targetdist then 
+					target = v
+					targetdist = (v:GetPos() - self:GetPos()):Length()
+				end
+				
+			elseif v:Visible( self ) and (v:GetPos() - self:GetPos()):Length() < 600 then -- The bot will "hear" any enemies that are nearby
 				
 				VisibleEnemies[ #VisibleEnemies + 1 ]		=	v
 				if (v:GetPos() - self:GetPos()):Length() < targetdist then 
@@ -447,7 +460,7 @@ function BOT:TBotFindRandomEnemy()
 	end
 	
 	self.Enemy		=	target
-	self.NumEnemies		=	#VisibleEnemies
+	self.NumEnemies		=	VisibleEnemies
 	
 end
 
@@ -903,7 +916,6 @@ function BOT:TBotDebugWaypoints()
 	
 end
 
-
 -- Make the bot move.
 function BOT:TBotUpdateMovement( cmd )
 	if !isvector( self.Goal ) then return end
@@ -915,7 +927,7 @@ function BOT:TBotUpdateMovement( cmd )
 		
 		cmd:SetViewAngles( MovementAngle )
 		cmd:SetForwardMove( self:GetMaxSpeed() )
-		if !IsValid( self.Enemy ) then self:SetEyeAngles( LerpAngle(lerp, self:EyeAngles(), ( self.Goal - self:GetPos() ):GetNormalized():Angle() ) ) end
+		if !IsValid( self.Enemy ) and self:Is_On_Ladder() then self:SetEyeAngles( LerpAngle(lerp, self:EyeAngles(), ( self.Goal - self:GetPos() ):GetNormalized():Angle() ) ) end
 		
 		local GoalIn2D			=	Vector( self.Goal.x , self.Goal.y , self:GetPos().z )
 		if IsVecCloseEnough( self:GetPos() , GoalIn2D , 32 ) then
@@ -934,7 +946,7 @@ function BOT:TBotUpdateMovement( cmd )
 		
 		cmd:SetViewAngles( MovementAngle )
 		cmd:SetForwardMove( self:GetMaxSpeed() )
-		if !IsValid ( self.Enemy ) then self:SetEyeAngles( LerpAngle(lerp, self:EyeAngles(), ( self.Path[ 1 ] - self:GetPos() ):GetNormalized():Angle() ) ) end
+		if !IsValid ( self.Enemy ) and self:Is_On_Ladder() then self:SetEyeAngles( LerpAngle(lerp, self:EyeAngles(), ( self.Path[ 1 ] - self:GetPos() ):GetNormalized():Angle() ) ) end
 		
 	end
 	
