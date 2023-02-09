@@ -39,9 +39,6 @@ I know what you are thinking, but these are needed to make the bot fun and easy 
 - The bot dosen't know if a Nextbot is hostile or friendly, "they wont attack nextbots at all!"
 - The bot doesn't know how to account for recoil on modded weapons
 - The bot will lag the game if it can't find a path to its owner
-- The bot can see behind it, "thankfully not through walls."
-- The bot can open doors halfway across the map
-- The bot can not jump across gaps
 
 # Planned Features
 - [ ] Get the bot to detect vehicles the bot's owner is in and make the bot enter said vehicle
