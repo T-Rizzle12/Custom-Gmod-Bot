@@ -26,25 +26,115 @@ function TBotCreate( ply , cmd , args )
 	
 end
 
-concommand.Add( "TRizzleCreateBot" , TBotCreate )
-
-function TBotSetMelee( ply, cmd, args )
-	if !args[ 1 ] or !args[ 2 ] then return end
+function TBotSetFollowDist( ply, cmd, args )
+	if !args[ 1 ] then return end
 	
 	local targetbot = args[ 1 ]
-	local melee = args[ 2 ]
+	local followdist = args[ 2 ] or 200
+	
+	for k, bot in ipairs( player.GetBots() ) do
+		
+		if bot.IsTRizzleBot and bot:Nick() == targetbot then
+			
+			bot.FollowDist = followdist
+			break
+		end
+		
+	end
+
+end
+
+function TBotSetDangerDist( ply, cmd, args )
+	if !args[ 1 ] then return end
+	
+	local targetbot = args[ 1 ]
+	local dangerdist = args[ 2 ] or 300
+	
+	for k, bot in ipairs( player.GetBots() ) do
+		
+		if bot.IsTRizzleBot and bot:Nick() == targetbot then
+			
+			bot.DangerDist = dangerdist
+			break
+		end
+		
+	end
+
+end
+
+function TBotSetMelee( ply, cmd, args )
+	if !args[ 1 ] then return end
+	
+	local targetbot = args[ 1 ]
+	local melee = args[ 2 ] or "weapon_melee"
 	
 	for k, bot in ipairs( player.GetBots() ) do
 		
 		if bot.IsTRizzleBot and bot:Nick() == targetbot then
 			
 			bot.Melee = melee
-			
+			break
 		end
 		
 	end
 
 end
+
+function TBotSetPistol( ply, cmd, args )
+	if !args[ 1 ] then return end
+	
+	local targetbot = args[ 1 ]
+	local pistol = args[ 2 ] or "weapon_pistol"
+	
+	for k, bot in ipairs( player.GetBots() ) do
+		
+		if bot.IsTRizzleBot and bot:Nick() == targetbot then
+			
+			bot.Pistol = pistol
+			break
+		end
+		
+	end
+
+end
+
+function TBotSetShotgun( ply, cmd, args )
+	if !args[ 1 ] then return end
+	
+	local targetbot = args[ 1 ]
+	local shotgun = args[ 2 ] or "weapon_shotgun"
+	
+	for k, bot in ipairs( player.GetBots() ) do
+		
+		if bot.IsTRizzleBot and bot:Nick() == targetbot then
+			
+			bot.Shotgun = shotgun
+			break
+		end
+		
+	end
+
+end
+
+function TBotSetRifle( ply, cmd, args )
+	if !args[ 1 ] then return end
+	
+	local targetbot = args[ 1 ]
+	local rifle = args[ 2 ] or "weapon_smg1"
+	
+	for k, bot in ipairs( player.GetBots() ) do
+		
+		if bot.IsTRizzleBot and bot:Nick() == targetbot then
+			
+			bot.Rifle = rifle
+			break
+		end
+		
+	end
+
+end
+
+concommand.Add( "TRizzleCreateBot" , TBotCreate )
 
 -------------------------------------------------------------------|
 
