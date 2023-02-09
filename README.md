@@ -20,6 +20,10 @@ Special thanks to [Zenlenafelex [PSF]](https://steamcommunity.com/profiles/76561
 # Current Commands
 - CommandName, CommandParameters, Example
 - "TRizzleCreateBot", botname, "TRizzleCreateBot Bot"
+- "TRizzleBot_Melee", melee, "This is the melee weapon the bot will use."
+- "TRizzleBot_Pistol", pistol, "This is the pistol the bot will use."
+- "TRizzleBot_Shotgun", shotgun, "This is the shotgun the bot will use."
+- "TRizzleBot_Rifle", smg/rifle, "This is the rifle/smg the bot will use."
 
 # Current Features
 - The bot is a player bot
