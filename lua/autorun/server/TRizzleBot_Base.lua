@@ -4,11 +4,6 @@ local Lad		=	FindMetaTable( "CNavLadder" )
 local Open_List		=	{}
 local Node_Data		=	{}
 
-local Melee		=	CreateConVar( "TRizzleBot_Melee", "weapon_crowbar", FCVAR_NONE, "This is the melee weapon the bot will use." )
-local Pistol		=	CreateConVar( "TRizzleBot_Pistol", "weapon_pistol", FCVAR_NONE, "This is the pistol the bot will use." )
-local Shotgun		=	CreateConVar( "TRizzleBot_Shotgun", "weapon_shotgun", FCVAR_NONE, "This is the shotgun the bot will use." )
-local Rifle		=	CreateConVar( "TRizzleBot_Rifle", "weapon_smg1", FCVAR_NONE, "This is the rifle/smg the bot will use." )
-
 function TBotCreate( ply , cmd , args )
 	if !args[ 1 ] then return end
 	
@@ -16,8 +11,12 @@ function TBotCreate( ply , cmd , args )
 	
 	NewBot.IsTRizzleBot		=	true -- Flag this as our bot so we don't control other bots, Only ours!
 	NewBot.Owner			=	ply -- Make the player who created the bot its "owner"
-	NewBot.FollowDist		=	200 -- This is how close the bot will follow it's owner
-	NewBot.DangerDist		=	300 -- This is how far the bot can be from it's owner when in combat
+	NewBot.FollowDist		=	args[ 2 ] or 200 -- This is how close the bot will follow it's owner
+	NewBot.DangerDist		=	args[ 3 ] or 300 -- This is how far the bot can be from it's owner when in combat
+	NewBot.Melee			=	args[ 4 ] or "weapon_crowbar" -- This is the melee weapon the bot will use
+	NewBot.Pistol			=	args[ 5 ] or "weapon_pistol" -- This is the pistol the bot will use
+	NewBot.Shotgun			=	args[ 6 ] or "weapon_shotgun" -- This is the shotgun the bot will use
+	NewBot.Rifle			=	args[ 7 ] or "weapon_smg1" -- This is the rifle/smg the bot will use
 	NewBot.Jump			=	false -- If this is set to true the bot will jump
 	NewBot.Crouch			=	false -- If this is set to true the bot will crouch
 	NewBot.Use			=	false -- If this is set to true the bot will press its use key
@@ -29,6 +28,12 @@ end
 
 concommand.Add( "TRizzleCreateBot" , TBotCreate )
 
+function TBotSetMelee( ply, cmd, args )
+	if !args[ 1 ] then return end
+	
+	local bot = args[ 1 ]
+	
+end
 
 -------------------------------------------------------------------|
 
@@ -59,10 +64,10 @@ hook.Add( "StartCommand" , "TRizzleBotAIHook" , function( bot , cmd )
 	cmd:ClearButtons() -- Clear the bots buttons. Shooting, Running , jumping etc...
 	cmd:ClearMovement() -- For when the bot is moving around.
 	local buttons = 0
-	local pistol	=	Pistol:GetString()
-	local rifle	=	Rifle:GetString()
-	local shotgun 	=	Shotgun:GetString()
-	local melee	=	Melee:GetString()
+	local pistol	=	bot.Pistol
+	local rifle	=	bot.Rifle
+	local shotgun 	=	bot.Shotgun
+	local melee	=	bot.Melee
 	
 	-- Better make sure they exist of course.
 	if IsValid( bot.Enemy ) then
@@ -287,9 +292,9 @@ end
 function BOT:RestoreAmmo()
 	
 	-- This is kind of a cheat, but the bot will only slowly recover ammo when not in combat
-	local pistol	=	self:GetWeapon( Pistol:GetString() )
-	local rifle		=	self:GetWeapon( Rifle:GetString() )
-	local shotgun	=	self:GetWeapon( Shotgun:GetString() )
+	local pistol	=	self:GetWeapon( self.Pistol )
+	local rifle		=	self:GetWeapon( self.Rifle )
+	local shotgun	=	self:GetWeapon( self.Shotgun )
 	local pistol_ammo	=	nil
 	local rifle_ammo	=	nil
 	local shotgun_ammo	=	nil
@@ -298,19 +303,19 @@ function BOT:RestoreAmmo()
 	if IsValid ( rifle ) then rifle_ammo	=	self:GetAmmoCount( rifle:GetPrimaryAmmoType() ) end
 	if IsValid ( shotgun ) then shotgun_ammo	=	self:GetAmmoCount( shotgun:GetPrimaryAmmoType() ) end
 	
-	if pistol_ammo != nil and self:HasWeapon( Pistol:GetString() ) and pistol_ammo < 100 then
+	if pistol_ammo != nil and self:HasWeapon( self.Pistol ) and pistol_ammo < 100 then
 		
 		self:GiveAmmo( 1, pistol:GetPrimaryAmmoType(), true )
 		
 	end
 	
-	if rifle_ammo != nil and self:HasWeapon( Rifle:GetString() ) and rifle_ammo < 250 then
+	if rifle_ammo != nil and self:HasWeapon( self.Rifle ) and rifle_ammo < 250 then
 		
 		self:GiveAmmo( 1, rifle:GetPrimaryAmmoType(), true )
 		
 	end
 	
-	if shotgun_ammo != nil and self:HasWeapon( Shotgun:GetString() ) and shotgun_ammo < 60 then
+	if shotgun_ammo != nil and self:HasWeapon( self.Shotgun ) and shotgun_ammo < 60 then
 		
 		self:GiveAmmo( 1, shotgun:GetPrimaryAmmoType(), true )
 		
@@ -417,7 +422,7 @@ end
 
 -- Target any player or bot that is visible to us.
 function BOT:TBotFindRandomEnemy()
-	local VisibleEnemies	=	{} -- This is how many enemies the bot can see.
+	local VisibleEnemies		=	{} -- This is how many enemies the bot can see.
 	local targetdist		=	10000 -- This will allow the bot to select the closest enemy to it.
 	local target			=	self.Enemy -- This is the closest enemy to the bot.
 	
