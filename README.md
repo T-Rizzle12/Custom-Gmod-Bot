@@ -10,20 +10,16 @@ I made this because I usually have to play Gmod alone and I also wanted to see w
 
 Special thanks to [Zenlenafelex [PSF]](https://steamcommunity.com/profiles/76561198976669728) for helping me with the pathfinding code for the bot.
 
-# Current Cvars
-- CvarName, DefaultValue, CvarFlags, CvarDescription
-- "TRizzleBot_Melee", "weapon_crowbar", FCVAR_NONE, "This is the melee weapon the bot will use."
-- "TRizzleBot_Pistol", "weapon_pistol", FCVAR_NONE, "This is the pistol the bot will use."
-- "TRizzleBot_Shotgun", "weapon_shotgun", FCVAR_NONE, "This is the shotgun the bot will use."
-- "TRizzleBot_Rifle", "weapon_smg1", FCVAR_NONE, "This is the rifle/smg the bot will use."
-
 # Current Commands
 - CommandName, CommandParameters, Example
-- "TRizzleCreateBot", botname, "TRizzleCreateBot Bot"
-- "TRizzleBot_Melee", melee, "This is the melee weapon the bot will use."
-- "TRizzleBot_Pistol", pistol, "This is the pistol the bot will use."
-- "TRizzleBot_Shotgun", shotgun, "This is the shotgun the bot will use."
-- "TRizzleBot_Rifle", smg/rifle, "This is the rifle/smg the bot will use."
+- "TRizzleCreateBot", TRizzleCreateBot <botname> <followdist> <dangerdist> <melee> <pistol> <shotgun> <rifle>, TRizzleCreateBot Bot 200 300 weapon_crowbar weapon_pistol weapon_shotgun weapon_smg1
+- "TBotSetFollowDist", <targetbot> <followdist>, TBotSetFollowDist Bot 200
+- "TBotSetDangerDist", <targetbot> <dangerdist>, TBotSetDangerDist Bot 300
+- "TBotSetMelee", <targetbot> <melee>, TBotSetMelee Bot weapon_crowbar
+- "TBotSetPistol", <targetbot> <pistol>, TBotSetPistol Bot weapon_pistol
+- "TBotSetShotgun", <targetbot> <shotgun>, TBotSetShotgun Bot weapon_shotgun
+- "TBotSetRifle", <targetbot> <rifle>, TBotSetRifle Bot weapon_smg1
+
 
 # Current Features
 - The bot is a player bot
