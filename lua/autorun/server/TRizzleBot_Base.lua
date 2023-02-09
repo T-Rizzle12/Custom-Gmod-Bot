@@ -41,7 +41,6 @@ function BOT:TBotResetAI()
 	self.Jump			=	false -- Stop jumping
 	self.Crouch			=	false -- Stop crouching
 	self.Use			=	false -- Stop using
-	self.RandomLook			=	0 -- This is the area the bot will attempt to look at
 	
 	self.Goal			=	nil -- The vector goal we want to get to.
 	self.NavmeshNodes		=	{} -- The nodes given to us by the pathfinder
@@ -106,7 +105,7 @@ hook.Add( "StartCommand" , "TRizzleBotAIHook" , function( bot , cmd )
 			buttons = buttons + IN_ATTACK
 		end
 		
-		if math.random(2) == 1 and botWeapon:IsWeapon() and botWeapon:Clip1() == 0 then
+		if math.random(2) == 1 and botWeapon:IsWeapon() and ( botWeapon:Clip1() == 0 or (botWeapon:GetClass() == shotgun and bot:GetEyeTrace().Entity != bot.Enemy)) then
 			buttons = buttons + IN_RELOAD
 		end
 		
@@ -137,7 +136,7 @@ hook.Add( "StartCommand" , "TRizzleBotAIHook" , function( bot , cmd )
 		
 			-- The bot should priortize healing its owner over themself
 			local lerp = FrameTime() * math.random(4, 8)
-			bot:SetEyeAngles( LerpAngle(lerp, bot:EyeAngles(), ( bot.Owner:WorldSpaceCenter() - bot:GetShootPos() ):GetNormalized():Angle() ) )
+			bot:SetEyeAngles( LerpAngle(lerp, bot:EyeAngles(), ( bot.Owner:GetShootPos() - bot:GetShootPos() ):GetNormalized():Angle() ) )
 			cmd:SelectWeapon( bot:GetWeapon( "weapon_medkit" ) )
 			if math.random(2) == 1 then
 				buttons = buttons + IN_ATTACK
@@ -194,21 +193,23 @@ end)
 
 function BOT:HandleButtons( buttons )
 
-	local SmartJump		=	util.TraceLine({
+	if self:OnGround() then
+		local SmartJump		=	util.TraceLine({
+			
+			start			=	self:GetPos(),
+			endpos			=	self:GetPos() + Vector( 0 , 0 , -16 ),
+			filter			=	self,
+			mask			=	MASK_SOLID,
+			collisiongroup	=	COLLISION_GROUP_DEBRIS
+			
+		})
 		
-		start			=	self:GetPos(),
-		endpos			=	self:GetPos() + Vector( 0 , 0 , -16 ),
-		filter			=	self,
-		mask			=	MASK_SOLID,
-		collisiongroup	=	COLLISION_GROUP_DEBRIS
-		
-	})
-	
-	-- This tells the bot to jump if it detects a gap in the ground
-	if !SmartJump.Hit then
-		
-		self.Jump	=	true
+		-- This tells the bot to jump if it detects a gap in the ground
+		if !SmartJump.Hit then
+			
+			self.Jump	=	true
 
+		end
 	end
 	
 	local Close								=	navmesh.GetNearestNavArea( self:GetPos() )
@@ -259,22 +260,13 @@ function BOT:HandleButtons( buttons )
 	
 	if self.Use and IsDoor( door ) and (door:GetPos() - self:GetPos()):Length() < 80 then 
 	
-		self:GetEyeTrace().Entity:Use(self, self, USE_TOGGLE, -1)
+		door:Use(self, self, USE_TOGGLE, -1)
 		self.Use = false 
 		
 	end
 	
 	return buttons
 	
-end
-
--- Got this function from leadbot, this will check if a two vectors is in the set angle "FOV"
-function IsPointWithinViewAngle(pos, targetpos, lookdir, fov)
-	pos = targetpos - pos
-	local diff = lookdir:Dot(pos)
-	if diff < 0 then return false end
-	local len = pos:LengthSqr()
-	return diff * diff > len * fov * fov
 end
 
 function BOT:IsInCombat()
@@ -389,11 +381,6 @@ hook.Add( "PlayerSpawn" , "TRizzleBotSpawnHook" , function( ply )
 end)
 
 
-
-
-
-
-
 -- The main AI is here.
 function BOT:TBotCreateThinking()
 	
@@ -430,23 +417,15 @@ end
 
 -- Target any player or bot that is visible to us.
 function BOT:TBotFindRandomEnemy()
-	local VisibleEnemies		=	{} -- This is how many enemies the bot can see.
+	local VisibleEnemies	=	{} -- This is how many enemies the bot can see.
 	local targetdist		=	10000 -- This will allow the bot to select the closest enemy to it.
-	local target			=	nil -- This is the closest enemy to the bot.
+	local target			=	self.Enemy -- This is the closest enemy to the bot.
 	
 	for k, v in ipairs( ents.GetAll() ) do
 		
 		if IsValid ( v ) and v:IsNPC() and v:GetNPCState() != NPC_STATE_DEAD and (v:GetEnemy() == self or v:GetEnemy() == self.Owner) then -- The bot should attack any NPC that is attacking them or their owner
 			
-			if IsPointWithinViewAngle( self:EyePos(), v:WorldSpaceCenter(), self:GetAimVector(), 70 ) then -- I'm going to leave the FOV with a place holder until I can test this code
-				
-				VisibleEnemies[ #VisibleEnemies + 1 ]		=	v
-				if (v:GetPos() - self:GetPos()):Length() < targetdist then 
-					target = v
-					targetdist = (v:GetPos() - self:GetPos()):Length()
-				end
-				
-			elseif v:Visible( self ) and (v:GetPos() - self:GetPos()):Length() < 600 then -- The bot will "hear" any enemies that are nearby
+			if v:Visible( self ) then
 				
 				VisibleEnemies[ #VisibleEnemies + 1 ]		=	v
 				if (v:GetPos() - self:GetPos()):Length() < targetdist then 
@@ -832,7 +811,7 @@ function BOT:TBotNavigation()
 			local Waypoint2D		=	Vector( self.Path[ 1 ].x , self.Path[ 1 ].y , self:GetPos().z )
 			-- ALWAYS: Use 2D navigation, It helps by a large amount.
 			
-			if self.Path[ 2 ] and IsVecCloseEnough( self:GetPos() , Waypoint2D , 600 ) and SendBoxedLine( self.Path[ 2 ] , self:GetPos() + Vector( 0 , 0 , 15 ) ) == true and self.Path[ 2 ].z - 20 <= Waypoint2D.z then
+			if self.Path[ 2 ] and IsVecCloseEnough( self:GetPos() , Waypoint2D , 600 ) and SendBoxedLine( self.Path[ 2 ] , self:GetPos() + Vector( 0 , 0 , 15 ) ) == true and self.Path[ 2 ].z - 20 >= Waypoint2D.z then
 				
 				table.remove( self.Path , 1 )
 				
@@ -926,8 +905,8 @@ function BOT:TBotUpdateMovement( cmd )
 		local lerp = FrameTime() * math.random(1, 4)
 		
 		cmd:SetViewAngles( MovementAngle )
-		cmd:SetForwardMove( self:GetMaxSpeed() )
-		if !IsValid( self.Enemy ) and self:Is_On_Ladder() then self:SetEyeAngles( LerpAngle(lerp, self:EyeAngles(), ( self.Goal - self:GetPos() ):GetNormalized():Angle() ) ) end
+		cmd:SetForwardMove( 1000 )
+		if !IsValid( self.Enemy ) then self:SetEyeAngles( LerpAngle(lerp, self:EyeAngles(), ( self.Goal - self:GetPos() ):GetNormalized():Angle() ) ) end
 		
 		local GoalIn2D			=	Vector( self.Goal.x , self.Goal.y , self:GetPos().z )
 		if IsVecCloseEnough( self:GetPos() , GoalIn2D , 32 ) then
@@ -945,8 +924,8 @@ function BOT:TBotUpdateMovement( cmd )
 		local lerp = FrameTime() * math.random(1, 4)
 		
 		cmd:SetViewAngles( MovementAngle )
-		cmd:SetForwardMove( self:GetMaxSpeed() )
-		if !IsValid ( self.Enemy ) and self:Is_On_Ladder() then self:SetEyeAngles( LerpAngle(lerp, self:EyeAngles(), ( self.Path[ 1 ] - self:GetPos() ):GetNormalized():Angle() ) ) end
+		cmd:SetForwardMove( 1000 )
+		if !IsValid ( self.Enemy ) then self:SetEyeAngles( LerpAngle(lerp, self:EyeAngles(), ( self.Path[ 1 ] - self:GetPos() ):GetNormalized():Angle() ) ) end
 		
 	end
 	
