@@ -5,7 +5,7 @@ local Open_List		=	{}
 local Node_Data		=	{}
 
 function TBotCreate( ply , cmd , args )
-	if !args[ 1 ] then return end
+	if !args[ 1 ] then return end 
 	
 	local NewBot			=	player.CreateNextBot( args[ 1 ] ) -- Create the bot and store it in a varaible.
 	
@@ -34,7 +34,7 @@ function TBotSetFollowDist( ply, cmd, args )
 	
 	for k, bot in ipairs( player.GetBots() ) do
 		
-		if bot.IsTRizzleBot and bot:Nick() == targetbot then
+		if bot.IsTRizzleBot and bot:Nick() == targetbot and bot.Owner == ply then
 			
 			bot.FollowDist = followdist
 			break
@@ -52,7 +52,7 @@ function TBotSetDangerDist( ply, cmd, args )
 	
 	for k, bot in ipairs( player.GetBots() ) do
 		
-		if bot.IsTRizzleBot and bot:Nick() == targetbot then
+		if bot.IsTRizzleBot and bot:Nick() == targetbot and bot.Owner == ply then
 			
 			bot.DangerDist = dangerdist
 			break
@@ -70,7 +70,7 @@ function TBotSetMelee( ply, cmd, args )
 	
 	for k, bot in ipairs( player.GetBots() ) do
 		
-		if bot.IsTRizzleBot and bot:Nick() == targetbot then
+		if bot.IsTRizzleBot and bot:Nick() == targetbot and bot.Owner == ply then
 			
 			bot.Melee = melee
 			break
@@ -88,7 +88,7 @@ function TBotSetPistol( ply, cmd, args )
 	
 	for k, bot in ipairs( player.GetBots() ) do
 		
-		if bot.IsTRizzleBot and bot:Nick() == targetbot then
+		if bot.IsTRizzleBot and bot:Nick() == targetbot and bot.Owner == ply then
 			
 			bot.Pistol = pistol
 			break
@@ -106,7 +106,7 @@ function TBotSetShotgun( ply, cmd, args )
 	
 	for k, bot in ipairs( player.GetBots() ) do
 		
-		if bot.IsTRizzleBot and bot:Nick() == targetbot then
+		if bot.IsTRizzleBot and bot:Nick() == targetbot and bot.Owner == ply then
 			
 			bot.Shotgun = shotgun
 			break
@@ -124,7 +124,7 @@ function TBotSetRifle( ply, cmd, args )
 	
 	for k, bot in ipairs( player.GetBots() ) do
 		
-		if bot.IsTRizzleBot and bot:Nick() == targetbot then
+		if bot.IsTRizzleBot and bot:Nick() == targetbot and bot.Owner == ply then
 			
 			bot.Rifle = rifle
 			break
@@ -134,7 +134,13 @@ function TBotSetRifle( ply, cmd, args )
 
 end
 
-concommand.Add( "TRizzleCreateBot" , TBotCreate )
+concommand.Add( "TRizzleCreateBot" , TBotCreate , nil , "Creates a TRizzle Bot with the specified parameters. Example: TRizzleCreateBot <botname> <followdist> <dangerdist> <melee> <pistol> <shotgun> <rifle> Example2: TRizzleCreateBot Bot 200 300 weapon_crowbar weapon_pistol weapon_shotgun weapon_smg1" )
+concommand.Add( "TBotSetFollowDist" , TBotSetFollowDist , nil , "Changes the specified bot's how close it should be to its owner. If only the bot is specified the value will revert bact to the default." )
+concommand.Add( "TBotSetDangerDist" , TBotSetDangerDist , nil , "Changes the specified bot's how far the bot can be from its owner while in combat. If only the bot is specified the value will revert back to the default." )
+concommand.Add( "TBotSetMelee" , TBotSetMelee , nil , "Changes the specified bot's preferred melee weapon. If only the bot is specified the value will revert back to the default." )
+concommand.Add( "TBotSetPistol" , TBotSetPistol , nil , "Changes the specified bot's preferred pistol. If only the bot is specified the value will revert back to the default." )
+concommand.Add( "TBotSetShotgun" , TBotSetShotgun , nil , "Changes the specified bot's preferred shotgun. If only the bot is specified the value will revert back to the default." )
+concommand.Add( "TBotSetRifle" , TBotSetRifle , nil , "Changes the specified bot's preferred rifle/smg. If only the bot is specified the value will revert back to the default." )
 
 -------------------------------------------------------------------|
 
