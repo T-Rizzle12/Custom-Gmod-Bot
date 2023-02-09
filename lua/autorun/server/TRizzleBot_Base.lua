@@ -29,10 +29,21 @@ end
 concommand.Add( "TRizzleCreateBot" , TBotCreate )
 
 function TBotSetMelee( ply, cmd, args )
-	if !args[ 1 ] then return end
+	if !args[ 1 ] or !args[ 2 ] then return end
 	
-	local bot = args[ 1 ]
+	local targetbot = args[ 1 ]
+	local melee = args[ 2 ]
 	
+	for k, bot in ipairs( player.GetBots() ) do
+		
+		if bot.IsTRizzleBot and bot:Nick() == targetbot then
+			
+			bot.Melee = melee
+			
+		end
+		
+	end
+
 end
 
 -------------------------------------------------------------------|
