@@ -315,9 +315,81 @@ end)
 
 function BOT:HandleButtons( buttons )
 
-	local Close								=	navmesh.GetNearestNavArea( self:GetPos() )
+	local Close		=	navmesh.GetNearestNavArea( self:GetPos() )
+	local Current_Node 	=	self.Path[ 1 ]
+	local Smart_Jump	=	true
 	
-	if self:OnGround() and !Close:HasAttributes( 4096 ) then
+	if !IsValid ( Close ) then -- If their is no nav_mesh this will run instead to prevent the addon from spamming errors
+		-- The bot shouldn't smart jump if its goal requies it to jump into a gap
+		if isvector ( self.Path[ 1 ] ) and self.Path[ 1 ]:Distance( self:GetPos() ) < 200 and self.Path[ 1 ].z < self:GetPos().z then Smart_Jump = false end			
+		
+		if self:OnGround() and Smart_Jump then
+			local SmartJump		=	util.TraceLine({
+
+				start			=	self:GetPos(),
+				endpos			=	self:GetPos() + Vector( 0 , 0 , -16 ),
+				filter			=	self,
+				mask			=	MASK_SOLID,
+				collisiongroup	=	COLLISION_GROUP_DEBRIS
+
+			})
+
+			-- This tells the bot to jump if it detects a gap in the ground
+			if !SmartJump.Hit then
+
+				self.Jump	=	true
+
+			end
+		end
+		
+		-- Run if we are too far from our owner
+		if self:IsOnGround() and !self.Crouch and (self.Owner:GetPos() - self:GetPos()):Length() > self.DangerDist then 
+			buttons = buttons + IN_SPEED 
+		end
+
+		if self.Crouch or !self:IsOnGround() then 
+
+			buttons = buttons + IN_DUCK
+
+			timer.Simple( 0.3 , function()
+
+				self.Crouch = false 
+
+			end)
+
+		end
+
+		if self:Is_On_Ladder() then
+
+			buttons = buttons + IN_FORWARD
+			return buttons
+
+		end
+
+		if self.Jump then 
+
+			buttons = buttons + IN_JUMP 
+			self.Jump = false 
+
+		end
+
+		local door = self:GetEyeTrace().Entity
+
+		if self.Use and IsDoor( door ) and (door:GetPos() - self:GetPos()):Length() < 80 then 
+
+			door:Use(self, self, USE_TOGGLE, -1)
+			self.Use = false 
+
+		end
+
+		return buttons
+	
+	end
+	
+	-- The bot shouldn't smart jump if its goal requies it to jump into a gap
+	if isvector ( self.Path[ 1 ] ) and self.Path[ 1 ]:Distance( self:GetPos() ) < 200 and self.Path[ 1 ].z < self:GetPos().z then Smart_Jump = false end
+	
+	if self:OnGround() and !Close:HasAttributes( NAV_MESH_STAIRS ) and Smart_Jump then
 		local SmartJump		=	util.TraceLine({
 			
 			start			=	self:GetPos(),
