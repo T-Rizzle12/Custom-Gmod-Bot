@@ -19,6 +19,7 @@ Special thanks to [Zenlenafelex [PSF]](https://steamcommunity.com/profiles/76561
 - "TBotSetPistol", "targetbot" "pistol", TBotSetPistol Bot weapon_pistol
 - "TBotSetShotgun", "targetbot" "shotgun", TBotSetShotgun Bot weapon_shotgun
 - "TBotSetRifle", "targetbot" "rifle", TBotSetRifle Bot weapon_smg1
+- "TBotSetDefault", "targetbot, TBotSetDefault Bot
 
 
 # Current Features
