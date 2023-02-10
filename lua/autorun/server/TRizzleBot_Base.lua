@@ -9,17 +9,17 @@ function TBotCreate( ply , cmd , args )
 	
 	local NewBot			=	player.CreateNextBot( args[ 1 ] ) -- Create the bot and store it in a varaible.
 	
-	NewBot.IsTRizzleBot		=	true -- Flag this as our bot so we don't control other bots, Only ours!
-	NewBot.Owner			=	ply -- Make the player who created the bot its "owner"
-	NewBot.FollowDist		=	args[ 2 ] or 200 -- This is how close the bot will follow it's owner
-	NewBot.DangerDist		=	args[ 3 ] or 300 -- This is how far the bot can be from it's owner when in combat
-	NewBot.Melee			=	args[ 4 ] or "weapon_crowbar" -- This is the melee weapon the bot will use
-	NewBot.Pistol			=	args[ 5 ] or "weapon_pistol" -- This is the pistol the bot will use
-	NewBot.Shotgun			=	args[ 6 ] or "weapon_shotgun" -- This is the shotgun the bot will use
-	NewBot.Rifle			=	args[ 7 ] or "weapon_smg1" -- This is the rifle/smg the bot will use
-	NewBot.Jump			=	false -- If this is set to true the bot will jump
-	NewBot.Crouch			=	false -- If this is set to true the bot will crouch
-	NewBot.Use			=	false -- If this is set to true the bot will press its use key
+	NewBot.IsTRizzleBot			=	true -- Flag this as our bot so we don't control other bots, Only ours!
+	NewBot.Owner				=	ply -- Make the player who created the bot its "owner"
+	NewBot.FollowDist			=	isnumber( tonumber( args[ 2 ] ) ) or 200 -- This is how close the bot will follow it's owner
+	NewBot.DangerDist			=	isnumber( tonumber( args[ 3 ] ) ) or 300 -- This is how far the bot can be from it's owner when in combat
+	NewBot.Melee				=	args[ 4 ] or "weapon_crowbar" -- This is the melee weapon the bot will use
+	NewBot.Pistol				=	args[ 5 ] or "weapon_pistol" -- This is the pistol the bot will use
+	NewBot.Shotgun				=	args[ 6 ] or "weapon_shotgun" -- This is the shotgun the bot will use
+	NewBot.Rifle				=	args[ 7 ] or "weapon_smg1" -- This is the rifle/smg the bot will use
+	NewBot.Jump					=	false -- If this is set to true the bot will jump
+	NewBot.Crouch				=	false -- If this is set to true the bot will crouch
+	NewBot.Use					=	false -- If this is set to true the bot will press its use key
 	NewBot.LastCombatTime		=	CurTime() -- This was how long ago the bot was in combat
 	
 	NewBot:TBotResetAI() -- Fully reset your bots AI.
@@ -30,7 +30,7 @@ function TBotSetFollowDist( ply, cmd, args )
 	if !args[ 1 ] then return end
 	
 	local targetbot = args[ 1 ]
-	local followdist = args[ 2 ] or 200
+	local followdist = isnumber( tonumber( args[ 2 ] ) ) or 200
 	
 	for k, bot in ipairs( player.GetBots() ) do
 		
@@ -48,7 +48,7 @@ function TBotSetDangerDist( ply, cmd, args )
 	if !args[ 1 ] then return end
 	
 	local targetbot = args[ 1 ]
-	local dangerdist = args[ 2 ] or 300
+	local dangerdist = isnumber( tonumber( args[ 2 ] ) ) or 300
 	
 	for k, bot in ipairs( player.GetBots() ) do
 		
@@ -66,7 +66,7 @@ function TBotSetMelee( ply, cmd, args )
 	if !args[ 1 ] then return end
 	
 	local targetbot = args[ 1 ]
-	local melee = args[ 2 ] or "weapon_melee"
+	local melee = args[ 2 ] or "weapon_crowbar"
 	
 	for k, bot in ipairs( player.GetBots() ) do
 		
@@ -135,7 +135,7 @@ function TBotSetRifle( ply, cmd, args )
 end
 
 concommand.Add( "TRizzleCreateBot" , TBotCreate , nil , "Creates a TRizzle Bot with the specified parameters. Example: TRizzleCreateBot <botname> <followdist> <dangerdist> <melee> <pistol> <shotgun> <rifle> Example2: TRizzleCreateBot Bot 200 300 weapon_crowbar weapon_pistol weapon_shotgun weapon_smg1" )
-concommand.Add( "TBotSetFollowDist" , TBotSetFollowDist , nil , "Changes the specified bot's how close it should be to its owner. If only the bot is specified the value will revert bact to the default." )
+concommand.Add( "TBotSetFollowDist" , TBotSetFollowDist , nil , "Changes the specified bot's how close it should be to its owner. If only the bot is specified the value will revert back to the default." )
 concommand.Add( "TBotSetDangerDist" , TBotSetDangerDist , nil , "Changes the specified bot's how far the bot can be from its owner while in combat. If only the bot is specified the value will revert back to the default." )
 concommand.Add( "TBotSetMelee" , TBotSetMelee , nil , "Changes the specified bot's preferred melee weapon. If only the bot is specified the value will revert back to the default." )
 concommand.Add( "TBotSetPistol" , TBotSetPistol , nil , "Changes the specified bot's preferred pistol. If only the bot is specified the value will revert back to the default." )
@@ -148,15 +148,15 @@ concommand.Add( "TBotSetRifle" , TBotSetRifle , nil , "Changes the specified bot
 
 function BOT:TBotResetAI()
 	
-	self.Enemy			=	nil -- Refresh our enemy.
+	self.Enemy				=	nil -- Refresh our enemy.
 	self.EnemyList			=	{} -- This is the list of enemies the bot can see.
-	self.Jump			=	false -- Stop jumping
-	self.Crouch			=	false -- Stop crouching
-	self.Use			=	false -- Stop using
+	self.Jump				=	false -- Stop jumping
+	self.Crouch				=	false -- Stop crouching
+	self.Use				=	false -- Stop using
 	
-	self.Goal			=	nil -- The vector goal we want to get to.
+	self.Goal				=	nil -- The vector goal we want to get to.
 	self.NavmeshNodes		=	{} -- The nodes given to us by the pathfinder
-	self.Path			=	nil -- The nodes converted into waypoints by our visiblilty checking.
+	self.Path				=	nil -- The nodes converted into waypoints by our visiblilty checking.
 	self.PathTime			=	CurTime() + 1.0 -- This will limit how often the path gets recreated
 	
 	self:TBotCreateThinking() -- Start our AI
@@ -176,7 +176,7 @@ hook.Add( "StartCommand" , "TRizzleBotAIHook" , function( bot , cmd )
 	if IsValid( bot.Enemy ) then
 		
 		-- Turn and face our enemy!
-		local lerp = FrameTime() * math.random(4, 8)
+		local lerp = FrameTime() * math.random(8, 10)
 		bot:SetEyeAngles( LerpAngle(lerp, bot:EyeAngles(), ( bot.Enemy:WorldSpaceCenter() - bot:GetShootPos() ):GetNormalized():Angle() ) )
 		
 		if bot:HasWeapon( "weapon_medkit" ) and 25 > bot:Health() then
@@ -213,7 +213,7 @@ hook.Add( "StartCommand" , "TRizzleBotAIHook" , function( bot , cmd )
 			buttons = buttons + IN_ATTACK
 		end
 		
-		if math.random(2) == 1 and botWeapon:IsWeapon() and (botWeapon:Clip1() == 0 or (botWeapon:GetClass() == shotgun and bot:GetEyeTrace().Entity != bot.Enemy)) then
+		if math.random(2) == 1 and botWeapon:IsWeapon() and botWeapon:Clip1() == 0 then
 			buttons = buttons + IN_RELOAD
 		end
 		
@@ -243,7 +243,7 @@ hook.Add( "StartCommand" , "TRizzleBotAIHook" , function( bot , cmd )
 		if bot:HasWeapon( "weapon_medkit" ) and (bot.Owner:GetPos() - bot:GetPos()):Length() < 80 and bot.Owner:Health() < bot.Owner:GetMaxHealth() then
 		
 			-- The bot should priortize healing its owner over themself
-			local lerp = FrameTime() * math.random(4, 8)
+			local lerp = FrameTime() * math.random(8, 10)
 			bot:SetEyeAngles( LerpAngle(lerp, bot:EyeAngles(), ( bot.Owner:GetShootPos() - bot:GetShootPos() ):GetNormalized():Angle() ) )
 			cmd:SelectWeapon( bot:GetWeapon( "weapon_medkit" ) )
 			if math.random(2) == 1 then
@@ -301,7 +301,9 @@ end)
 
 function BOT:HandleButtons( buttons )
 
-	if self:OnGround() then
+	local Close								=	navmesh.GetNearestNavArea( self:GetPos() )
+	
+	if self:OnGround() and !Close:HasAttributes( 4096 ) then
 		local SmartJump		=	util.TraceLine({
 			
 			start			=	self:GetPos(),
@@ -319,8 +321,6 @@ function BOT:HandleButtons( buttons )
 
 		end
 	end
-	
-	local Close								=	navmesh.GetNearestNavArea( self:GetPos() )
 	
 	if Close:HasAttributes( NAV_MESH_JUMP ) then
 		
@@ -526,8 +526,8 @@ end
 -- Target any player or bot that is visible to us.
 function BOT:TBotFindRandomEnemy()
 	local VisibleEnemies		=	{} -- This is how many enemies the bot can see.
-	local targetdist		=	10000 -- This will allow the bot to select the closest enemy to it.
-	local target			=	self.Enemy -- This is the closest enemy to the bot.
+	local targetdist			=	10000 -- This will allow the bot to select the closest enemy to it.
+	local target				=	self.Enemy -- This is the closest enemy to the bot.
 	
 	for k, v in ipairs( ents.GetAll() ) do
 		
