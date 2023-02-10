@@ -3,7 +3,7 @@ This is a player bot so you will need to set the game to multiplayer and have a 
 
 This mod is also in Beta, there will be bugs, but constant updates with new features.
 
-Please DO NOT CLONE THIS REPOSITORY. I actively update this repository and certain functions may break when I do. Download the file attached to the latest release of this addon instead. Thank You!
+Although you can now clone the repository, "I will put updates into a secondary branch before relasing it," I would suggest downloading the latest release, Thank You!
 
 # Why I made this mod
 I made this because I usually have to play Gmod alone and I also wanted to see what I could do with the nextbot system.
