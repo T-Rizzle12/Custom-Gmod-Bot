@@ -134,6 +134,19 @@ function TBotSetRifle( ply, cmd, args )
 
 end
 
+function TBotSetDefault( ply, cmd, args )
+	if !args[ 1 ] then return end
+	if args[ 2 ] then args[ 2 ] = nil end
+	
+	TBotSetFollowDist( ply, cmd, args )
+	TBotSetDangerDist( ply, cmd, args )
+	TBotSetMelee( ply, cmd, args )
+	TBotSetPistol( ply, cmd, args )
+	TBotSetShotgun( ply, cmd, args )
+	TBotSetRifle( ply, cmd, args )
+
+end
+
 concommand.Add( "TRizzleCreateBot" , TBotCreate , nil , "Creates a TRizzle Bot with the specified parameters. Example: TRizzleCreateBot <botname> <followdist> <dangerdist> <melee> <pistol> <shotgun> <rifle> Example2: TRizzleCreateBot Bot 200 300 weapon_crowbar weapon_pistol weapon_shotgun weapon_smg1" )
 concommand.Add( "TBotSetFollowDist" , TBotSetFollowDist , nil , "Changes the specified bot's how close it should be to its owner. If only the bot is specified the value will revert back to the default." )
 concommand.Add( "TBotSetDangerDist" , TBotSetDangerDist , nil , "Changes the specified bot's how far the bot can be from its owner while in combat. If only the bot is specified the value will revert back to the default." )
@@ -141,6 +154,7 @@ concommand.Add( "TBotSetMelee" , TBotSetMelee , nil , "Changes the specified bot
 concommand.Add( "TBotSetPistol" , TBotSetPistol , nil , "Changes the specified bot's preferred pistol. If only the bot is specified the value will revert back to the default." )
 concommand.Add( "TBotSetShotgun" , TBotSetShotgun , nil , "Changes the specified bot's preferred shotgun. If only the bot is specified the value will revert back to the default." )
 concommand.Add( "TBotSetRifle" , TBotSetRifle , nil , "Changes the specified bot's preferred rifle/smg. If only the bot is specified the value will revert back to the default." )
+concommand.Add( "TBotSetDefault" , TBotSetDefault , nil , "Set the specified bot's settings back to the default." )
 
 -------------------------------------------------------------------|
 
