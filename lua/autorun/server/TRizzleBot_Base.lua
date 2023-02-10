@@ -526,30 +526,11 @@ end
 
 
 -- Just a simple way to respawn a bot.
-hook.Add( "PlayerDeath" , "TRizzleBotRespawn" , function( ply )
+hook.Add( "PostPlayerDeath" , "TRizzleBotRespawn" , function( ply )
 	
 	if ply:IsBot() and ply.IsTRizzleBot then 
 		
 		timer.Simple( 3 , function()
-			
-			if IsValid( ply ) then
-				
-				ply:Spawn()
-				
-			end
-			
-		end)
-		
-	end
-	
-end)
-
--- Just a simple way to respawn a bot.
-hook.Add( "PlayerSilentDeath" , "TRizzleBotRespawn2" , function( ply )
-	
-	if ply:IsBot() and ply.IsTRizzleBot then 
-		
-		timer.Simple( 10 , function()
 			
 			if IsValid( ply ) then
 				
