@@ -17,7 +17,12 @@ function TBotCreate( ply , cmd , args )
 	NewBot.Pistol				=	args[ 5 ] or "weapon_pistol" -- This is the pistol the bot will use
 	NewBot.Shotgun				=	args[ 6 ] or "weapon_shotgun" -- This is the shotgun the bot will use
 	NewBot.Rifle				=	args[ 7 ] or "weapon_smg1" -- This is the rifle/smg the bot will use
-	NewBot.Jump					=	false -- If this is set to true the bot will jump
+	NewBot.Sniper				=	args[ 8 ] or "weapon_crossbow" -- This is the sniper the bot will use
+	NewBot.MeleeDist			=	isnumber( tonumber( args[ 9 ] ) ) or 80 -- If an enemy is closer than this, the bot will use its melee
+	NewBot.PistolDist			=	isnumber( tonumber( args[ 10 ] ) ) or 1300 -- If an enemy is closer than this, the bot will use its pistol
+	NewBot.ShotgunDist			=	isnumber( tonumber( args[ 11 ] ) ) or 300 -- If an enemy is closer than this, the bot will use its shotgun
+	NewBot.RifleDist			=	isnumber( tonumber( args[ 12 ] ) ) or 900 -- If an enemy is closer than this, the bot will use its rifle
+	NewBot.Jump				=	false -- If this is set to true the bot will jump
 	NewBot.Crouch				=	false -- If this is set to true the bot will crouch
 	NewBot.Use					=	false -- If this is set to true the bot will press its use key
 	NewBot.LastCombatTime		=	CurTime() -- This was how long ago the bot was in combat
@@ -134,6 +139,24 @@ function TBotSetRifle( ply, cmd, args )
 
 end
 
+function TBotSetSniper( ply, cmd, args )
+	if !args[ 1 ] then return end
+	
+	local targetbot = args[ 1 ]
+	local rifle = args[ 2 ] or "weapon_crossbow"
+	
+	for k, bot in ipairs( player.GetBots() ) do
+		
+		if bot.IsTRizzleBot and bot:Nick() == targetbot and bot.Owner == ply then
+			
+			bot.Sniper = rifle
+			break
+		end
+		
+	end
+
+end
+
 function TBotSetDefault( ply, cmd, args )
 	if !args[ 1 ] then return end
 	if args[ 2 ] then args[ 2 ] = nil end
@@ -144,6 +167,7 @@ function TBotSetDefault( ply, cmd, args )
 	TBotSetPistol( ply, cmd, args )
 	TBotSetShotgun( ply, cmd, args )
 	TBotSetRifle( ply, cmd, args )
+	TBotSetSniper( ply, cmd, args )
 
 end
 
@@ -154,6 +178,7 @@ concommand.Add( "TBotSetMelee" , TBotSetMelee , nil , "Changes the specified bot
 concommand.Add( "TBotSetPistol" , TBotSetPistol , nil , "Changes the specified bot's preferred pistol. If only the bot is specified the value will revert back to the default." )
 concommand.Add( "TBotSetShotgun" , TBotSetShotgun , nil , "Changes the specified bot's preferred shotgun. If only the bot is specified the value will revert back to the default." )
 concommand.Add( "TBotSetRifle" , TBotSetRifle , nil , "Changes the specified bot's preferred rifle/smg. If only the bot is specified the value will revert back to the default." )
+concommand.Add( "TBotSetSniper" , TBotSetSniper , nil , "Changes the specified bot's preferred sniper. If only the bot is specified the value will revert back to the default." )
 concommand.Add( "TBotSetDefault" , TBotSetDefault , nil , "Set the specified bot's settings back to the default." )
 
 -------------------------------------------------------------------|
@@ -200,24 +225,29 @@ hook.Add( "StartCommand" , "TRizzleBotAIHook" , function( bot , cmd )
 			if math.random(2) == 1 then
 				buttons = buttons + IN_ATTACK2
 			end
-		elseif bot:HasWeapon( bot.Pistol ) and bot:GetWeapon( bot.Pistol ):HasAmmo() and (bot.Enemy:GetPos() - bot:GetPos()):Length() > 900 then
+		elseif bot:HasWeapon( bot.Sniper ) and bot:GetWeapon( bot.Sniper ):HasAmmo() and (bot.Enemy:GetPos() - bot:GetPos()):Length() > bot.PistolDist then
 		
-			-- If an enemy gets too far the bot should use its pistol
+			-- If an enemy is very far away the bot should use its sniper
+			cmd:SelectWeapon( bot:GetWeapon( bot.Sniper ) )
+		
+		elseif bot:HasWeapon( bot.Pistol ) and bot:GetWeapon( bot.Pistol ):HasAmmo() and (bot.Enemy:GetPos() - bot:GetPos()):Length() > bot.RifleDist then
+		
+			-- If an enemy is far the bot, the bot should use its pistol
 			cmd:SelectWeapon( bot:GetWeapon( bot.Pistol ) )
 		
-		elseif bot:HasWeapon( bot.Rifle ) and bot:GetWeapon( bot.Rifle ):HasAmmo() and (bot.Enemy:GetPos() - bot:GetPos()):Length() > 300 then
+		elseif bot:HasWeapon( bot.Rifle ) and bot:GetWeapon( bot.Rifle ):HasAmmo() and (bot.Enemy:GetPos() - bot:GetPos()):Length() > bot.ShotgunDist then
 		
 			-- If an enemy gets too far but is still close the bot should use its rifle
 			cmd:SelectWeapon( bot:GetWeapon( bot.Rifle ) )
 		
-		elseif bot:HasWeapon( bot.Shotgun ) and bot:GetWeapon( bot.Shotgun ):HasAmmo() and (bot.Enemy:GetPos() - bot:GetPos()):Length() > 80 then
+		elseif bot:HasWeapon( bot.Shotgun ) and bot:GetWeapon( bot.Shotgun ):HasAmmo() and (bot.Enemy:GetPos() - bot:GetPos()):Length() > bot.MeleeDist then
 		
 			-- If an enemy gets too far but is still close the bot should use its shotgun
 			cmd:SelectWeapon( bot:GetWeapon( bot.Shotgun ) )
 		
 		elseif bot:HasWeapon( bot.Melee ) then
 		
-			-- If an enemy gets too close the bot should use its crowbar
+			-- If an enemy gets too close the bot should use its melee
 			cmd:SelectWeapon( bot:GetWeapon( bot.Melee ) )
 		
 		end
@@ -270,9 +300,13 @@ hook.Add( "StartCommand" , "TRizzleBotAIHook" , function( bot , cmd )
 			if math.random(2) == 1 then
 				buttons = buttons + IN_ATTACK2
 			end
-		elseif bot:HasWeapon( bot.Pistol ) and bot:GetWeapon( bot.Pistol ):Clip1() < bot:GetWeapon( bot.Pistol ):GetMaxClip1() then
+		elseif bot:HasWeapon( bot.Sniper ) and bot:GetWeapon( bot.Sniper ):Clip1() < bot:GetWeapon( bot.Sniper ):GetMaxClip1() then
 		
 			-- The bot should reload weapons that need to be reloaded
+			cmd:SelectWeapon( bot:GetWeapon( bot.Sniper ) )
+		
+		elseif bot:HasWeapon( bot.Pistol ) and bot:GetWeapon( bot.Pistol ):Clip1() < bot:GetWeapon( bot.Pistol ):GetMaxClip1() then
+		
 			cmd:SelectWeapon( bot:GetWeapon( bot.Pistol ) )
 		
 		elseif bot:HasWeapon( bot.Rifle ) and bot:GetWeapon( bot.Rifle ):Clip1() < bot:GetWeapon( bot.Rifle ):GetMaxClip1() then
@@ -484,13 +518,16 @@ function BOT:RestoreAmmo()
 	local pistol		=	self:GetWeapon( self.Pistol )
 	local rifle		=	self:GetWeapon( self.Rifle )
 	local shotgun		=	self:GetWeapon( self.Shotgun )
+	local sniper		=	self:GetWeapon( self.Sniper )
 	local pistol_ammo	=	nil
 	local rifle_ammo	=	nil
 	local shotgun_ammo	=	nil
+	local sniper_ammo	=	nil
 	
 	if IsValid ( pistol ) then pistol_ammo		=	self:GetAmmoCount( pistol:GetPrimaryAmmoType() ) end
 	if IsValid ( rifle ) then rifle_ammo		=	self:GetAmmoCount( rifle:GetPrimaryAmmoType() ) end
 	if IsValid ( shotgun ) then shotgun_ammo	=	self:GetAmmoCount( shotgun:GetPrimaryAmmoType() ) end
+	if IsValid ( sniper ) then sniper_ammo		=	self:GetAmmoCount( sniper:GetPrimaryAmmoType() ) end
 	
 	if pistol_ammo != nil and self:HasWeapon( self.Pistol ) and pistol_ammo < 100 then
 		
@@ -507,6 +544,12 @@ function BOT:RestoreAmmo()
 	if shotgun_ammo != nil and self:HasWeapon( self.Shotgun ) and shotgun_ammo < 60 then
 		
 		self:GiveAmmo( 1, shotgun:GetPrimaryAmmoType(), true )
+		
+	end
+	
+	if sniper_ammo != nil and self:HasWeapon( self.Sniper ) and sniper_ammo < 40 then
+		
+		self:GiveAmmo( 1, sniper:GetPrimaryAmmoType(), true )
 		
 	end
 	
