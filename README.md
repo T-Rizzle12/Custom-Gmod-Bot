@@ -19,7 +19,7 @@ Special thanks to [Zenlenafelex [PSF]](https://steamcommunity.com/profiles/76561
 - "TBotSetPistol", "targetbot" "pistol", TBotSetPistol Bot weapon_pistol
 - "TBotSetShotgun", "targetbot" "shotgun", TBotSetShotgun Bot weapon_shotgun
 - "TBotSetRifle", "targetbot" "rifle", TBotSetRifle Bot weapon_smg1
-- "TBotSetDefault", "targetbot, TBotSetDefault Bot
+- "TBotSetDefault", "targetbot", TBotSetDefault Bot
 
 
 # Current Features
@@ -48,4 +48,4 @@ I know what you are thinking, but these are needed to make the bot fun and easy 
 - [x] Part 1 Completed ~~Add more convars, to make the bot more customizable. :)~~
 - [ ] Allow players to change the bot's playermodel
 - [ ] Get the bot to detect if its in the dark and turn on and off its flashlight
-- [ ] Get the bot to detect and jump across gaps
+- [x] Get the bot to detect and jump across gaps
