@@ -191,7 +191,7 @@ hook.Add( "StartCommand" , "TRizzleBotAIHook" , function( bot , cmd )
 		
 		-- Turn and face our enemy!
 		local lerp = FrameTime() * math.random(8, 10)
-		bot:SetEyeAngles( LerpAngle(lerp, bot:EyeAngles(), ( bot.Enemy:WorldSpaceCenter() - bot:GetShootPos() ):GetNormalized():Angle() ) )
+		if !bot:Is_On_Ladder() then bot:SetEyeAngles( LerpAngle(lerp, bot:EyeAngles(), ( bot.Enemy:WorldSpaceCenter() - bot:GetShootPos() ):GetNormalized():Angle() ) ) end
 		
 		if bot:HasWeapon( "weapon_medkit" ) and 25 > bot:Health() then
 		
@@ -223,7 +223,7 @@ hook.Add( "StartCommand" , "TRizzleBotAIHook" , function( bot , cmd )
 		end
 		
 		local botWeapon = bot:GetActiveWeapon()
-		if math.random(2) == 1 and bot:GetEyeTrace().Entity == bot.Enemy then
+		if math.random(2) == 1 and bot:GetEyeTrace().Entity == bot.Enemy then -- Should I use IsLineOfSightClear() instead?
 			buttons = buttons + IN_ATTACK
 		end
 		
@@ -320,7 +320,7 @@ function BOT:HandleButtons( buttons )
 	local Smart_Jump	=	true
 	
 	if !IsValid ( Close ) then -- If their is no nav_mesh this will run instead to prevent the addon from spamming errors
-		-- The bot shouldn't smart jump if its goal requies it to jump into a gap
+		-- The bot shouldn't smart jump if its goal requires it to use a dropdown
 		if isvector ( self.Path[ 1 ] ) and self.Path[ 1 ]:Distance( self:GetPos() ) < 200 and self.Path[ 1 ].z < self:GetPos().z then Smart_Jump = false end			
 		
 		if self:OnGround() and Smart_Jump then
@@ -386,7 +386,7 @@ function BOT:HandleButtons( buttons )
 	
 	end
 	
-	-- The bot shouldn't smart jump if its goal requies it to jump into a gap
+	-- The bot shouldn't smart jump if its goal requires it to use a dropdown
 	if isvector ( self.Path[ 1 ] ) and self.Path[ 1 ]:Distance( self:GetPos() ) < 200 and self.Path[ 1 ].z < self:GetPos().z then Smart_Jump = false end
 	
 	if self:OnGround() and !Close:HasAttributes( NAV_MESH_STAIRS ) and Smart_Jump then
@@ -592,7 +592,7 @@ end
 
 -- Target any player or bot that is visible to us.
 function BOT:TBotFindRandomEnemy()
-	local VisibleEnemies		=	{} -- This is how many enemies the bot can see.
+	local VisibleEnemies		=	{} -- This is how many enemies the bot can see. Currently not used......yet
 	local targetdist			=	10000 -- This will allow the bot to select the closest enemy to it.
 	local target				=	self.Enemy -- This is the closest enemy to the bot.
 	
