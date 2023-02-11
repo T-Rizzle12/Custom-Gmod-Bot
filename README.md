@@ -12,13 +12,22 @@ Special thanks to [Zenlenafelex [PSF]](https://steamcommunity.com/profiles/76561
 
 # Current Commands
 - CommandName, CommandParameters, Example
-- "TRizzleCreateBot", "botname" "followdist" "dangerdist" "melee" "pistol" "shotgun" "rifle", TRizzleCreateBot Bot 200 300 weapon_crowbar weapon_pistol weapon_shotgun weapon_smg1
+- "TRizzleCreateBot", "botname" "followdist" "dangerdist" "melee" "pistol" "shotgun" "rifle" "sniper" "meleedist" "pistoldist" "shotgundist" "rifledist" "healthreshold" "combathealthreshold" "playermodel", TRizzleCreateBot Bot 200 300 weapon_crowbar weapon_pistol weapon_shotgun weapon_smg1 weapon_crossbow 80 1300 300 900 100 25 alyx
 - "TBotSetFollowDist", "targetbot" "followdist", TBotSetFollowDist Bot 200
 - "TBotSetDangerDist", "targetbot" "dangerdist", TBotSetDangerDist Bot 300
 - "TBotSetMelee", "targetbot" "melee", TBotSetMelee Bot weapon_crowbar
 - "TBotSetPistol", "targetbot" "pistol", TBotSetPistol Bot weapon_pistol
 - "TBotSetShotgun", "targetbot" "shotgun", TBotSetShotgun Bot weapon_shotgun
 - "TBotSetRifle", "targetbot" "rifle", TBotSetRifle Bot weapon_smg1
+- "TBotSetSniper", "targetbot" "sniper", TBotSetRifle Bot weapon_crossbow
+- "TBotSetMeleeDist", "targetbot" "meleedist", TBotSetMelee Bot weapon_crowbar
+- "TBotSetPistolDist", "targetbot" "pistoldist", TBotSetPistol Bot weapon_pistol
+- "TBotSetShotgunDist", "targetbot" "shotgundist", TBotSetShotgun Bot weapon_shotgun
+- "TBotSetRifleDist", "targetbot" "rifledist", TBotSetRifle Bot weapon_smg1
+- "TBotSetHealThreshold", "targetbot" "healthreshold", TBotSetRifle Bot 100
+- "TBotSetCombatHealThreshold", "targetbot" "combathealthreshold", TBotSetRifle Bot 25
+- "TBotSetPlayerModel", "targetbot" "playermodel", TBotSetRifle Bot alyx
+- "TBotSetDefault", "targetbot", TBotSetDefault Bot
 
 
 # Current Features
@@ -27,7 +36,7 @@ Special thanks to [Zenlenafelex [PSF]](https://steamcommunity.com/profiles/76561
 - The bot has smooth aiming
 - The bot can open doors
 - The bot supports most custom/modded weapons
-- The bot will use its flashlight when in combat or the player they are following has it on
+- The bot will use its flashlight when in a dark area
 - The bot will attack any NPC that attacks them and its owner, "the player that created it."
 - The bot, if it has a medkit, will heal itself and its owner
 
@@ -44,7 +53,7 @@ I know what you are thinking, but these are needed to make the bot fun and easy 
 - [ ] Get the bot to detect vehicles the bot's owner is in and make the bot enter said vehicle
 - [ ] Optimize the pathfinding code
 - [ ] Get the bot to detect Nextbots
-- [x] Part 1 Completed ~~Add more convars, to make the bot more customizable. :)~~
-- [ ] Allow players to change the bot's playermodel
-- [ ] Get the bot to detect if its in the dark and turn on and off its flashlight
-- [ ] Get the bot to detect and jump across gaps
+- [x] ~~Add more convars, to make the bot more customizable. :)~~
+- [x] ~~Allow players to change the bot's playermodel~~
+- [x] ~~Get the bot to detect if its in the dark and turn on and off its flashlight~~
+- [x] ~~Get the bot to detect and jump across gaps~~
