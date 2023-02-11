@@ -46,6 +46,6 @@ I know what you are thinking, but these are needed to make the bot fun and easy 
 - [ ] Optimize the pathfinding code
 - [ ] Get the bot to detect Nextbots
 - [x] Part 1 Completed ~~Add more convars, to make the bot more customizable. :)~~
-- [ ] Allow players to change the bot's playermodel
-- [ ] Get the bot to detect if its in the dark and turn on and off its flashlight
+- [x] Allow players to change the bot's playermodel
+- [x] Get the bot to detect if its in the dark and turn on and off its flashlight
 - [x] Get the bot to detect and jump across gaps
