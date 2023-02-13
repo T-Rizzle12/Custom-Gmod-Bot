@@ -600,6 +600,17 @@ function BOT:IsInCombat()
 	
 end
 
+-- This will check if the bot's cursor is on target
+function BOT:IsCursorOnTarget()
+	
+	if IsValid ( self.Enemy ) then
+		
+		local enemydist = self:EyePos():Distance( self.Enemy:EyePos() )
+		util.TraceLine( self:GetShootPos(), self:GetShootPos() * enemydist * self:GetForward(), self)
+		
+	end
+end
+
 function BOT:RestoreAmmo()
 	
 	-- This is kind of a cheat, but the bot will only slowly recover ammo when not in combat
