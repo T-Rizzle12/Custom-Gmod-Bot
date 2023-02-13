@@ -604,7 +604,7 @@ function BOT:RestoreAmmo()
 	
 	-- This is kind of a cheat, but the bot will only slowly recover ammo when not in combat
 	local pistol		=	self:GetWeapon( self.Pistol )
-	local rifle			=	self:GetWeapon( self.Rifle )
+	local rifle		=	self:GetWeapon( self.Rifle )
 	local shotgun		=	self:GetWeapon( self.Shotgun )
 	local sniper		=	self:GetWeapon( self.Sniper )
 	local pistol_ammo	=	nil
@@ -695,6 +695,15 @@ hook.Add( "PlayerSpawn" , "TRizzleBotSpawnHook" , function( ply )
 	
 end)
 
+-- Checks if its current enemy is still alive and still visible to the bot
+function BOT:IsCurrentEnemyAlive()
+	
+	if !IsValid( self.Enemy ) then self.Enemy							=	nil
+	elseif self.Enemy:IsPlayer() and !self.Enemy:Alive() then self.Enemy				=	nil -- Just incase the bot's enemy is set to a player even though the bot should only target NPCS and "hopefully" NEXTBOTS 
+	elseif !self.Enemy:Visible( self ) then self.Enemy						=	nil
+	elseif self.Enemy:IsNPC() and self.Enemy:GetNPCState() == NPC_STATE_DEAD then self.Enemy	=	nil end
+	
+end
 
 -- The main AI is here.
 function BOT:TBotCreateThinking()
@@ -708,13 +717,8 @@ function BOT:TBotCreateThinking()
 		if IsValid( self ) and self:Alive() then
 			
 			-- A quick condition statement to check if our enemy is no longer a threat.
-			-- Most likely done best in its own function. But for now I will make it simple.
-			if !IsValid( self.Enemy ) then self.Enemy							=	nil
-			elseif self.Enemy:IsPlayer() and !self.Enemy:Alive() then self.Enemy				=	nil
-			elseif !self.Enemy:Visible( self ) then self.Enemy						=	nil
-			elseif self.Enemy:IsNPC() and self.Enemy:GetNPCState() == NPC_STATE_DEAD then self.Enemy	=	nil end
-			
-			self:TBotFindRandomEnemy()
+			self:IsCurrentEnemyAlive()
+			self:TBotFindClosestEnemy()
 			
 			local tab = player.GetHumans()
 			if #tab > 0 then
@@ -739,21 +743,21 @@ end
 
 
 -- Target any player or bot that is visible to us.
-function BOT:TBotFindRandomEnemy()
-	local VisibleEnemies		=	{} -- This is how many enemies the bot can see. Currently not used......yet
+function BOT:TBotFindClosestEnemy()
+	local VisibleEnemies			=	{} -- This is how many enemies the bot can see. Currently not used......yet
 	local targetdist			=	10000 -- This will allow the bot to select the closest enemy to it.
 	local target				=	self.Enemy -- This is the closest enemy to the bot.
 	
 	for k, v in ipairs( ents.GetAll() ) do
 		
-		if IsValid ( v ) and v:IsNPC() and v:GetNPCState() != NPC_STATE_DEAD and (v:GetEnemy() == self or v:GetEnemy() == self.Owner) then -- The bot should attack any NPC that is attacking them or their owner
+		if IsValid ( v ) and v:IsNPC() and v:GetNPCState() != NPC_STATE_DEAD and (v:GetEnemy() == self or v:GetEnemy() == self.Owner) then -- The bot should attack any NPC that is attacking them or their owner.
 			
 			if v:Visible( self ) then
-				
+				local enemydist = (v:GetPos() - self:GetPos()):Length()
 				VisibleEnemies[ #VisibleEnemies + 1 ]		=	v
-				if (v:GetPos() - self:GetPos()):Length() < targetdist then 
+				if enemydist < targetdist then 
 					target = v
-					targetdist = (v:GetPos() - self:GetPos()):Length()
+					targetdist = enemydist
 				end
 			end
 			
@@ -762,7 +766,7 @@ function BOT:TBotFindRandomEnemy()
 	end
 	
 	self.Enemy		=	target
-	self.NumEnemies		=	VisibleEnemies
+	self.EnemyList		=	VisibleEnemies
 	
 end
 
