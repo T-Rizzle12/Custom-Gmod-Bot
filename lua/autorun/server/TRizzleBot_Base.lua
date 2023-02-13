@@ -365,15 +365,7 @@ hook.Add( "StartCommand" , "TRizzleBotAIHook" , function( bot , cmd )
 		
 		-- Turn and face our enemy!
 		local lerp = FrameTime() * math.random(8, 10)
-		if util.QuickTrace( bot:GetShootPos(), bot.Enemy:GetPos() + Vector( 0, 0, 45 ), bot ).Entity == bot.Enemy then
-
-            bot:SetEyeAngles( LerpAngle(lerp, bot:EyeAngles(), ( (bot.Enemy:GetPos() + Vector( 0, 0, 45 )) - bot:GetShootPos() ):GetNormalized():Angle() ) )
-
-        else
-
-            bot:SetEyeAngles( LerpAngle(lerp, bot:EyeAngles(), ( bot.Enemy:WorldSpaceCenter() - bot:GetShootPos() ):GetNormalized():Angle() ) )
-
-        end
+		bot:SetEyeAngles( LerpAngle(lerp, bot:EyeAngles(), ( bot.Enemy:WorldSpaceCenter() - bot:GetShootPos() ):GetNormalized():Angle() ) )
 		
 		if bot:HasWeapon( "weapon_medkit" ) and bot.CombatHealThreshold > bot:Health() then
 		
@@ -397,7 +389,7 @@ hook.Add( "StartCommand" , "TRizzleBotAIHook" , function( bot , cmd )
 			-- If an enemy gets too far but is still close the bot should use its rifle
 			cmd:SelectWeapon( bot:GetWeapon( bot.Rifle ) )
 		
-		elseif bot:HasWeapon( bot.Shotgun ) and bot:GetWeapon( bot.Shotgun ):HasAmmo() and (bot.Enemy:GetPos() - bot:GetPos()):Length() > bot.MeleeDist then
+		elseif bot:HasWeapon( bot.Shotgun ) and bot:GetWeapon( bot.Shotgun ):HasAmmo() and ( (bot.Enemy:GetPos() - bot:GetPos()):Length() > bot.MeleeDist or !bot:HasWeapon( bot.Melee ) ) then
 		
 			-- If an enemy gets too far but is still close the bot should use its shotgun
 			cmd:SelectWeapon( bot:GetWeapon( bot.Shotgun ) )
@@ -410,11 +402,11 @@ hook.Add( "StartCommand" , "TRizzleBotAIHook" , function( bot , cmd )
 		end
 		
 		local botWeapon = bot:GetActiveWeapon()
-		if math.random(2) == 1 and bot:IsLineOfSightClear( bot.Enemy:GetPos() ) then
+		if math.random(2) == 1 and botWeapon:IsWeapon() and ( bot:GetEyeTraceNoCursor().Entity == bot.Enemy or (bot.Enemy:GetPos() - bot:GetPos()):Length() < bot.MeleeDist ) then
 			buttons = buttons + IN_ATTACK
 		end
 		
-		if math.random(2) == 1 and botWeapon:IsWeapon() and botWeapon:Clip1() == 0 then
+		if math.random(2) == 1 and botWeapon:IsWeapon() and ( botWeapon:Clip1() == 0 or ( botWeapon:GetClass() == bot.Shotgun and bot:GetEyeTraceNoCursor().Entity != bot.Enemy ) ) then
 			buttons = buttons + IN_RELOAD
 		end
 		
@@ -477,9 +469,7 @@ hook.Add( "StartCommand" , "TRizzleBotAIHook" , function( bot , cmd )
 		end
 		-- Possibly add support for the bot to heal nearby players?
 		
-		buttons = bot:HandleButtons( buttons )
-		
-		cmd:SetButtons( buttons )
+		cmd:SetButtons( bot:HandleButtons( buttons ) )
 		bot:TBotUpdateMovement( cmd )
 		
 		if isvector( bot.Goal ) and (bot.Owner:GetPos() - bot.Goal):Length() < bot.FollowDist then
@@ -508,66 +498,27 @@ function BOT:HandleButtons( buttons )
 
 	local Close		=	navmesh.GetNearestNavArea( self:GetPos() )
 	
-	if !IsValid ( Close ) then -- If their is no nav_mesh this will run instead to prevent the addon from spamming errors
+	if IsValid ( Close ) then -- If their is no nav_mesh this will not run to prevent the addon from spamming errors
 		
-		-- Run if we are too far from our owner
-		if self:IsOnGround() and !self.Crouch and (self.Owner:GetPos() - self:GetPos()):Length() > self.DangerDist then 
-			buttons = buttons + IN_SPEED 
+		if Close:HasAttributes( NAV_MESH_JUMP ) then
+			
+			self.Jump		=	true
+			
 		end
-
-		if self.Crouch or !self:IsOnGround() then 
-
-			buttons = buttons + IN_DUCK
-
-			timer.Simple( 0.3 , function()
-
-				self.Crouch = false 
-
-			end)
-
-		end
-
-		if self:Is_On_Ladder() then
-
-			buttons = buttons + IN_FORWARD
-			return buttons
-
-		end
-
-		if self.Jump then 
-
-			buttons = buttons + IN_JUMP 
-			self.Jump = false 
-
-		end
-
-		local door = self:GetEyeTrace().Entity
-
-		if self.Use and IsDoor( door ) and (door:GetPos() - self:GetPos()):Length() < 80 then 
-
-			door:Use(self, self, USE_TOGGLE, -1)
-			self.Use = false 
-
-		end
-
-		return buttons
-	
-	end
-	
-	if Close:HasAttributes( NAV_MESH_JUMP ) then
 		
-		self.Jump		=	true
-	end
-	
-	if Close:HasAttributes( NAV_MESH_CROUCH ) then
-		
-		self.Crouch		=	true
+		if Close:HasAttributes( NAV_MESH_CROUCH ) then
+			
+			self.Crouch		=	true
+			
+		end
 		
 	end
 	
 	-- Run if we are too far from our owner
 	if self:IsOnGround() and !self.Crouch and (self.Owner:GetPos() - self:GetPos()):Length() > self.DangerDist and self:GetSuitPower() > 20 then 
+		
 		buttons = buttons + IN_SPEED 
+	
 	end
 	
 	if self.Crouch or !self:IsOnGround() then 
@@ -585,6 +536,7 @@ function BOT:HandleButtons( buttons )
 	if self:Is_On_Ladder() then
 		
 		buttons = buttons + IN_FORWARD
+		
 		return buttons
 		
 	end
@@ -592,6 +544,7 @@ function BOT:HandleButtons( buttons )
 	if self.Jump then 
 	
 		buttons = buttons + IN_JUMP 
+		
 		self.Jump = false 
 		
 	end
@@ -601,6 +554,7 @@ function BOT:HandleButtons( buttons )
 	if self.Use and IsDoor( door ) and (door:GetPos() - self:GetPos()):Length() < 80 then 
 	
 		door:Use(self, self, USE_TOGGLE, -1)
+		
 		self.Use = false 
 		
 	end
