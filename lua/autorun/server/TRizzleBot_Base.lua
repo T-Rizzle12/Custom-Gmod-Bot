@@ -31,6 +31,8 @@ function TBotCreate( ply , cmd , args )
 	NewBot.Use				=	false -- If this is set to true the bot will press its use key
 	NewBot.LastCombatTime			=	CurTime() -- This was how long ago the bot was in combat
 	
+	local param2 = args[ 16 ] or 1
+	TBotSpawnWithPreferredWeapons( ply, cmd, { args[ 1 ], param2 } )
 	NewBot:TBotResetAI() -- Fully reset your bots AI.
 	
 end
@@ -292,6 +294,25 @@ function TBotSetPlayerModel( ply, cmd, args )
 
 end
 
+function TBotSpawnWithPreferredWeapons( ply, cmd, args )
+	if !args[ 1 ] then return end
+	
+	local targetbot = args[ 1 ]
+	local spawnwithweapons = tonumber( args[ 2 ] ) or 1
+	
+	for k, bot in ipairs( player.GetBots() ) do
+		
+		if bot.IsTRizzleBot and bot:Nick() == targetbot and bot.Owner == ply then
+			
+			if spawnwithweapons == 0 then bot.SpawnWithWeapons = false
+			else bot.SpawnWithWeapons = true end
+			break
+		end
+		
+	end
+
+end
+
 function TBotSetDefault( ply, cmd, args )
 	if !args[ 1 ] then return end
 	if args[ 2 ] then args[ 2 ] = nil end
@@ -326,6 +347,7 @@ concommand.Add( "TBotSetShotgunDist" , TBotSetShotgunDist , nil , "Changes the d
 concommand.Add( "TBotSetRifleDist" , TBotSetRifleDist , nil , "Changes the distance for when the bot should use it's rifle/smg. If only the bot is specified the value will revert back to the default." )
 concommand.Add( "TBotSetHealThreshold" , TBotSetHealThreshold , nil , "Changes the amount of health the bot must have before it will consider using it's medkit on itself and its owner. If only the bot is specified the value will revert back to the default." )
 concommand.Add( "TBotSetCombatHealThreshold" , TBotSetCombatHealThreshold , nil , "Changes the amount of health the bot must have before it will consider using it's medkit on itself if it is in combat. If only the bot is specified the value will revert back to the default." )
+concommand.Add( "TBotSpawnWithPreferredWeapons" , TBotSpawnWithPreferredWeapons , nil , "Can the bot spawn with its preferred weapons, set to 0 to disable. If only the bot is specified the value will revert back to the default." )
 concommand.Add( "TBotSetPlayerModel" , TBotSetPlayerModel , nil , "Changes the bot playermodel to the model shortname specified. If only the bot is specified or the model shortname given is invalid the bot's player model will revert back to the default." )
 concommand.Add( "TBotSetDefault" , TBotSetDefault , nil , "Set the specified bot's settings back to the default." )
 
@@ -733,6 +755,17 @@ hook.Add( "PlayerSpawn" , "TRizzleBotSpawnHook" , function( ply )
 			if IsValid( ply ) and ply:Alive() then
 				
 				ply:SetModel( ply.PlayerModel )
+				
+				if ply.SpawnWithWeapons then
+							
+					ply:Give( ply.Pistol )
+					ply:Give( ply.Shotgun )
+					ply:Give( ply.Rifle )
+					ply:Give( ply.Sniper )
+					ply:Give( ply.Melee )
+					ply:Give( "weapon_medkit" )
+								
+				end
 				
 			end
 			
