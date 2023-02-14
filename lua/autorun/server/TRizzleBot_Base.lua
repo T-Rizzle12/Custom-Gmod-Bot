@@ -364,8 +364,20 @@ hook.Add( "StartCommand" , "TRizzleBotAIHook" , function( bot , cmd )
 	if IsValid( bot.Enemy ) then
 		
 		-- Turn and face our enemy!
-		local lerp = FrameTime() * math.random(8, 10)
-		bot:SetEyeAngles( LerpAngle(lerp, bot:EyeAngles(), ( bot.Enemy:WorldSpaceCenter() - bot:GetShootPos() ):GetNormalized():Angle() ) )
+		local trace = util.TraceLine( { start = botPos, endpos = ( bot.Enemy:GetPos() + Vector( 0, 0, 45 ) ), filter = bot, mask = TRACE_MASK_SHOT } )
+		local lerp = FrameTime() * math.random(4, 8)
+		
+		-- Can we aim the enemy's head?
+		if trace.Entity == bot.Enemy then
+		
+			bot:SetEyeAngles( LerpAngle(lerp, bot:EyeAngles(), ( ( bot.Enemy:GetPos() + Vector( 0, 0, 45 ) ) - bot:GetShootPos() ):GetNormalized():Angle() ) )
+		
+		else
+			
+			-- If we can't aim at our enemy's head aim at the center of their body instead.
+			bot:SetEyeAngles( LerpAngle(lerp, bot:EyeAngles(), ( bot.Enemy:WorldSpaceCenter() - bot:GetShootPos() ):GetNormalized():Angle() ) )
+		
+		end
 		
 		if bot:HasWeapon( "weapon_medkit" ) and bot.CombatHealThreshold > bot:Health() then
 		
@@ -402,11 +414,11 @@ hook.Add( "StartCommand" , "TRizzleBotAIHook" , function( bot , cmd )
 		end
 		
 		local botWeapon = bot:GetActiveWeapon()
-		if math.random(2) == 1 and botWeapon:IsWeapon() and ( bot:GetEyeTraceNoCursor().Entity == bot.Enemy or (bot.Enemy:GetPos() - bot:GetPos()):Length() < bot.MeleeDist ) then
+		if math.random(2) == 1 and botWeapon:IsWeapon() and ( bot:GetEyeTraceNoCursor().Entity == self.Enemy or (bot.Enemy:GetPos() - bot:GetPos()):Length() < bot.MeleeDist ) then
 			buttons = buttons + IN_ATTACK
 		end
 		
-		if math.random(2) == 1 and botWeapon:IsWeapon() and ( botWeapon:Clip1() == 0 or ( botWeapon:GetClass() == bot.Shotgun and bot:GetEyeTraceNoCursor().Entity != bot.Enemy ) ) then
+		if math.random(2) == 1 and botWeapon:IsWeapon() and ( botWeapon:Clip1() == 0 or ( botWeapon:GetClass() == bot.Shotgun and !bot:GetEyeTraceNoCursor().Entity == self.Enemy ) ) then
 			buttons = buttons + IN_RELOAD
 		end
 		
@@ -598,17 +610,6 @@ function BOT:IsInCombat()
 	
 	return false
 	
-end
-
--- This will check if the bot's cursor is on target
-function BOT:IsCursorOnTarget()
-	
-	if IsValid ( self.Enemy ) then
-		
-		local enemydist = self:EyePos():Distance( self.Enemy:EyePos() )
-		util.TraceLine( self:GetShootPos(), self:GetShootPos() * enemydist * self:GetForward(), self)
-		
-	end
 end
 
 function BOT:RestoreAmmo()
