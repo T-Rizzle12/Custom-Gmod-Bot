@@ -8,7 +8,7 @@ util.AddNetworkString( "TRizzleBotFlashlight" )
 function TBotCreate( ply , cmd , args )
 	if !args[ 1 ] then return end 
 	
-	local NewBot			=	player.CreateNextBot( args[ 1 ] ) -- Create the bot and store it in a varaible.
+	local NewBot				=	player.CreateNextBot( args[ 1 ] ) -- Create the bot and store it in a varaible.
 	
 	NewBot.IsTRizzleBot			=	true -- Flag this as our bot so we don't control other bots, Only ours!
 	NewBot.Owner				=	ply -- Make the player who created the bot its "owner"
@@ -23,13 +23,13 @@ function TBotCreate( ply , cmd , args )
 	NewBot.PistolDist			=	tonumber( args[ 10 ] ) or 1300 -- If an enemy is closer than this, the bot will use its pistol
 	NewBot.ShotgunDist			=	tonumber( args[ 11 ] ) or 300 -- If an enemy is closer than this, the bot will use its shotgun
 	NewBot.RifleDist			=	tonumber( args[ 12 ] ) or 900 -- If an enemy is closer than this, the bot will use its rifle
-	NewBot.HealThreshold		=	tonumber( args[ 13 ] ) or 100 -- If the bot's health drops below this and the bot is not in combat the bot will use its medkit
-	NewBot.CombatHealThreshold	=	tonumber( args[ 14 ] ) or 25 -- If the bot's health drops below this and the bot is not in combat the bot will use its medkit
+	NewBot.HealThreshold			=	tonumber( args[ 13 ] ) or 100 -- If the bot's health drops below this and the bot is not in combat the bot will use its medkit
+	NewBot.CombatHealThreshold		=	tonumber( args[ 14 ] ) or 25 -- If the bot's health drops below this and the bot is not in combat the bot will use its medkit
 	NewBot.PlayerModel			=	args[ 15 ] or "kleiner" -- This is the player model the bot will use
-	NewBot.Jump					=	false -- If this is set to true the bot will jump
+	NewBot.Jump				=	false -- If this is set to true the bot will jump
 	NewBot.Crouch				=	false -- If this is set to true the bot will crouch
-	NewBot.Use					=	false -- If this is set to true the bot will press its use key
-	NewBot.LastCombatTime		=	CurTime() -- This was how long ago the bot was in combat
+	NewBot.Use				=	false -- If this is set to true the bot will press its use key
+	NewBot.LastCombatTime			=	CurTime() -- This was how long ago the bot was in combat
 	
 	NewBot:TBotResetAI() -- Fully reset your bots AI.
 	
@@ -336,7 +336,7 @@ concommand.Add( "TBotSetDefault" , TBotSetDefault , nil , "Set the specified bot
 function BOT:TBotResetAI()
 	
 	self.Enemy				=	nil -- Refresh our enemy.
-	self.EnemyList			=	{} -- This is the list of enemies the bot can see.
+	self.EnemyList				=	{} -- This is the list of enemies the bot can see.
 	self.TimeInCombat			=	0 -- This is how long the bot has been in combat
 	self.Jump				=	false -- Stop jumping
 	self.Crouch				=	false -- Stop crouching
@@ -344,9 +344,9 @@ function BOT:TBotResetAI()
 	self.Light				=	false -- Turn off the bot's flashlight
 	
 	self.Goal				=	nil -- The vector goal we want to get to.
-	self.NavmeshNodes		=	{} -- The nodes given to us by the pathfinder
+	self.NavmeshNodes			=	{} -- The nodes given to us by the pathfinder
 	self.Path				=	nil -- The nodes converted into waypoints by our visiblilty checking.
-	self.PathTime			=	CurTime() + 1.0 -- This will limit how often the path gets recreated
+	self.PathTime				=	CurTime() + 1.0 -- This will limit how often the path gets recreated
 	
 	self:TBotCreateThinking() -- Start our AI
 	
@@ -412,31 +412,20 @@ hook.Add( "StartCommand" , "TRizzleBotAIHook" , function( bot , cmd )
 		
 	elseif IsValid( bot.Owner ) and bot.Owner:Alive() then
 		
-		local botWeapon = bot:GetActiveWeapon()
-		if math.random(2) == 1 and botWeapon:IsWeapon() and botWeapon:Clip1() < botWeapon:GetMaxClip1() then
-			buttons = buttons + IN_RELOAD
-		end
+		-- If the bot is not in combat then the bot should check if any of its teammates need healing
+		local healTarget = bot:TBotFindClosestTeammate()
+		if IsValid( healTarget ) and bot:HasWeapon( "weapon_medkit" ) then
 		
-		if math.random(2) == 1 and botWeapon:IsWeapon() and botWeapon:GetClass() == "weapon_medkit" and (bot.Owner:GetPos() - bot:GetPos()):Length() < 80 and bot.Owner:Health() < bot.HealThreshold then
-			buttons = buttons + IN_ATTACK
-		end
+			buttons = buttons + bot:HealTeammates( cmd, healTarget )
 			
-		if math.random(2) == 1 and botWeapon:IsWeapon() and botWeapon:GetClass() == "weapon_medkit" and bot:Health() < bot.HealThreshold then
-			buttons = buttons + IN_ATTACK2
+		else
+		
+			bot:ReloadWeapons( cmd )
+			local botWeapon = bot:GetActiveWeapon()
+			if math.random(2) == 1 and botWeapon:IsWeapon() and botWeapon:GetClass() != "weapon_medkit" and botWeapon:Clip1() < botWeapon:GetMaxClip1() then
+				buttons = buttons + IN_RELOAD
+			end
 		end
-		
-		-- If the bot and bot's owner is not in combat then the bot should check if either their owner or they need to heal
-		if bot:HasWeapon( "weapon_medkit" ) and ( (bot.Owner:GetPos() - bot:GetPos()):Length() < 80 and bot.Owner:Health() < bot.HealThreshold or bot:Health() < bot.HealThreshold ) then
-		
-			-- The bot should priortize healing its owner over themself
-			local lerp = FrameTime() * math.random(8, 10)
-			bot:SetEyeAngles( LerpAngle(lerp, bot:EyeAngles(), ( bot.Owner:GetShootPos() - bot:GetShootPos() ):GetNormalized():Angle() ) )
-			cmd:SelectWeapon( bot:GetWeapon( "weapon_medkit" ) )
-			
-		end
-		-- Possibly add support for the bot to heal nearby players?
-		
-		bot:ReloadWeapons( cmd )
 			
 		cmd:SetButtons( bot:HandleButtons( buttons ) )
 		bot:TBotUpdateMovement( cmd )
@@ -603,6 +592,21 @@ function BOT:SelectBestWeapon( cmd )
 		cmd:SelectWeapon( self:GetWeapon( self.Melee ) )
 		
 	end
+end
+
+function BOT:HealTeammates( cmd, healTarget )
+
+	-- This is where the bot will heal themself, their owner, and their teammates when not in combat
+	local botWeapon = bot:GetActiveWeapon()
+	if !botWeapon:IsWeapon() or botWeapon:GetClass() != "weapon_medkit" then cmd:SelectWeapon( bot:GetWeapon( "weapon_medkit" ) ) end
+	
+	if math.random(2) == 1 and healTarget == self then return IN_ATTACK2 end
+	
+	local lerp = FrameTime() * math.random(8, 10)
+	bot:SetEyeAngles( LerpAngle(lerp, bot:EyeAngles(), ( healTarget:GetShootPos() - bot:GetShootPos() ):GetNormalized():Angle() ) )
+	
+	if math.random(2) == 1 then return IN_ATTACK end
+	
 end
 
 function BOT:ReloadWeapons( cmd )
@@ -778,7 +782,7 @@ end
 
 
 
--- Target any player or bot that is visible to us.
+-- Target any hostile NPCS that is visible to us.
 function BOT:TBotFindClosestEnemy()
 	local VisibleEnemies			=	{} -- This is how many enemies the bot can see. Currently not used......yet
 	local targetdist			=	10000 -- This will allow the bot to select the closest enemy to it.
@@ -803,6 +807,35 @@ function BOT:TBotFindClosestEnemy()
 	
 	self.Enemy		=	target
 	self.EnemyList		=	VisibleEnemies
+	
+end
+
+-- Heal any player or bot that is visible to us.
+function BOT:TBotFindClosestTeammate()
+	local targetdist			=	80 -- This will allow the bot to select the closest teammate to it.
+	local target				=	nil -- This is the closest teammate to the bot.
+	
+	--The bot should heal its owner and itself before it heals anyone else
+	if IsValid( self.Owner ) and self.Owner:Alive() and self.Owner:GetHealth() < self.HealThreshold and (self.Owner:GetPos() - self:GetPos()):Length() then return self.Owner
+	elseif self:GetHealth() < self.HealThreshold then return self end
+
+	for k, v in ipairs( player.GetAll() ) do
+		
+		if IsValid ( v ) and v:GetHealth < self.HealThreshold then -- The bot will heal any teammate that needs healing.
+			
+			if v:Visible( self ) and v:Alive() then -- Make sure we can actually see them and they are alive.
+				local teammatedist = (v:GetPos() - self:GetPos()):Length()
+				if teammatedist < targetdist then 
+					target = v
+					targetdist = teammatedist
+				end
+			end
+			
+		end
+		
+	end
+	
+	return target
 	
 end
 
