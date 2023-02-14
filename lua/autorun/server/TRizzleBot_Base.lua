@@ -337,6 +337,7 @@ function BOT:TBotResetAI()
 	
 	self.Enemy				=	nil -- Refresh our enemy.
 	self.EnemyList			=	{} -- This is the list of enemies the bot can see.
+	self.TimeInCombat			=	0 -- This is how long the bot has been in combat
 	self.Jump				=	false -- Stop jumping
 	self.Crouch				=	false -- Stop crouching
 	self.Use				=	false -- Stop using
@@ -364,7 +365,7 @@ hook.Add( "StartCommand" , "TRizzleBotAIHook" , function( bot , cmd )
 	if IsValid( bot.Enemy ) then
 		
 		-- Turn and face our enemy!
-		local trace = util.TraceLine( { start = botPos, endpos = ( bot.Enemy:GetPos() + Vector( 0, 0, 45 ) ), filter = bot, mask = TRACE_MASK_SHOT } )
+		local trace = util.TraceLine( { start = bot:EyePos(), endpos = ( bot.Enemy:GetPos() + Vector( 0, 0, 45 ) ), filter = bot, mask = TRACE_MASK_SHOT } )
 		local lerp = FrameTime() * math.random(4, 8)
 		
 		-- Can we aim the enemy's head?
@@ -379,45 +380,17 @@ hook.Add( "StartCommand" , "TRizzleBotAIHook" , function( bot , cmd )
 		
 		end
 		
-		if bot:HasWeapon( "weapon_medkit" ) and bot.CombatHealThreshold > bot:Health() then
-		
-			-- The bot will heal themself if they get too injured during combat
-			cmd:SelectWeapon( bot:GetWeapon( "weapon_medkit" ) )
-			if math.random(2) == 1 then
-				buttons = buttons + IN_ATTACK2
-			end
-		elseif bot:HasWeapon( bot.Sniper ) and bot:GetWeapon( bot.Sniper ):HasAmmo() and ( (bot.Enemy:GetPos() - bot:GetPos()):Length() > bot.PistolDist or !bot:HasWeapon( bot.Pistol ) or !bot:GetWeapon( bot.Pistol ):HasAmmo() ) then
-		
-			-- If an enemy is very far away the bot should use its sniper
-			cmd:SelectWeapon( bot:GetWeapon( bot.Sniper ) )
-		
-		elseif bot:HasWeapon( bot.Pistol ) and bot:GetWeapon( bot.Pistol ):HasAmmo() and ( (bot.Enemy:GetPos() - bot:GetPos()):Length() > bot.RifleDist or !bot:HasWeapon( bot.Rifle ) or !bot:GetWeapon( bot.Rifle ):HasAmmo() )then
-		
-			-- If an enemy is far the bot, the bot should use its pistol
-			cmd:SelectWeapon( bot:GetWeapon( bot.Pistol ) )
-		
-		elseif bot:HasWeapon( bot.Rifle ) and bot:GetWeapon( bot.Rifle ):HasAmmo() and ( (bot.Enemy:GetPos() - bot:GetPos()):Length() > bot.ShotgunDist or !bot:HasWeapon( bot.Shotgun ) or !bot:GetWeapon( bot.Shotgun ):HasAmmo() ) then
-		
-			-- If an enemy gets too far but is still close the bot should use its rifle
-			cmd:SelectWeapon( bot:GetWeapon( bot.Rifle ) )
-		
-		elseif bot:HasWeapon( bot.Shotgun ) and bot:GetWeapon( bot.Shotgun ):HasAmmo() and ( (bot.Enemy:GetPos() - bot:GetPos()):Length() > bot.MeleeDist or !bot:HasWeapon( bot.Melee ) ) then
-		
-			-- If an enemy gets too far but is still close the bot should use its shotgun
-			cmd:SelectWeapon( bot:GetWeapon( bot.Shotgun ) )
-		
-		elseif bot:HasWeapon( bot.Melee ) then
-		
-			-- If an enemy gets too close the bot should use its melee
-			cmd:SelectWeapon( bot:GetWeapon( bot.Melee ) )
-		
-		end
+		bot:SelectBestWeapon( cmd )
 		
 		local botWeapon = bot:GetActiveWeapon()
-		if math.random(2) == 1 and botWeapon:IsWeapon() and ( bot:GetEyeTraceNoCursor().Entity == self.Enemy or (bot.Enemy:GetPos() - bot:GetPos()):Length() < bot.MeleeDist ) then
+		if math.random(2) == 1 and botWeapon:IsWeapon() and botWeapon:GetClass() != "weapon_medkit" and ( bot:GetEyeTraceNoCursor().Entity == self.Enemy or (bot.Enemy:GetPos() - bot:GetPos()):Length() < bot.MeleeDist ) then
 			buttons = buttons + IN_ATTACK
 		end
 		
+		if math.random(2) == 1 and botWeapon:IsWeapon() and botWeapon:GetClass() == "weapon_medkit" and bot.CombatHealThreshold > bot:Health() then
+			buttons = buttons + IN_ATTACK2
+		end
+			
 		if math.random(2) == 1 and botWeapon:IsWeapon() and ( botWeapon:Clip1() == 0 or ( botWeapon:GetClass() == bot.Shotgun and !bot:GetEyeTraceNoCursor().Entity == self.Enemy ) ) then
 			buttons = buttons + IN_RELOAD
 		end
@@ -444,43 +417,27 @@ hook.Add( "StartCommand" , "TRizzleBotAIHook" , function( bot , cmd )
 			buttons = buttons + IN_RELOAD
 		end
 		
+		if math.random(2) == 1 and botWeapon:IsWeapon() and botWeapon:GetClass() == "weapon_medkit" and (bot.Owner:GetPos() - bot:GetPos()):Length() < 80 and bot.Owner:Health() < bot.HealThreshold then
+			buttons = buttons + IN_ATTACK
+		end
+			
+		if math.random(2) == 1 and botWeapon:IsWeapon() and botWeapon:GetClass() == "weapon_medkit" and bot:Health() < bot.HealThreshold then
+			buttons = buttons + IN_ATTACK2
+		end
+		
 		-- If the bot and bot's owner is not in combat then the bot should check if either their owner or they need to heal
-		if bot:HasWeapon( "weapon_medkit" ) and (bot.Owner:GetPos() - bot:GetPos()):Length() < 80 and bot.Owner:Health() < bot.HealThreshold then
+		if bot:HasWeapon( "weapon_medkit" ) and ( (bot.Owner:GetPos() - bot:GetPos()):Length() < 80 and bot.Owner:Health() < bot.HealThreshold or bot:Health() < bot.HealThreshold ) then
 		
 			-- The bot should priortize healing its owner over themself
 			local lerp = FrameTime() * math.random(8, 10)
 			bot:SetEyeAngles( LerpAngle(lerp, bot:EyeAngles(), ( bot.Owner:GetShootPos() - bot:GetShootPos() ):GetNormalized():Angle() ) )
 			cmd:SelectWeapon( bot:GetWeapon( "weapon_medkit" ) )
-			if math.random(2) == 1 then
-				buttons = buttons + IN_ATTACK
-			end
-		elseif bot:HasWeapon( "weapon_medkit" ) and bot:Health() < bot.HealThreshold then
-		
-			-- The bot will heal themself if their owner has full health or is not close enough
-			cmd:SelectWeapon( bot:GetWeapon( "weapon_medkit" ) )
-			if math.random(2) == 1 then
-				buttons = buttons + IN_ATTACK2
-			end
-		elseif bot:HasWeapon( bot.Sniper ) and bot:GetWeapon( bot.Sniper ):Clip1() < bot:GetWeapon( bot.Sniper ):GetMaxClip1() then
-		
-			-- The bot should reload weapons that need to be reloaded
-			cmd:SelectWeapon( bot:GetWeapon( bot.Sniper ) )
-		
-		elseif bot:HasWeapon( bot.Pistol ) and bot:GetWeapon( bot.Pistol ):Clip1() < bot:GetWeapon( bot.Pistol ):GetMaxClip1() then
-		
-			cmd:SelectWeapon( bot:GetWeapon( bot.Pistol ) )
-		
-		elseif bot:HasWeapon( bot.Rifle ) and bot:GetWeapon( bot.Rifle ):Clip1() < bot:GetWeapon( bot.Rifle ):GetMaxClip1() then
-		
-			cmd:SelectWeapon( bot:GetWeapon( bot.Rifle ) )
-			
-		elseif bot:HasWeapon( bot.Shotgun ) and bot:GetWeapon( bot.Shotgun ):Clip1() < bot:GetWeapon( bot.Shotgun ):GetMaxClip1() then
-		
-			cmd:SelectWeapon( bot:GetWeapon( bot.Shotgun ) )
 			
 		end
 		-- Possibly add support for the bot to heal nearby players?
 		
+		bot:ReloadWeapons( cmd )
+			
 		cmd:SetButtons( bot:HandleButtons( buttons ) )
 		bot:TBotUpdateMovement( cmd )
 		
@@ -612,6 +569,64 @@ function BOT:IsInCombat()
 	
 end
 
+function BOT:SelectBestWeapon( cmd )
+	
+	-- This will select the best weapon based on the bot's current distance from its enemy
+	if self:HasWeapon( "weapon_medkit" ) and self.CombatHealThreshold > self:Health() then
+		
+		-- The bot will heal themself if they get too injured during combat
+		cmd:SelectWeapon( self:GetWeapon( "weapon_medkit" ) )
+		
+	elseif self:HasWeapon( self.Sniper ) and self:GetWeapon( self.Sniper ):HasAmmo() and ( (self.Enemy:GetPos() - self:GetPos()):Length() > self.PistolDist or !self:HasWeapon( self.Pistol ) or !self:GetWeapon( self.Pistol ):HasAmmo() ) then
+		
+		-- If an enemy is very far away the bot should use its sniper
+		cmd:SelectWeapon( self:GetWeapon( self.Sniper ) )
+		
+	elseif self:HasWeapon( self.Pistol ) and self:GetWeapon( self.Pistol ):HasAmmo() and ( (self.Enemy:GetPos() - self:GetPos()):Length() > self.RifleDist or !self:HasWeapon( self.Rifle ) or !self:GetWeapon( self.Rifle ):HasAmmo() )then
+		
+		-- If an enemy is far the bot, the bot should use its pistol
+		cmd:SelectWeapon( self:GetWeapon( self.Pistol ) )
+		
+	elseif self:HasWeapon( self.Rifle ) and self:GetWeapon( self.Rifle ):HasAmmo() and ( (self.Enemy:GetPos() - self:GetPos()):Length() > self.ShotgunDist or !self:HasWeapon( self.Shotgun ) or !self:GetWeapon( self.Shotgun ):HasAmmo() ) then
+		
+		-- If an enemy gets too far but is still close the bot should use its rifle
+		cmd:SelectWeapon( self:GetWeapon( self.Rifle ) )
+		
+	elseif self:HasWeapon( self.Shotgun ) and self:GetWeapon( self.Shotgun ):HasAmmo() and ( (self.Enemy:GetPos() - self:GetPos()):Length() > self.MeleeDist or !self:HasWeapon( self.Melee ) ) then
+		
+		-- If an enemy gets too far but is still close the bot should use its shotgun
+		cmd:SelectWeapon( self:GetWeapon( self.Shotgun ) )
+		
+	elseif self:HasWeapon( self.Melee ) then
+		
+		-- If an enemy gets too close the bot should use its melee
+		cmd:SelectWeapon( self:GetWeapon( self.Melee ) )
+		
+	end
+end
+
+function BOT:ReloadWeapons( cmd )
+	
+	-- The bot should reload weapons that need to be reloaded
+	if self:HasWeapon( self.Sniper ) and self:GetWeapon( self.Sniper ):Clip1() < self:GetWeapon( self.Sniper ):GetMaxClip1() then
+		
+		cmd:SelectWeapon( self:GetWeapon( self.Sniper ) )
+		
+	elseif self:HasWeapon( self.Pistol ) and self:GetWeapon( self.Pistol ):Clip1() < self:GetWeapon( self.Pistol ):GetMaxClip1() then
+		
+		cmd:SelectWeapon( self:GetWeapon( self.Pistol ) )
+		
+	elseif self:HasWeapon( self.Rifle ) and self:GetWeapon( self.Rifle ):Clip1() < self:GetWeapon( self.Rifle ):GetMaxClip1() then
+		
+		cmd:SelectWeapon( self:GetWeapon( self.Rifle ) )
+			
+	elseif self:HasWeapon( self.Shotgun ) and self:GetWeapon( self.Shotgun ):Clip1() < self:GetWeapon( self.Shotgun ):GetMaxClip1() then
+		
+		cmd:SelectWeapon( self:GetWeapon( self.Shotgun ) )
+			
+	end
+end
+
 function BOT:RestoreAmmo()
 	
 	-- This is kind of a cheat, but the bot will only slowly recover ammo when not in combat
@@ -740,7 +755,16 @@ function BOT:TBotCreateThinking()
 				net.Send( ply )
 			end
 			
-			if !self:IsInCombat() then self:RestoreAmmo() end
+			if self:IsInCombat() and self.TimeInCombat < 60 then 
+				
+				self.TimeInCombat = self.TimeInCombat + 0.15
+				
+			elseif !self:IsInCombat() then
+				
+				if self.TimeInCombat > 0 then self.TimeInCombat = self.TimeInCombat - 0.15 end
+				self:RestoreAmmo() 
+				
+			end
 			
 		else
 			
