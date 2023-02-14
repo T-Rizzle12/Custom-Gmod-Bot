@@ -685,6 +685,24 @@ function IsDoor( v )
 end
 
 
+-- When a player leaves the server, every bot "owned" by the player should leave as well
+hook.Add( "PlayerDisconnected" , "TRizzleBotPlayerLeave" , function( ply )
+	
+	if !ply:IsBot() and !ply.IsTRizzleBot then 
+		
+		for k, bot in ipairs( player.GetBots() ) do
+		
+			if bot.IsTRizzleBot and bot.Owner == ply then
+			
+				bot:Kick( "Bot Owner has left the server" )
+			
+			end
+		end
+		
+	end
+	
+end)
+
 -- Just a simple way to respawn a bot.
 hook.Add( "PostPlayerDeath" , "TRizzleBotRespawn" , function( ply )
 	
