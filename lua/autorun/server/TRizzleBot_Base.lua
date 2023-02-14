@@ -366,7 +366,7 @@ hook.Add( "StartCommand" , "TRizzleBotAIHook" , function( bot , cmd )
 		
 		-- Turn and face our enemy!
 		local trace = util.TraceLine( { start = bot:EyePos(), endpos = ( bot.Enemy:GetPos() + Vector( 0, 0, 45 ) ), filter = bot, mask = TRACE_MASK_SHOT } )
-		local lerp = FrameTime() * math.random(4, 8)
+		local lerp = FrameTime() * math.random(4, 6)
 		
 		-- Can we aim the enemy's head?
 		if trace.Entity == bot.Enemy then
@@ -395,9 +395,7 @@ hook.Add( "StartCommand" , "TRizzleBotAIHook" , function( bot , cmd )
 			buttons = buttons + IN_RELOAD
 		end
 		
-		buttons = bot:HandleButtons( buttons )
-		
-		cmd:SetButtons( buttons )
+		cmd:SetButtons( bot:HandleButtons( buttons ) )
 		bot:TBotUpdateMovement( cmd )
 		
 		if isvector( bot.Goal ) and (bot.Owner:GetPos() - bot.Goal):Length() < bot.FollowDist then
@@ -597,13 +595,13 @@ end
 function BOT:HealTeammates( cmd, healTarget )
 
 	-- This is where the bot will heal themself, their owner, and their teammates when not in combat
-	local botWeapon = bot:GetActiveWeapon()
-	if !botWeapon:IsWeapon() or botWeapon:GetClass() != "weapon_medkit" then cmd:SelectWeapon( bot:GetWeapon( "weapon_medkit" ) ) end
+	local botWeapon = self:GetActiveWeapon()
+	if !botWeapon:IsWeapon() or botWeapon:GetClass() != "weapon_medkit" then cmd:SelectWeapon( self:GetWeapon( "weapon_medkit" ) ) end
 	
 	if math.random(2) == 1 and healTarget == self then return IN_ATTACK2 end
 	
 	local lerp = FrameTime() * math.random(8, 10)
-	bot:SetEyeAngles( LerpAngle(lerp, bot:EyeAngles(), ( healTarget:GetShootPos() - bot:GetShootPos() ):GetNormalized():Angle() ) )
+	self:SetEyeAngles( LerpAngle(lerp, self:EyeAngles(), ( healTarget:GetShootPos() - self:GetShootPos() ):GetNormalized():Angle() ) )
 	
 	if math.random(2) == 1 then return IN_ATTACK end
 	
@@ -1298,7 +1296,7 @@ function BOT:TBotUpdateMovement( cmd )
 	if !istable( self.Path ) or table.IsEmpty( self.Path ) or isbool( self.NavmeshNodes ) then
 		
 		local MovementAngle		=	( self.Goal - self:GetPos() ):GetNormalized():Angle()
-		local lerp = FrameTime() * math.random(1, 4)
+		local lerp = FrameTime() * math.random(4, 6)
 		
 		if self:OnGround() and self.Goal.z >= self:GetPos().z then
 			local SmartJump		=	util.TraceLine({
@@ -1336,7 +1334,7 @@ function BOT:TBotUpdateMovement( cmd )
 	if self.Path[ 1 ] then
 		
 		local MovementAngle		=	( self.Path[ 1 ] - self:GetPos() ):GetNormalized():Angle()
-		local lerp = FrameTime() * math.random(1, 4)
+		local lerp = FrameTime() * math.random(4, 6)
 		
 		if self:OnGround() and self.Path[ 1 ].z >= self:GetPos().z then
 			local SmartJump		=	util.TraceLine({
