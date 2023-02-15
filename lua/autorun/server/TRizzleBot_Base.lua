@@ -33,6 +33,7 @@ function TBotCreate( ply , cmd , args )
 	
 	local param2 = args[ 16 ] or 1
 	TBotSpawnWithPreferredWeapons( ply, cmd, { args[ 1 ], param2 } )
+	TBotSetPlayerModel( ply, cmd, { args[ 1 ], NewBot.PlayerModel } )
 	NewBot:TBotResetAI() -- Fully reset your bots AI.
 	
 end
@@ -358,17 +359,17 @@ concommand.Add( "TBotSetDefault" , TBotSetDefault , nil , "Set the specified bot
 function BOT:TBotResetAI()
 	
 	self.Enemy				=	nil -- Refresh our enemy.
-	self.EnemyList				=	{} -- This is the list of enemies the bot can see.
-	self.TimeInCombat			=	0 -- This is how long the bot has been in combat
+	self.EnemyList			=	{} -- This is the list of enemies the bot can see.
+	self.TimeInCombat		=	0 -- This is how long the bot has been in combat
 	self.Jump				=	false -- Stop jumping
 	self.Crouch				=	false -- Stop crouching
 	self.Use				=	false -- Stop using
 	self.Light				=	false -- Turn off the bot's flashlight
 	
 	self.Goal				=	nil -- The vector goal we want to get to.
-	self.NavmeshNodes			=	{} -- The nodes given to us by the pathfinder
+	self.NavmeshNodes		=	{} -- The nodes given to us by the pathfinder
 	self.Path				=	nil -- The nodes converted into waypoints by our visiblilty checking.
-	self.PathTime				=	CurTime() + 1.0 -- This will limit how often the path gets recreated
+	self.PathTime			=	CurTime() + 1.0 -- This will limit how often the path gets recreated
 	
 	self:TBotCreateThinking() -- Start our AI
 	
@@ -386,14 +387,14 @@ hook.Add( "StartCommand" , "TRizzleBotAIHook" , function( bot , cmd )
 	-- Better make sure they exist of course.
 	if IsValid( bot.Enemy ) then
 		
-		-- Turn and face our enemy!
-		local trace = util.TraceLine( { start = bot:EyePos(), endpos = ( bot.Enemy:GetPos() + Vector( 0, 0, 45 ) ), filter = bot, mask = TRACE_MASK_SHOT } )
-		local lerp = FrameTime() * math.random(4, 6)
+		local trace = util.TraceLine( { start = bot:EyePos(), endpos = bot.Enemy:EyePos() - Vector( 0, 0, 10 ), filter = bot, mask = TRACE_MASK_SHOT } )
+		local lerp = FrameTime() * bot:GetCombatAimSpeed()
 		
-		-- Can we aim the enemy's head?
+		-- Turn and face our enemy!
 		if trace.Entity == bot.Enemy then
 		
-			bot:SetEyeAngles( LerpAngle(lerp, bot:EyeAngles(), ( ( bot.Enemy:GetPos() + Vector( 0, 0, 45 ) ) - bot:GetShootPos() ):GetNormalized():Angle() ) )
+			-- Can we aim the enemy's head?
+			bot:SetEyeAngles( LerpAngle(lerp, bot:EyeAngles(), ( (bot.Enemy:EyePos() - Vector( 0, 0, 10 ) ) - bot:GetShootPos() ):GetNormalized():Angle() ) )
 		
 		else
 			
@@ -405,7 +406,7 @@ hook.Add( "StartCommand" , "TRizzleBotAIHook" , function( bot , cmd )
 		bot:SelectBestWeapon( cmd )
 		
 		local botWeapon = bot:GetActiveWeapon()
-		if math.random(2) == 1 and botWeapon:IsWeapon() and botWeapon:GetClass() != "weapon_medkit" and ( bot:GetEyeTraceNoCursor().Entity == self.Enemy or (bot.Enemy:GetPos() - bot:GetPos()):Length() < bot.MeleeDist ) then
+		if math.random(2) == 1 and botWeapon:IsWeapon() and botWeapon:GetClass() != "weapon_medkit" and ( bot:GetEyeTraceNoCursor().Entity == bot.Enemy or (bot.Enemy:GetPos() - bot:GetPos()):Length() < bot.MeleeDist ) then
 			buttons = buttons + IN_ATTACK
 		end
 		
@@ -413,7 +414,7 @@ hook.Add( "StartCommand" , "TRizzleBotAIHook" , function( bot , cmd )
 			buttons = buttons + IN_ATTACK2
 		end
 			
-		if math.random(2) == 1 and botWeapon:IsWeapon() and ( botWeapon:Clip1() == 0 or ( botWeapon:GetClass() == bot.Shotgun and !bot:GetEyeTraceNoCursor().Entity == self.Enemy ) ) then
+		if math.random(2) == 1 and botWeapon:IsWeapon() and ( botWeapon:Clip1() == 0 or ( botWeapon:GetClass() == bot.Shotgun and !bot:GetEyeTraceNoCursor().Entity == bot.Enemy ) ) then
 			buttons = buttons + IN_RELOAD
 		end
 		
@@ -578,6 +579,15 @@ function BOT:IsInCombat()
 	
 end
 
+-- The longer the bot is in combat the faster the bot will aim
+function BOT:GetCombatAimSpeed()
+
+	if self.TimeInCombat >= 30 then return math.random(8, 10)
+	elseif self.TimeInCombat >= 15 then return math.random(6, 8)
+	else return math.random(4, 6) end
+
+end
+
 function BOT:SelectBestWeapon( cmd )
 	
 	-- This will select the best weapon based on the bot's current distance from its enemy
@@ -620,12 +630,15 @@ function BOT:HealTeammates( cmd, healTarget )
 	local botWeapon = self:GetActiveWeapon()
 	if !botWeapon:IsWeapon() or botWeapon:GetClass() != "weapon_medkit" then cmd:SelectWeapon( self:GetWeapon( "weapon_medkit" ) ) end
 	
-	if math.random(2) == 1 and healTarget == self then return IN_ATTACK2 end
+	if math.random(2) == 1 and healTarget == self then return IN_ATTACK2 
+	elseif healTarget == self then return 0 end
 	
 	local lerp = FrameTime() * math.random(8, 10)
-	self:SetEyeAngles( LerpAngle(lerp, self:EyeAngles(), ( healTarget:GetShootPos() - self:GetShootPos() ):GetNormalized():Angle() ) )
+	self:SetEyeAngles( LerpAngle(lerp, self:EyeAngles(), ( ( healTarget:GetShootPos() - Vector( 0, 0, 10 ) ) - self:GetShootPos() ):GetNormalized():Angle() ) )
 	
-	if math.random(2) == 1 then return IN_ATTACK end
+	if math.random(2) == 1 and self:GetEyeTrace().Entity == healTarget then return IN_ATTACK end
+	
+	return 0 -- The bot has to spam click its mouse1 and mouse2 button inorder to heal so this is a backup to prevent this function from returning nil
 	
 end
 
@@ -643,11 +656,11 @@ function BOT:ReloadWeapons( cmd )
 	elseif self:HasWeapon( self.Rifle ) and self:GetWeapon( self.Rifle ):Clip1() < self:GetWeapon( self.Rifle ):GetMaxClip1() then
 		
 		cmd:SelectWeapon( self:GetWeapon( self.Rifle ) )
-			
+		
 	elseif self:HasWeapon( self.Shotgun ) and self:GetWeapon( self.Shotgun ):Clip1() < self:GetWeapon( self.Shotgun ):GetMaxClip1() then
 		
 		cmd:SelectWeapon( self:GetWeapon( self.Shotgun ) )
-			
+		
 	end
 end
 
@@ -655,7 +668,7 @@ function BOT:RestoreAmmo()
 	
 	-- This is kind of a cheat, but the bot will only slowly recover ammo when not in combat
 	local pistol		=	self:GetWeapon( self.Pistol )
-	local rifle		=	self:GetWeapon( self.Rifle )
+	local rifle			=	self:GetWeapon( self.Rifle )
 	local shotgun		=	self:GetWeapon( self.Shotgun )
 	local sniper		=	self:GetWeapon( self.Sniper )
 	local pistol_ammo	=	nil
@@ -757,14 +770,14 @@ hook.Add( "PlayerSpawn" , "TRizzleBotSpawnHook" , function( ply )
 				ply:SetModel( ply.PlayerModel )
 				
 				if ply.SpawnWithWeapons then
-							
+					
 					ply:Give( ply.Pistol )
 					ply:Give( ply.Shotgun )
 					ply:Give( ply.Rifle )
 					ply:Give( ply.Sniper )
 					ply:Give( ply.Melee )
 					ply:Give( "weapon_medkit" )
-								
+					
 				end
 				
 			end
@@ -808,7 +821,7 @@ function BOT:TBotCreateThinking()
 				net.Send( ply )
 			end
 			
-			if self:IsInCombat() and self.TimeInCombat < 60 then 
+			if self:IsInCombat() and self.TimeInCombat < 30 then 
 				
 				self.TimeInCombat = self.TimeInCombat + 0.15
 				
@@ -833,7 +846,7 @@ end
 
 -- Target any hostile NPCS that is visible to us.
 function BOT:TBotFindClosestEnemy()
-	local VisibleEnemies			=	{} -- This is how many enemies the bot can see. Currently not used......yet
+	local VisibleEnemies		=	{} -- This is how many enemies the bot can see. Currently not used......yet
 	local targetdist			=	10000 -- This will allow the bot to select the closest enemy to it.
 	local target				=	self.Enemy -- This is the closest enemy to the bot.
 	
@@ -865,12 +878,12 @@ function BOT:TBotFindClosestTeammate()
 	local target				=	nil -- This is the closest teammate to the bot.
 	
 	--The bot should heal its owner and itself before it heals anyone else
-	if IsValid( self.Owner ) and self.Owner:Alive() and self.Owner:GetHealth() < self.HealThreshold and (self.Owner:GetPos() - self:GetPos()):Length() then return self.Owner
-	elseif self:GetHealth() < self.HealThreshold then return self end
+	if IsValid( self.Owner ) and self.Owner:Alive() and self.Owner:Health() < self.HealThreshold and (self.Owner:GetPos() - self:GetPos()):Length() < 80 then return self.Owner
+	elseif self:Health() < self.HealThreshold then return self end
 
 	for k, v in ipairs( player.GetAll() ) do
 		
-		if IsValid ( v ) and v:GetHealth < self.HealThreshold then -- The bot will heal any teammate that needs healing.
+		if IsValid ( v ) and v:Health() < self.HealThreshold then -- The bot will heal any teammate that needs healing.
 			
 			if v:Visible( self ) and v:Alive() then -- Make sure we can actually see them and they are alive.
 				local teammatedist = (v:GetPos() - self:GetPos()):Length()
@@ -989,6 +1002,13 @@ function TRizzleBotRangeCheck( FirstNode , SecondNode , Height )
 		
 	end
 	
+	-- The bot should avoid this area unless alternatives are too dangerous or too far.
+	if SecondNode:HasAttributes( NAV_MESH_AVOID ) then 
+		
+		DefaultCost	=	DefaultCost * 3
+		
+	end
+	
 	-- We are less interested in smaller nodes as it can make less realistic paths.
 	-- Also its easy to get stuck on them.
 	if SecondNode:GetSizeY() <= 50 then
@@ -1000,6 +1020,13 @@ function TRizzleBotRangeCheck( FirstNode , SecondNode , Height )
 	if SecondNode:GetSizeX() <= 50 then
 		
 		DefaultCost		=	DefaultCost * 3
+		
+	end
+	
+	-- We will try not to swim since it can be slower than running on land
+	if SecondNode:IsUnderwater() then
+	
+		DefaultCost		=	DefaultCost * 2
 		
 	end
 	
@@ -1405,6 +1432,10 @@ function BOT:TBotUpdateMovement( cmd )
 
 			end
 		end
+		
+		local TargetArea		=	navmesh.GetNearestNavArea( self.Path[ 1 ] )
+		
+		if IsValid( TargetArea ) and TargetArea:HasAttributes( NAV_MESH_CROUCH ) then self.Crouch = true end
 		
 		cmd:SetViewAngles( MovementAngle )
 		cmd:SetForwardMove( 1000 )
