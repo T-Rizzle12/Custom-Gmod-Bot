@@ -929,7 +929,7 @@ function BOT:TRizzleBotPathfinder( StartNode , GoalNode )
 			if neighbor:Node_Get_Type() == 1 and Current:Node_Get_Type() == 1 then
 				Height			=	Current:ComputeAdjacentConnectionHeightChange( neighbor ) 
 				
-				if Height > 64 then
+				if neighbor:IsUnderwater() and Height > 1000 or Height > 58 and !neighbor:IsUnderwater() then
 					-- We can't jump that high.
 					
 					continue
@@ -1041,7 +1041,7 @@ function TRizzleBotRangeCheck( FirstNode , SecondNode , Height )
 		
 	end
 	
-	-- We will try not to swim since it can be slower than running on land
+	-- We will try not to swim since it can be slower than running on land, it can also be very dangerous, Ex. "Acid, Lava, Etc."
 	if SecondNode:IsUnderwater() then
 	
 		DefaultCost		=	DefaultCost * 2
