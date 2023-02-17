@@ -794,7 +794,7 @@ function BOT:IsCurrentEnemyAlive()
 	if !IsValid( self.Enemy ) then self.Enemy							=	nil
 	elseif self.Enemy:IsPlayer() and !self.Enemy:Alive() then self.Enemy				=	nil -- Just incase the bot's enemy is set to a player even though the bot should only target NPCS and "hopefully" NEXTBOTS 
 	elseif !self.Enemy:Visible( self ) then self.Enemy						=	nil
-	elseif self.Enemy:IsNPC() and self.Enemy:GetNPCState() == NPC_STATE_DEAD then self.Enemy	=	nil end
+	elseif self.Enemy:IsNPC() and ( self.Enemy:GetNPCState() == NPC_STATE_DEAD or (self.Enemy:Disposition( self ) != D_HT and self.Enemy:Disposition( self.Owner ) != D_HT) ) then self.Enemy	=	nil end
 	
 end
 
@@ -811,7 +811,8 @@ function BOT:TBotCreateThinking()
 			
 			-- A quick condition statement to check if our enemy is no longer a threat.
 			self:IsCurrentEnemyAlive()
-			self:TBotFindClosestEnemy()
+			
+			if GetConVar( "ai_ignoreplayers" ):GetInt() == 0 and GetConVar( "ai_disabled" ):GetInt() == 0 then self:TBotFindClosestEnemy() end
 			
 			local tab = player.GetHumans()
 			if #tab > 0 then
@@ -852,7 +853,7 @@ function BOT:TBotFindClosestEnemy()
 	
 	for k, v in ipairs( ents.GetAll() ) do
 		
-		if IsValid ( v ) and v:IsNPC() and v:GetNPCState() != NPC_STATE_DEAD and (v:GetEnemy() == self or v:GetEnemy() == self.Owner) then -- The bot should attack any NPC that is attacking them or their owner.
+		if IsValid ( v ) and v:IsNPC() and v:GetNPCState() != NPC_STATE_DEAD and (v:Disposition( self ) == D_HT or v:Disposition( self.Owner ) == D_HT) then -- The bot should attack any NPC that is hostile to them or their owner. D_HT means hostile/hate
 			
 			if v:Visible( self ) then
 				local enemydist = (v:GetPos() - self:GetPos()):Length()
@@ -901,7 +902,7 @@ function BOT:TBotFindClosestTeammate()
 	
 end
 
-function TRizzleBotPathfinder( StartNode , GoalNode )
+function BOT:TRizzleBotPathfinder( StartNode , GoalNode )
 	if !IsValid( StartNode ) or !IsValid( GoalNode ) then return false end
 	if ( StartNode == GoalNode ) then return true end
 	
@@ -911,7 +912,7 @@ function TRizzleBotPathfinder( StartNode , GoalNode )
 	local Attempts		=	0 
 	-- Backup Varaible! In case something goes wrong, The game will not get into an infinite loop.
 	
-	while( !table.IsEmpty( Open_List ) and Attempts < 6500 ) do
+	while( !table.IsEmpty( Open_List ) and Attempts < 5000 ) do
 		Attempts		=	Attempts + 1
 		
 		local Current 	=	Get_Best_Node() -- Get the lowest FCost
@@ -962,6 +963,23 @@ function TRizzleBotPathfinder( StartNode , GoalNode )
 		
 	end
 	
+	-- In case we fail.A* will search the whole map to find out there is no valid path.
+	-- This can cause major lag if the bot is doing this almost every think.
+	-- To prevent this,We block the bots path finding completely for a while then allow them to path find again.
+	-- So its not as bad.
+	self.BlockPathFind		=	true
+	self.Goal				=	nil
+	
+	timer.Simple( 1.0 , function() -- Prevent spamming the path finder.
+		
+		if IsValid( self ) then
+			
+			self.BlockPathFind		=	false
+			
+		end
+		
+	end)
+	
 	return false
 end
 
@@ -1005,7 +1023,7 @@ function TRizzleBotRangeCheck( FirstNode , SecondNode , Height )
 	-- The bot should avoid this area unless alternatives are too dangerous or too far.
 	if SecondNode:HasAttributes( NAV_MESH_AVOID ) then 
 		
-		DefaultCost	=	DefaultCost * 3
+		DefaultCost	=	DefaultCost * 7
 		
 	end
 	
@@ -1230,7 +1248,7 @@ function BOT:TBotNavigation()
 			self.Path				=	{} -- Reset that.
 			
 			-- Find a path through the navmesh to our TargetArea
-			self.NavmeshNodes		=	TRizzleBotPathfinder( self.StandingOnNode , TargetArea )
+			self.NavmeshNodes		=	self:TRizzleBotPathfinder( self.StandingOnNode , TargetArea )
 			
 			
 			-- Prevent spamming the pathfinder.
@@ -1283,7 +1301,7 @@ function BOT:TBotNavigation()
 			local Waypoint2D		=	Vector( self.Path[ 1 ].x , self.Path[ 1 ].y , self:GetPos().z )
 			-- ALWAYS: Use 2D navigation, It helps by a large amount.
 			
-			if self.Path[ 2 ] and IsVecCloseEnough( self:GetPos() , Waypoint2D , 600 ) and SendBoxedLine( self.Path[ 2 ] , self:GetPos() + Vector( 0 , 0 , 15 ) ) == true and self.Path[ 2 ].z - 20 >= Waypoint2D.z then
+			if self.Path[ 2 ] and IsVecCloseEnough( self:GetPos() , Waypoint2D , 600 ) and SendBoxedLine( self.Path[ 2 ] , self:GetPos() + Vector( 0 , 0 , 15 ) ) == true and self.Path[ 2 ].z - 20 <= Waypoint2D.z then
 				
 				table.remove( self.Path , 1 )
 				
@@ -1305,7 +1323,7 @@ function BOT:TBotCreateNavTimer()
 	
 	local index				=	self:EntIndex()
 	local LastBotPos		=	self:GetPos()
-	local Attempts		=	0
+	local Attempts			=	0
 	
 	
 	timer.Create( "trizzle_bot_nav" .. index , 0.09 , 0 , function()
@@ -1376,7 +1394,7 @@ function BOT:TBotUpdateMovement( cmd )
 		local MovementAngle		=	( self.Goal - self:GetPos() ):GetNormalized():Angle()
 		local lerp = FrameTime() * math.random(4, 6)
 		
-		if self:OnGround() and self.Goal.z >= self:GetPos().z then
+		if self:OnGround() and self.Goal.z - 10 >= self:GetPos().z then
 			local SmartJump		=	util.TraceLine({
 				
 				start			=	self:GetPos(),
@@ -1414,7 +1432,7 @@ function BOT:TBotUpdateMovement( cmd )
 		local MovementAngle		=	( self.Path[ 1 ] - self:GetPos() ):GetNormalized():Angle()
 		local lerp = FrameTime() * math.random(4, 6)
 		
-		if self:OnGround() and self.Path[ 1 ].z >= self:GetPos().z then
+		if self:OnGround() and self.Path[ 1 ].z - 10 >= self:GetPos().z then
 			local SmartJump		=	util.TraceLine({
 				
 				start			=	self:GetPos(),
@@ -1457,7 +1475,14 @@ function Get_Best_Node()
 	return BestNode
 end
 
+-- This is faster than the method below
 function Sort_Open_List()
+
+	table.sort( Open_List, function(a, b) return a:Get_F_Cost() > b:Get_F_Cost() end )
+
+end
+
+--[[function Sort_Open_List()
 	
 	local SortedList	=	{}
 	local HasDoneLoop	=	false
@@ -1481,7 +1506,7 @@ function Sort_Open_List()
 		Open_List[ #Open_List ]		=	nil
 		
 	end
-	--[[
+
 	if IsValid( Open_List[ #Open_List ] ) then
 		
 		UnsortedList[ 4 ]	=	Open_List[ #Open_List ]
@@ -1495,7 +1520,7 @@ function Sort_Open_List()
 		Open_List[ #Open_List ]				=	nil
 		
 	end
-	]]
+	
 	
 	for k, v in ipairs( UnsortedList ) do
 		if !IsValid( v ) then continue end
@@ -1555,7 +1580,7 @@ function Sort_Open_List()
 		
 	end
 	
-end
+end]]
 
 function Zone:Get_F_Cost()
 	
