@@ -27,6 +27,7 @@ Special thanks to [Zenlenafelex [PSF]](https://steamcommunity.com/profiles/76561
 - "TBotSetHealThreshold", "targetbot" "healthreshold", TBotSetRifle Bot 100
 - "TBotSetCombatHealThreshold", "targetbot" "combathealthreshold", TBotSetRifle Bot 25
 - "TBotSetPlayerModel", "targetbot" "playermodel", TBotSetRifle Bot alyx
+- "TBotSpawnWithPreferredWeapons", "targetbot" "1 or 0" Example: TBotSpawnWithPreferredWeapons Bot 1
 - "TBotSetDefault", "targetbot", TBotSetDefault Bot
 
 
