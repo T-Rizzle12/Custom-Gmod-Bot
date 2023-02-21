@@ -588,6 +588,10 @@ end
 -- This will check if the bot's cursor is close the enemy the bot is fighting
 function BOT:PointWithinViewAngle(targetpos)
 	
+	local trace = util.TraceLine( { start = self:EyePos(), endpos = targetpos, filter = self, mask = TRACE_MASK_SHOT } )
+	
+	if trace.Entity != self.Enemy then return false end
+	
 	local fov = math.cos(0.5 * 20 * math.pi / 180)
 	local pos = targetpos - self:EyePos()
 	local diff = self:GetAimVector():Dot(pos)
@@ -609,7 +613,7 @@ function BOT:IsCursorOnTarget()
 			return true
 		end
 
-		return self:PointWithinViewAngle( self.Enemy:EyePos() )
+		return self:PointWithinViewAngle( self.Enemy:EyePos() - Vector( 0, 0, 10) )
 	
 	end
 end
