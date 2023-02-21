@@ -409,7 +409,7 @@ hook.Add( "StartCommand" , "TRizzleBotAIHook" , function( bot , cmd )
 		
 		local botWeapon = bot:GetActiveWeapon()
 		
-		if botWeapon:IsWeapon() and bot.FullReload and ( botWeapon:Clip1() >= botWeapon:GetMaxClip1() or bot:GetAmmoCount( botWeapon:GetPrimaryAmmoType() ) < 6 or botWeapon:GetClass() != bot.Shotgun ) then bot.FullReload = false end -- Fully reloaded :)
+		if botWeapon:IsWeapon() and bot.FullReload and ( botWeapon:Clip1() >= botWeapon:GetMaxClip1() or bot:GetAmmoCount( botWeapon:GetPrimaryAmmoType() ) < botWeapon:GetMaxClip1() or botWeapon:GetClass() != bot.Shotgun ) then bot.FullReload = false end -- Fully reloaded :)
 		
 		if math.random(2) == 1 and botWeapon:IsWeapon() and !bot.FullReload and botWeapon:GetClass() != "weapon_medkit" and ( bot:GetEyeTraceNoCursor().Entity == bot.Enemy or bot:IsCursorOnTarget() or (bot.Enemy:GetPos() - bot:GetPos()):Length() < bot.MeleeDist ) then
 			buttons = buttons + IN_ATTACK
@@ -829,9 +829,9 @@ function BOT:IsCurrentEnemyAlive()
 end
 
 function BOT:FindNearbySeat()
-
-
-
+	
+	return nil
+	
 end
 
 -- The main AI is here.
@@ -998,9 +998,9 @@ function BOT:TRizzleBotPathfinder( StartNode , GoalNode )
 			local Height = 0
 			
 			if neighbor:Node_Get_Type() == 1 and Current:Node_Get_Type() == 1 then
-				Height			=	Current:ComputeAdjacentConnectionHeightChange( neighbor ) 
+				Height			=	math.abs( Current:ComputeAdjacentConnectionHeightChange( neighbor ) )
 				
-				if neighbor:IsUnderwater() and Height > 1000 or Height > 58 and !neighbor:IsUnderwater() then
+				if !Current:IsUnderwater() and neighbor:IsUnderwater() and Height > 1000 or Height > 58 and !neighbor:IsUnderwater() then
 					-- We can't jump that high.
 					
 					continue
@@ -1185,13 +1185,13 @@ function TRizzleBotPathfinderCheap( StartNode , GoalNode )
 		Current:AddToClosedList()
 		
 		for k, neighbor in ipairs( Current:GetAdjacentAreas() ) do
-			local Height	=	Current:ComputeAdjacentConnectionHeightChange( neighbor ) 
+			local Height	=	math.abs( Current:ComputeAdjacentConnectionHeightChange( neighbor ) ) 
 			-- Optimization,Prevent computing the height twice.
 			
 			local NewCostSoFar		=	Current:GetCostSoFar() + TRizzleBotRangeCheck( Current , neighbor , Height )
 			
 			
-			if neighbor:IsUnderwater() and Height > 1000 or Height > 58 and !neighbor:IsUnderwater() then
+			if !Current:IsUnderwater() and neighbor:IsUnderwater() and Height > 1000 or Height > 58 and !neighbor:IsUnderwater() then
 				-- We can't jump that high.
 				
 				continue
