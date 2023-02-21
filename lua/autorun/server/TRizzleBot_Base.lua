@@ -29,6 +29,7 @@ function TBotCreate( ply , cmd , args )
 	NewBot.Jump				=	false -- If this is set to true the bot will jump
 	NewBot.Crouch				=	false -- If this is set to true the bot will crouch
 	NewBot.Use				=	false -- If this is set to true the bot will press its use key
+	NewBot.FullReload		=	false -- Is the bot trying to fully reload a weapon
 	NewBot.LastCombatTime			=	CurTime() -- This was how long ago the bot was in combat
 	
 	local param2 = args[ 16 ] or 1
@@ -364,6 +365,7 @@ function BOT:TBotResetAI()
 	self.Jump				=	false -- Stop jumping
 	self.Crouch				=	false -- Stop crouching
 	self.Use				=	false -- Stop using
+	self.FullReload			=	false -- Stop reloading
 	self.Light				=	false -- Turn off the bot's flashlight
 	
 	self.Goal				=	nil -- The vector goal we want to get to.
@@ -406,7 +408,10 @@ hook.Add( "StartCommand" , "TRizzleBotAIHook" , function( bot , cmd )
 		bot:SelectBestWeapon( cmd )
 		
 		local botWeapon = bot:GetActiveWeapon()
-		if math.random(2) == 1 and botWeapon:IsWeapon() and botWeapon:GetClass() != "weapon_medkit" and ( bot:GetEyeTraceNoCursor().Entity == bot.Enemy or (bot.Enemy:GetPos() - bot:GetPos()):Length() < bot.MeleeDist ) then
+		
+		if botWeapon:IsWeapon() and bot.FullReload and ( botWeapon:Clip1() >= botWeapon:GetMaxClip1() or bot:GetAmmoCount( botWeapon:GetPrimaryAmmoType() ) < 6 or botWeapon:GetClass() != bot.Shotgun ) then bot.FullReload = false end -- Fully reloaded :)
+		
+		if math.random(2) == 1 and botWeapon:IsWeapon() and !bot.FullReload and botWeapon:GetClass() != "weapon_medkit" and ( bot:GetEyeTraceNoCursor().Entity == bot.Enemy or bot:IsCursorOnTarget() or (bot.Enemy:GetPos() - bot:GetPos()):Length() < bot.MeleeDist ) then
 			buttons = buttons + IN_ATTACK
 		end
 		
@@ -414,7 +419,8 @@ hook.Add( "StartCommand" , "TRizzleBotAIHook" , function( bot , cmd )
 			buttons = buttons + IN_ATTACK2
 		end
 			
-		if math.random(2) == 1 and botWeapon:IsWeapon() and ( botWeapon:Clip1() == 0 or ( botWeapon:GetClass() == bot.Shotgun and !bot:GetEyeTraceNoCursor().Entity == bot.Enemy ) ) then
+		if math.random(2) == 1 and botWeapon:IsWeapon() and botWeapon:Clip1() == 0 then
+			if botWeapon:GetClass() == bot.Shotgun then bot.FullReload = true end
 			buttons = buttons + IN_RELOAD
 		end
 		
@@ -462,15 +468,6 @@ hook.Add( "StartCommand" , "TRizzleBotAIHook" , function( bot , cmd )
 		end
 	end
 	
-	if bot:CanUseFlashlight() and !bot:FlashlightIsOn() and bot.Light and bot:GetSuitPower() > 50 then
-		
-		bot:Flashlight( true )
-		
-	elseif bot:CanUseFlashlight() and bot:FlashlightIsOn() and !bot.Light then
-		
-		bot:Flashlight( false )
-		
-	end
 end)
 
 function BOT:HandleButtons( buttons )
@@ -586,6 +583,35 @@ function BOT:GetCombatAimSpeed()
 	elseif self.TimeInCombat >= 15 then return math.random(6, 8)
 	else return math.random(4, 6) end
 
+end
+
+-- This will check if the bot's cursor is close the enemy the bot is fighting
+function BOT:PointWithinViewAngle(targetpos)
+	
+	local fov = math.cos(0.5 * 20 * math.pi / 180)
+	local pos = targetpos - self:EyePos()
+	local diff = self:GetAimVector():Dot(pos)
+	
+	if diff < 0 then return false end
+	
+	local len = pos:LengthSqr()
+	return diff * diff > len * fov * fov
+
+end
+
+function BOT:IsCursorOnTarget()
+
+	if IsValid( self.Enemy ) then
+		-- we must check eyepos and worldspacecenter
+		-- maybe in the future add more points
+
+		if self:PointWithinViewAngle( self.Enemy:WorldSpaceCenter() ) then
+			return true
+		end
+
+		return self:PointWithinViewAngle( self.Enemy:EyePos() )
+	
+	end
 end
 
 function BOT:SelectBestWeapon( cmd )
@@ -771,14 +797,18 @@ hook.Add( "PlayerSpawn" , "TRizzleBotSpawnHook" , function( ply )
 				
 				if ply.SpawnWithWeapons then
 					
-					ply:Give( ply.Pistol )
-					ply:Give( ply.Shotgun )
-					ply:Give( ply.Rifle )
-					ply:Give( ply.Sniper )
-					ply:Give( ply.Melee )
-					ply:Give( "weapon_medkit" )
+					if !ply:HasWeapon( ply.Pistol ) then ply:Give( ply.Pistol ) end
+					if !ply:HasWeapon( ply.Shotgun ) then ply:Give( ply.Shotgun ) end
+					if !ply:HasWeapon( ply.Rifle ) then ply:Give( ply.Rifle ) end
+					if !ply:HasWeapon( ply.Sniper ) then ply:Give( ply.Sniper ) end
+					if !ply:HasWeapon( ply.Melee ) then ply:Give( ply.Melee ) end
+					if !ply:HasWeapon( "weapon_medkit" ) then ply:Give( "weapon_medkit" ) end
 					
 				end
+				
+				-- For some reason the bot's run and walk speed is slower than a human player
+				ply:SetRunSpeed( ply.Owner:GetRunSpeed() )
+				ply:SetWalkSpeed( ply.Owner:GetWalkSpeed() )
 				
 			end
 			
@@ -796,6 +826,12 @@ function BOT:IsCurrentEnemyAlive()
 	elseif !self.Enemy:Visible( self ) then self.Enemy						=	nil
 	elseif self.Enemy:IsNPC() and ( self.Enemy:GetNPCState() == NPC_STATE_DEAD or (self.Enemy:Disposition( self ) != D_HT and self.Enemy:Disposition( self.Owner ) != D_HT) ) then self.Enemy	=	nil end
 	
+end
+
+function BOT:FindNearbySeat()
+
+
+
 end
 
 -- The main AI is here.
@@ -830,6 +866,41 @@ function BOT:TBotCreateThinking()
 				
 				if self.TimeInCombat > 0 then self.TimeInCombat = self.TimeInCombat - 0.15 end
 				self:RestoreAmmo() 
+				
+			end
+			
+			if ply.SpawnWithWeapons then
+				
+				if !ply:HasWeapon( ply.Pistol ) then ply:Give( ply.Pistol ) end
+				if !ply:HasWeapon( ply.Shotgun ) then ply:Give( ply.Shotgun ) end
+				if !ply:HasWeapon( ply.Rifle ) then ply:Give( ply.Rifle ) end
+				if !ply:HasWeapon( ply.Sniper ) then ply:Give( ply.Sniper ) end
+				if !ply:HasWeapon( ply.Melee ) then ply:Give( ply.Melee ) end
+				if !ply:HasWeapon( "weapon_medkit" ) then ply:Give( "weapon_medkit" ) end
+				
+			end
+			
+			if self.Owner:InVehicle() and !self:InVehicle() then
+			
+				local vehicle = self:FindNearbySeat()
+				
+				if IsValid( vehicle ) then self:EnterVehicle( vehicle ) end
+			
+			end
+			
+			if !self.Owner:InVehicle() and self:InVehicle() then
+			
+				self:ExitVehicle()
+			
+			end
+			
+			if self:CanUseFlashlight() and !self:FlashlightIsOn() and self.Light and self:GetSuitPower() > 50 then
+				
+				self:Flashlight( true )
+				
+			elseif self:CanUseFlashlight() and self:FlashlightIsOn() and !self.Light then
+				
+				self:Flashlight( false )
 				
 			end
 			
@@ -1081,6 +1152,107 @@ function TRizzleBotRetracePath( StartNode , GoalNode )
 	return NodePath
 end
 
+-- This is a cheaper version of the pathfinder, their is only one problem though, it can't use ladders :(
+function TRizzleBotPathfinderCheap( StartNode , GoalNode )
+	if !IsValid( StartNode ) or !IsValid( GoalNode ) then return false end
+	if StartNode == GoalNode then return true end
+	
+	StartNode:ClearSearchLists()
+	
+	StartNode:AddToOpenList()
+	
+	StartNode:SetCostSoFar( 0 )
+	
+	StartNode:SetTotalCost( TRizzleBotRangeCheck( StartNode , GoalNode ) )
+	
+	StartNode:UpdateOnOpenList()
+	
+	local Final_Path		=	{}
+	local Trys				=	0 -- Backup! Prevent crashing.
+	
+	local GoalCen			=	GoalNode:GetCenter()
+	
+	while ( !StartNode:IsOpenListEmpty() and Trys < 50000 ) do
+		Trys	=	Trys + 1
+		
+		local Current	=	StartNode:PopOpenList()
+		
+		if Current == GoalNode then
+			
+			return TRizzleBotRetracePathCheap( Final_Path , Current )
+		end
+		
+		Current:AddToClosedList()
+		
+		for k, neighbor in ipairs( Current:GetAdjacentAreas() ) do
+			local Height	=	Current:ComputeAdjacentConnectionHeightChange( neighbor ) 
+			-- Optimization,Prevent computing the height twice.
+			
+			local NewCostSoFar		=	Current:GetCostSoFar() + TRizzleBotRangeCheck( Current , neighbor , Height )
+			
+			
+			if neighbor:IsUnderwater() and Height > 1000 or Height > 58 and !neighbor:IsUnderwater() then
+				-- We can't jump that high.
+				
+				continue
+			end
+			
+			
+			if neighbor:IsOpen() or neighbor:IsClosed() and neighbor:GetCostSoFar() <= NewCostSoFar then
+				
+				continue
+				
+			else
+				
+				neighbor:SetCostSoFar( NewCostSoFar )
+				neighbor:SetTotalCost( NewCostSoFar + TRizzleBotRangeCheck( neighbor , GoalNode ) )
+				
+				if neighbor:IsClosed() then
+					
+					neighbor:RemoveFromClosedList()
+					
+				end
+				
+				if neighbor:IsOpen() then
+					
+					neighbor:UpdateOnOpenList()
+					
+				else
+					
+					neighbor:AddToOpenList()
+					
+				end
+				
+				
+				Final_Path[ neighbor:GetID() ]	=	Current:GetID()
+			end
+			
+			
+		end
+		
+		
+	end
+	
+	
+	return false
+end
+
+function TRizzleBotRetracePathCheap( Final_Path , Current )
+	
+	local NewPath	=	{ Current }
+	
+	Current			=	Current:GetID()
+	
+	while( Final_Path[ Current ] ) do
+		
+		Current		=	Final_Path[ Current ]
+		table.insert( NewPath , navmesh.GetNavAreaByID( Current ) )
+		
+	end
+	
+	return NewPath
+end
+
 function BOT:TBotSetNewGoal( NewGoal )
 	if !isvector( NewGoal ) then error( "Bad argument #1 vector expected got " .. type( NewGoal ) ) end
 	
@@ -1247,10 +1419,16 @@ function BOT:TBotNavigation()
 			
 			self.Path				=	{} -- Reset that.
 			
-			-- Find a path through the navmesh to our TargetArea
-			self.NavmeshNodes		=	self:TRizzleBotPathfinder( self.StandingOnNode , TargetArea )
+			-- We will compute the path quickly if its far away rather than use my laggy pathfinder for now.
+			if self.Goal:Distance( self:GetPos() ) > 6000 then
+				
+				self.NavmeshNodes			=	TRizzleBotPathfinderCheap( self.StandingOnNode , TargetArea )
+				
+			else
+				-- Find a path through the navmesh to our TargetArea
+				self.NavmeshNodes		=	self:TRizzleBotPathfinder( self.StandingOnNode , TargetArea )
 			
-			
+			end
 			-- Prevent spamming the pathfinder.
 			self.BlockPathFind		=	true
 			timer.Simple( 0.50 , function()
@@ -1305,7 +1483,7 @@ function BOT:TBotNavigation()
 				
 				table.remove( self.Path , 1 )
 				
-			elseif IsVecCloseEnough( self:GetPos() , Waypoint2D , 32 ) then
+			elseif IsVecCloseEnough( self:GetPos() , Waypoint2D , 24 ) then
 				
 				table.remove( self.Path , 1 )
 				
