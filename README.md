@@ -38,8 +38,9 @@ Special thanks to [Zenlenafelex [PSF]](https://steamcommunity.com/profiles/76561
 - The bot can open doors
 - The bot supports most custom/modded weapons
 - The bot will use its flashlight when in a dark area
-- The bot will attack any NPC that attacks them and its owner, "the player that created it."
-- The bot, if it has a medkit, will heal itself and its owner
+- The bot will attack any NPC that is hostile them and its owner, "the player that created it."
+- The bot, if it has a medkit, will heal itself and any players nearby it, "the bot's owner is prioritized"
+- The bot can enter the vehicle the bot's owner is in. This includes most modded vehicles and chairs. "The bot doesn’t know how to drive."
 
 # Bot Cheats
 I know what you are thinking, but these are needed to make the bot fun and easy to use.
@@ -51,7 +52,7 @@ I know what you are thinking, but these are needed to make the bot fun and easy 
 - The bot will lag the game if it can't find a path to its owner
 
 # Planned Features
-- [ ] Get the bot to detect vehicles the bot's owner is in and make the bot enter said vehicle
+- [x] ~~Get the bot to detect vehicles the bot's owner is in and make the bot enter said vehicle~~
 - [ ] Optimize the pathfinding code
 - [ ] Get the bot to detect Nextbots
 - [x] ~~Add more convars, to make the bot more customizable. :)~~
