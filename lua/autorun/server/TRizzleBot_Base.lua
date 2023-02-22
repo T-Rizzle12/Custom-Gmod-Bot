@@ -834,7 +834,25 @@ end
 
 function BOT:FindNearbySeat()
 	
-	return nil
+	local targetdist			=	200 -- This will allow the bot to select the closest vehicle to it.
+	local target				=	nil -- This is the closest vehicle to the bot.
+	
+	for k, v in ipairs( ents.GetAll() ) do
+		
+		if IsValid ( v ) and v:IsVehicle() and v:GetDriver() == NULL then -- The bot should enter the closest vehicle to the bot
+			
+			local vehicledist = (v:GetPos() - self:GetPos()):Length()
+			
+			if vehicledist < targetdist then 
+				target = v
+				targetdist = vehicledist
+			end
+			
+		end
+		
+	end
+	
+	return target
 	
 end
 
@@ -873,14 +891,14 @@ function BOT:TBotCreateThinking()
 				
 			end
 			
-			if ply.SpawnWithWeapons then
+			if self.SpawnWithWeapons then
 				
-				if !ply:HasWeapon( ply.Pistol ) then ply:Give( ply.Pistol ) end
-				if !ply:HasWeapon( ply.Shotgun ) then ply:Give( ply.Shotgun ) end
-				if !ply:HasWeapon( ply.Rifle ) then ply:Give( ply.Rifle ) end
-				if !ply:HasWeapon( ply.Sniper ) then ply:Give( ply.Sniper ) end
-				if !ply:HasWeapon( ply.Melee ) then ply:Give( ply.Melee ) end
-				if !ply:HasWeapon( "weapon_medkit" ) then ply:Give( "weapon_medkit" ) end
+				if !self:HasWeapon( self.Pistol ) then self:Give( self.Pistol ) end
+				if !self:HasWeapon( self.Shotgun ) then self:Give( self.Shotgun ) end
+				if !self:HasWeapon( self.Rifle ) then self:Give( self.Rifle ) end
+				if !self:HasWeapon( self.Sniper ) then self:Give( self.Sniper ) end
+				if !self:HasWeapon( self.Melee ) then self:Give( self.Melee ) end
+				if !self:HasWeapon( "weapon_medkit" ) then self:Give( "weapon_medkit" ) end
 				
 			end
 			
@@ -977,7 +995,7 @@ function BOT:TBotFindClosestTeammate()
 	
 end
 
-function BOT:TRizzleBotPathfinder( StartNode , GoalNode )
+function TRizzleBotPathfinder( StartNode , GoalNode )
 	if !IsValid( StartNode ) or !IsValid( GoalNode ) then return false end
 	if ( StartNode == GoalNode ) then return true end
 	
@@ -1037,23 +1055,6 @@ function BOT:TRizzleBotPathfinder( StartNode , GoalNode )
 		end
 		
 	end
-	
-	-- In case we fail.A* will search the whole map to find out there is no valid path.
-	-- This can cause major lag if the bot is doing this almost every think.
-	-- To prevent this,We block the bots path finding completely for a while then allow them to path find again.
-	-- So its not as bad.
-	self.BlockPathFind		=	true
-	self.Goal				=	nil
-	
-	timer.Simple( 1.0 , function() -- Prevent spamming the path finder.
-		
-		if IsValid( self ) then
-			
-			self.BlockPathFind		=	false
-			
-		end
-		
-	end)
 	
 	return false
 end
@@ -1430,7 +1431,7 @@ function BOT:TBotNavigation()
 				
 			else
 				-- Find a path through the navmesh to our TargetArea
-				self.NavmeshNodes		=	self:TRizzleBotPathfinder( self.StandingOnNode , TargetArea )
+				self.NavmeshNodes		=	TRizzleBotPathfinder( self.StandingOnNode , TargetArea )
 			
 			end
 			-- Prevent spamming the pathfinder.
@@ -1464,7 +1465,22 @@ function BOT:TBotNavigation()
 			-- There is no way we can get there! Remove our goal.
 			if self.NavmeshNodes == false then
 				
-				self.Goal		=	nil
+				-- In case we fail.A* will search the whole map to find out there is no valid path.
+				-- This can cause major lag if the bot is doing this almost every think.
+				-- To prevent this,We block the bots path finding completely for a while then allow them to path find again.
+				-- So its not as bad.
+				self.BlockPathFind		=	true
+				self.Goal				=	nil
+				
+				timer.Simple( 1.0 , function() -- Prevent spamming the path finder.
+					
+					if IsValid( self ) then
+						
+						self.BlockPathFind		=	false
+						
+					end
+					
+				end)
 				
 				return
 			end
@@ -1657,14 +1673,7 @@ function Get_Best_Node()
 	return BestNode
 end
 
--- This is faster than the method below
 function Sort_Open_List()
-
-	table.sort( Open_List, function(a, b) return a:Get_F_Cost() > b:Get_F_Cost() end )
-
-end
-
---[[function Sort_Open_List()
 	
 	local SortedList	=	{}
 	local HasDoneLoop	=	false
@@ -1689,7 +1698,7 @@ end
 		
 	end
 
-	if IsValid( Open_List[ #Open_List ] ) then
+	--[[if IsValid( Open_List[ #Open_List ] ) then
 		
 		UnsortedList[ 4 ]	=	Open_List[ #Open_List ]
 		Open_List[ #Open_List ]				=	nil
@@ -1701,7 +1710,7 @@ end
 		UnsortedList[ 5 ]	=	Open_List[ #Open_List ]
 		Open_List[ #Open_List ]				=	nil
 		
-	end
+	end]]
 	
 	
 	for k, v in ipairs( UnsortedList ) do
@@ -1762,7 +1771,7 @@ end
 		
 	end
 	
-end]]
+end
 
 function Zone:Get_F_Cost()
 	
@@ -1804,24 +1813,6 @@ function Lad:Set_G_Cost( cost )
 	
 end
 
-
-
-
-function Zone:Set_H_Cost( cost )
-	
-	Node_Data[ 1 ][ self:GetID() ][ "HCost" ]	=	cost
-	
-end
-
-function Lad:Set_H_Cost( cost )
-	
-	Node_Data[ 2 ][ self:GetID() ][ "HCost" ]	=	cost
-	
-end
-
-
-
-
 function Zone:Get_G_Cost( cost )
 	
 	return Node_Data[ 1 ][ self:GetID() ][ "GCost" ]
@@ -1831,23 +1822,6 @@ function Lad:Get_G_Cost( cost )
 	
 	return Node_Data[ 2 ][ self:GetID() ][ "GCost" ]
 end
-
-
-
-function Zone:Get_H_Cost( cost )
-	
-	return Node_Data[ 1 ][ self:GetID() ][ "HCost" ]
-end
-
-function Lad:Get_H_Cost( cost )
-	
-	return Node_Data[ 2 ][ self:GetID() ][ "HCost" ]
-end
-
-
-
-
-
 
 function Zone:Set_Parent_Node( SecondNode )
 	
@@ -1872,36 +1846,6 @@ end
 function Lad:Get_Parent_Node()
 	
 	return Node_Data[ 2 ][ self:GetID() ][ "ParentNode" ]
-end
-
-
-
-
--- Hmm, I think we need this for the reparenting.
-function Zone:Get_Current_Path_Length()
-	
-	
-	return Node_Data[ 1 ][ self:GetID() ][ "PathLen" ]
-end
-
-function Lad:Get_Current_Path_Length()
-	
-	
-	return Node_Data[ 2 ][ self:GetID() ][ "PathLen" ]
-end
-
-
-
-function Zone:Set_Current_Path_Length( cost )
-	
-	Node_Data[ 1 ][ self:GetID() ][ "PathLen" ]		=	cost
-	
-end
-
-function Lad:Set_Current_Path_Length( cost )
-	
-	Node_Data[ 2 ][ self:GetID() ][ "PathLen" ]		=	cost
-	
 end
 
 -- Checking if a node is closed or open without iliteration.
@@ -2034,13 +1978,10 @@ function Prepare_Path_Find()
 				
 				Node_Data[ 2 ][ y:GetID() ]		=	{
 					
-					Node			=	y,
 					GCost			=	0,
-					HCost			=	0,
 					FCost			=	0,
 					ParentNode		=	nil,
 					State			=	"Unset",
-					PathLen			=	0
 					
 				}
 				
@@ -2050,13 +1991,10 @@ function Prepare_Path_Find()
 		
 		Node_Data[ 1 ][ v:GetID() ]		=	{
 			
-			Node			=	v,
 			GCost			=	0,
-			HCost			=	0,
 			FCost			=	0,
 			ParentNode		=	nil,
 			State			=	"Unset",
-			PathLen			=	0 -- Incase our path is shorter a different way!
 			
 		}
 		
