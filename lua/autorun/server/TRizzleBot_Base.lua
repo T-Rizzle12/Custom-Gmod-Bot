@@ -529,7 +529,7 @@ function BOT:HandleButtons( buttons )
 	
 	if self.Use and IsDoor( door ) and (door:GetPos() - self:GetPos()):Length() < 80 then 
 	
-		door:Use(self, self, USE_TOGGLE, -1)
+		door:Use(self, self, USE_ON, 0.0)
 		
 		self.Use = false 
 		
@@ -840,7 +840,7 @@ function BOT:FindNearbySeat()
 	
 	for k, v in ipairs( ents.GetAll() ) do
 		
-		if IsValid ( v ) and v:IsVehicle() and v:GetDriver() == NULL then -- The bot should enter the closest vehicle it
+		if IsValid ( v ) and v:IsVehicle() and v:GetDriver() == NULL then -- The bot should enter the closest vehicle to it
 			
 			local vehicledist = (v:GetPos() - self:GetPos()):Length()
 			
