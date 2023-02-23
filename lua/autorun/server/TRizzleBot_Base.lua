@@ -828,7 +828,8 @@ function BOT:IsCurrentEnemyAlive()
 	if !IsValid( self.Enemy ) then self.Enemy							=	nil
 	elseif self.Enemy:IsPlayer() and !self.Enemy:Alive() then self.Enemy				=	nil -- Just incase the bot's enemy is set to a player even though the bot should only target NPCS and "hopefully" NEXTBOTS 
 	elseif !self.Enemy:Visible( self ) then self.Enemy						=	nil
-	elseif self.Enemy:IsNPC() and ( self.Enemy:GetNPCState() == NPC_STATE_DEAD or (self.Enemy:Disposition( self ) != D_HT and self.Enemy:Disposition( self.Owner ) != D_HT) ) then self.Enemy	=	nil end
+	elseif self.Enemy:IsNPC() and ( self.Enemy:GetNPCState() == NPC_STATE_DEAD or (self.Enemy:Disposition( self ) != D_HT and self.Enemy:Disposition( self.Owner ) != D_HT) ) then self.Enemy	=	nil
+	elseif GetConVar( "ai_ignoreplayers" ):GetInt() != 0 or GetConVar( "ai_disabled" ):GetInt() != 0 then	self.Enemy	=	nil end
 	
 end
 
@@ -839,7 +840,7 @@ function BOT:FindNearbySeat()
 	
 	for k, v in ipairs( ents.GetAll() ) do
 		
-		if IsValid ( v ) and v:IsVehicle() and v:GetDriver() == NULL then -- The bot should enter the closest vehicle to the bot
+		if IsValid ( v ) and v:IsVehicle() and v:GetDriver() == NULL then -- The bot should enter the closest vehicle it
 			
 			local vehicledist = (v:GetPos() - self:GetPos()):Length()
 			
