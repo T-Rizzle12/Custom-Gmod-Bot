@@ -12,7 +12,7 @@ Special thanks to [Zenlenafelex [PSF]](https://steamcommunity.com/profiles/76561
 
 # Current Commands
 - CommandName, CommandParameters, Example
-- "TRizzleCreateBot", "botname" "followdist" "dangerdist" "melee" "pistol" "shotgun" "rifle" "sniper" "meleedist" "pistoldist" "shotgundist" "rifledist" "healthreshold" "combathealthreshold" "playermodel", TRizzleCreateBot Bot 200 300 weapon_crowbar weapon_pistol weapon_shotgun weapon_smg1 weapon_crossbow 80 1300 300 900 100 25 alyx
+- "TRizzleCreateBot", "botname" "followdist" "dangerdist" "melee" "pistol" "shotgun" "rifle" "sniper" "meleedist" "pistoldist" "shotgundist" "rifledist" "healthreshold" "combathealthreshold" "playermodel" "spawnwithpreferredweapons", TRizzleCreateBot Bot 200 300 weapon_crowbar weapon_pistol weapon_shotgun weapon_smg1 weapon_crossbow 80 1300 300 900 100 25 alyx 1
 - "TBotSetFollowDist", "targetbot" "followdist", TBotSetFollowDist Bot 200
 - "TBotSetDangerDist", "targetbot" "dangerdist", TBotSetDangerDist Bot 300
 - "TBotSetMelee", "targetbot" "melee", TBotSetMelee Bot weapon_crowbar
