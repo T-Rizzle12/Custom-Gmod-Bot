@@ -1,7 +1,7 @@
 # Important
 This is a "player" bot so you will need to set the game to multiplayer and have a open player spot to create one.
 
-This mod is in Beta, there will be bugs, but with constant updates with new features and fixes it will ony get better.
+This mod is in Beta, there will be bugs, but constant updates with new features and fixes.
 
 Although you can now clone the repository, "I will put updates into a secondary branch before releasing it," I would suggest downloading the latest release, Thank You!
 
