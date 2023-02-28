@@ -26,11 +26,6 @@ function TBotCreate( ply , cmd , args )
 	NewBot.HealThreshold			=	tonumber( args[ 13 ] ) or 100 -- If the bot's health drops below this and the bot is not in combat the bot will use its medkit
 	NewBot.CombatHealThreshold		=	tonumber( args[ 14 ] ) or 25 -- If the bot's health drops below this and the bot is not in combat the bot will use its medkit
 	NewBot.PlayerModel			=	args[ 15 ] or "kleiner" -- This is the player model the bot will use
-	NewBot.Jump				=	false -- If this is set to true the bot will jump
-	NewBot.Crouch				=	false -- If this is set to true the bot will crouch
-	NewBot.Use				=	false -- If this is set to true the bot will press its use key
-	NewBot.FullReload		=	false -- Is the bot trying to fully reload a weapon
-	NewBot.LastCombatTime			=	CurTime() -- This was how long ago the bot was in combat
 	
 	local param2 = args[ 16 ] or 1
 	TBotSpawnWithPreferredWeapons( ply, cmd, { args[ 1 ], param2 } )
@@ -362,6 +357,7 @@ function BOT:TBotResetAI()
 	self.Enemy				=	nil -- Refresh our enemy.
 	self.EnemyList			=	{} -- This is the list of enemies the bot can see.
 	self.TimeInCombat		=	0 -- This is how long the bot has been in combat
+	self.LastCombatTime		=	0 -- This was how long ago the bot was in combat
 	self.Jump				=	false -- Stop jumping
 	self.Crouch				=	false -- Stop crouching
 	self.Use				=	false -- Stop using
@@ -396,12 +392,12 @@ hook.Add( "StartCommand" , "TRizzleBotAIHook" , function( bot , cmd )
 		if trace.Entity == bot.Enemy then
 		
 			-- Can we aim the enemy's head?
-			bot:SetEyeAngles( LerpAngle(lerp, bot:EyeAngles(), ( (bot.Enemy:EyePos() - Vector( 0, 0, 10 ) ) - bot:GetShootPos() ):GetNormalized():Angle() ) )
+			bot:SetEyeAngles( LerpAngle(lerp, bot:EyeAngles(), ( (bot.Enemy:EyePos() - Vector( 0, 0, 10 ) ) - ( bot:GetShootPos() - bot:GetViewPunchAngles():Forward() ) ):GetNormalized():Angle() ) )
 		
 		else
 			
 			-- If we can't aim at our enemy's head aim at the center of their body instead.
-			bot:SetEyeAngles( LerpAngle(lerp, bot:EyeAngles(), ( bot.Enemy:WorldSpaceCenter() - bot:GetShootPos() ):GetNormalized():Angle() ) )
+			bot:SetEyeAngles( LerpAngle(lerp, bot:EyeAngles(), ( bot.Enemy:WorldSpaceCenter() - ( bot:GetShootPos() - bot:GetViewPunchAngles():Forward() ) ):GetNormalized():Angle() ) )
 		
 		end
 		
@@ -418,7 +414,7 @@ hook.Add( "StartCommand" , "TRizzleBotAIHook" , function( bot , cmd )
 		if math.random(2) == 1 and botWeapon:IsWeapon() and botWeapon:GetClass() == "weapon_medkit" and bot.CombatHealThreshold > bot:Health() then
 			buttons = buttons + IN_ATTACK2
 		end
-			
+		
 		if math.random(2) == 1 and botWeapon:IsWeapon() and botWeapon:Clip1() == 0 then
 			if botWeapon:GetClass() == bot.Shotgun then bot.FullReload = true end
 			buttons = buttons + IN_RELOAD
@@ -503,7 +499,7 @@ function BOT:HandleButtons( buttons )
 		
 		timer.Simple( 0.3 , function()
 			
-			self.Crouch = false 
+			if IsValid( self ) then self.Crouch = false end
 			
 		end)
 		
@@ -527,9 +523,10 @@ function BOT:HandleButtons( buttons )
 	
 	local door = self:GetEyeTrace().Entity
 	
-	if self.Use and IsDoor( door ) and (door:GetPos() - self:GetPos()):Length() < 80 then 
+	if self.Use and (door:GetPos() - self:GetPos()):Length() < 80 then 
 	
-		door:Use(self, self, USE_ON, 0.0)
+		if IsDoor( door ) then door:Use(self, self, USE_ON, 0.0) end
+		-- else door:Use(self, self, USE_TOGGLE, 0.0) end -- I might add a way for the bot to push buttons the player tells them to
 		
 		self.Use = false 
 		
@@ -592,7 +589,7 @@ function BOT:PointWithinViewAngle(targetpos)
 	
 	if trace.Entity != self.Enemy then return false end
 	
-	local fov = math.cos(0.5 * 20 * math.pi / 180)
+	local fov = math.cos(0.5 * 16 * math.pi / 180)
 	local pos = targetpos - self:EyePos()
 	local diff = self:GetAimVector():Dot(pos)
 	
@@ -613,7 +610,7 @@ function BOT:IsCursorOnTarget()
 			return true
 		end
 
-		return self:PointWithinViewAngle( self.Enemy:EyePos() - Vector( 0, 0, 10) )
+		return self:PointWithinViewAngle( self.Enemy:EyePos() - Vector( 0, 0, 10 ) )
 	
 	end
 end
@@ -737,6 +734,7 @@ function BOT:RestoreAmmo()
 	
 end
 
+-- Going to not use this function for a bit and see what happens
 function IsDoor( v )
 
 	if (v:GetClass() == "func_door") or (v:GetClass() == "prop_door_rotating") or (v:GetClass() == "func_door_rotating") then
@@ -1003,6 +1001,7 @@ function TRizzleBotPathfinder( StartNode , GoalNode )
 	Prepare_Path_Find()
 	
 	StartNode:Node_Add_To_Open_List()
+	
 	local Attempts		=	0 
 	-- Backup Varaible! In case something goes wrong, The game will not get into an infinite loop.
 	
@@ -1021,9 +1020,9 @@ function TRizzleBotPathfinder( StartNode , GoalNode )
 			local Height = 0
 			
 			if neighbor:Node_Get_Type() == 1 and Current:Node_Get_Type() == 1 then
-				Height			=	math.abs( Current:ComputeAdjacentConnectionHeightChange( neighbor ) )
+				Height			=	Current:ComputeAdjacentConnectionHeightChange( neighbor )
 				
-				if !Current:IsUnderwater() and neighbor:IsUnderwater() and Height > 1000 or Height > 58 and !neighbor:IsUnderwater() then
+				if !Current:IsUnderwater() and !neighbor:IsUnderwater() and -Height < 200 and Height > 58 then
 					-- We can't jump that high.
 					
 					continue
@@ -1074,7 +1073,7 @@ function TRizzleBotRangeCheck( FirstNode , SecondNode , Height )
 	
 	if isnumber( Height ) and Height > 32 then
 		
-		DefaultCost		=	DefaultCost * 5
+		DefaultCost		=	DefaultCost + math.abs( Height )
 		
 		-- Jumping is slower than ground movement.
 		-- And falling is risky taking fall damage.
@@ -1082,46 +1081,24 @@ function TRizzleBotRangeCheck( FirstNode , SecondNode , Height )
 		
 	end
 	
-	-- Jump nodes however,We find slightly easier to jump with.Its more recommended than jumping without them.
-	if SecondNode:HasAttributes( NAV_MESH_JUMP ) then 
-		
-		DefaultCost	=	DefaultCost * 3.50
-		
-	end
-	
-	
 	-- Crawling through a vent is very slow.
 	if SecondNode:HasAttributes( NAV_MESH_CROUCH ) then 
 		
-		DefaultCost	=	DefaultCost * 7
+		DefaultCost	=	DefaultCost * 1.5
 		
 	end
 	
 	-- The bot should avoid this area unless alternatives are too dangerous or too far.
 	if SecondNode:HasAttributes( NAV_MESH_AVOID ) then 
 		
-		DefaultCost	=	DefaultCost * 7
-		
-	end
-	
-	-- We are less interested in smaller nodes as it can make less realistic paths.
-	-- Also its easy to get stuck on them.
-	if SecondNode:GetSizeY() <= 50 then
-		
-		DefaultCost		=	DefaultCost * 3
-		
-	end
-	
-	if SecondNode:GetSizeX() <= 50 then
-		
-		DefaultCost		=	DefaultCost * 3
+		DefaultCost	=	DefaultCost * 2
 		
 	end
 	
 	-- We will try not to swim since it can be slower than running on land, it can also be very dangerous, Ex. "Acid, Lava, Etc."
 	if SecondNode:IsUnderwater() then
 	
-		DefaultCost		=	DefaultCost * 2
+		DefaultCost		=	DefaultCost * 1.1
 		
 	end
 	
@@ -1143,15 +1120,8 @@ function TRizzleBotRetracePath( StartNode , GoalNode )
 		
 		Current			=	Current:Get_Parent_Node()
 		
-		if Current:Node_Get_Type() == 1 then
+		NodePath[ #NodePath + 1 ]	=	Current
 		
-			table.insert( NodePath , navmesh.GetNavAreaByID( Current:GetID() ) )
-			
-		else
-		
-			table.insert( NodePath , navmesh.GetNavLadderByID( Current:GetID() ) )
-			
-		end
 	end
 	
 	
@@ -1191,20 +1161,20 @@ function TRizzleBotPathfinderCheap( StartNode , GoalNode )
 		Current:AddToClosedList()
 		
 		for k, neighbor in ipairs( Current:GetAdjacentAreas() ) do
-			local Height	=	math.abs( Current:ComputeAdjacentConnectionHeightChange( neighbor ) ) 
+			local Height	=	Current:ComputeAdjacentConnectionHeightChange( neighbor )
 			-- Optimization,Prevent computing the height twice.
 			
 			local NewCostSoFar		=	Current:GetCostSoFar() + TRizzleBotRangeCheck( Current , neighbor , Height )
 			
 			
-			if !Current:IsUnderwater() and neighbor:IsUnderwater() and Height > 1000 or Height > 58 and !neighbor:IsUnderwater() then
+			if !Current:IsUnderwater() and !neighbor:IsUnderwater() and -Height < 200 and Height > 58 then
 				-- We can't jump that high.
 				
 				continue
 			end
 			
 			
-			if neighbor:IsOpen() or neighbor:IsClosed() and neighbor:GetCostSoFar() <= NewCostSoFar then
+			if ( neighbor:IsOpen() or neighbor:IsClosed() ) and neighbor:GetCostSoFar() <= NewCostSoFar then
 				
 				continue
 				
@@ -1262,8 +1232,8 @@ end
 function BOT:TBotSetNewGoal( NewGoal )
 	if !isvector( NewGoal ) then error( "Bad argument #1 vector expected got " .. type( NewGoal ) ) end
 	
-	self.Goal				=	NewGoal
 	if self.PathTime < CurTime() then
+		self.Goal				=	NewGoal
 		self.Path				=	{}
 		self.PathTime			=	CurTime() + 1.0
 	end
@@ -1435,33 +1405,6 @@ function BOT:TBotNavigation()
 				self.NavmeshNodes		=	TRizzleBotPathfinder( self.StandingOnNode , TargetArea )
 			
 			end
-			-- Prevent spamming the pathfinder.
-			self.BlockPathFind		=	true
-			timer.Simple( 0.50 , function()
-				
-				if IsValid( self ) then
-					
-					self.BlockPathFind		=	false
-					
-				end
-				
-			end)
-			
-			
-			-- Give the computer some time before it does more expensive checks.
-			timer.Simple( 0.03 , function()
-				
-				-- If we can get there and is not already there, Then we will compute the visiblilty.
-				if IsValid( self ) and istable( self.NavmeshNodes ) then
-					
-					self.NavmeshNodes	=	table.Reverse( self.NavmeshNodes )
-					
-					self:ComputeNavmeshVisibility()
-					
-				end
-				
-			end)
-			
 			
 			-- There is no way we can get there! Remove our goal.
 			if self.NavmeshNodes == false then
@@ -1473,7 +1416,7 @@ function BOT:TBotNavigation()
 				self.BlockPathFind		=	true
 				self.Goal				=	nil
 				
-				timer.Simple( 1.0 , function() -- Prevent spamming the path finder.
+				timer.Simple( 3.0 , function() -- Prevent spamming the path finder.
 					
 					if IsValid( self ) then
 						
@@ -1483,9 +1426,36 @@ function BOT:TBotNavigation()
 					
 				end)
 				
-				return
-			end
+			else
 			
+				-- Prevent spamming the pathfinder.
+				self.BlockPathFind		=	true
+				timer.Simple( 0.50 , function()
+					
+					if IsValid( self ) then
+						
+						self.BlockPathFind		=	false
+						
+					end
+					
+				end)
+				
+				
+				-- Give the computer some time before it does more expensive checks.
+				timer.Simple( 0.03 , function()
+					
+					-- If we can get there and is not already there, Then we will compute the visiblilty.
+					if IsValid( self ) and istable( self.NavmeshNodes ) then
+						
+						self.NavmeshNodes	=	table.Reverse( self.NavmeshNodes )
+						
+						self:ComputeNavmeshVisibility()
+						
+					end
+					
+				end)
+				
+			end
 			
 		end
 		
@@ -1653,6 +1623,7 @@ function BOT:TBotUpdateMovement( cmd )
 		local TargetArea		=	navmesh.GetNearestNavArea( self.Path[ 1 ] )
 		
 		if IsValid( TargetArea ) and TargetArea:HasAttributes( NAV_MESH_CROUCH ) then self.Crouch = true end
+		if IsValid( TargetArea ) and TargetArea:HasAttributes( NAV_MESH_JUMP ) then self.Jump = true end
 		
 		cmd:SetViewAngles( MovementAngle )
 		cmd:SetForwardMove( 1000 )
@@ -1943,12 +1914,6 @@ function Lad:Node_Add_To_Open_List()
 	Sort_Open_List()
 	
 end
-
-
-
-
-
-
 
 function Zone:Node_Remove_From_Closed_List()
 	
