@@ -386,18 +386,17 @@ hook.Add( "StartCommand" , "TRizzleBotAIHook" , function( bot , cmd )
 	if IsValid( bot.Enemy ) then
 		
 		local trace = util.TraceLine( { start = bot:EyePos(), endpos = bot.Enemy:EyePos() - Vector( 0, 0, 10 ), filter = bot, mask = TRACE_MASK_SHOT } )
-		local lerp = FrameTime() * bot:GetCombatAimSpeed()
 		
 		-- Turn and face our enemy!
 		if trace.Entity == bot.Enemy then
 		
 			-- Can we aim the enemy's head?
-			bot:SetEyeAngles( LerpAngle(lerp, bot:EyeAngles(), ( (bot.Enemy:EyePos() - Vector( 0, 0, 10 ) ) - ( bot:GetShootPos() - bot:GetViewPunchAngles():Forward() ) ):GetNormalized():Angle() ) )
+			bot:AimAtPos( ( bot.Enemy:EyePos() - Vector( 0, 0, 10 ) ) )
 		
 		else
 			
 			-- If we can't aim at our enemy's head aim at the center of their body instead.
-			bot:SetEyeAngles( LerpAngle(lerp, bot:EyeAngles(), ( bot.Enemy:WorldSpaceCenter() - ( bot:GetShootPos() - bot:GetViewPunchAngles():Forward() ) ):GetNormalized():Angle() ) )
+			bot:AimAtPos( bot.Enemy:WorldSpaceCenter() )
 		
 		end
 		
@@ -487,7 +486,7 @@ function BOT:HandleButtons( buttons )
 	end
 	
 	-- Run if we are too far from our owner
-	if self:IsOnGround() and !self.Crouch and (self.Owner:GetPos() - self:GetPos()):Length() > self.DangerDist and self:GetSuitPower() > 20 then 
+	if (self.Owner:GetPos() - self:GetPos()):Length() > self.DangerDist and self:GetSuitPower() > 20 then 
 		
 		buttons = buttons + IN_SPEED 
 	
@@ -573,30 +572,57 @@ function BOT:IsInCombat()
 	
 end
 
--- The longer the bot is in combat the faster the bot will aim
-function BOT:GetCombatAimSpeed()
+-- Got this from CS:GO Source Code, made some changes so it works for Lua, this is the aiming system valve bots use
+function BOT:AimAtPos( Pos )
 
-	if self.TimeInCombat >= 30 then return math.random(8, 10)
-	elseif self.TimeInCombat >= 15 then return math.random(6, 8)
-	else return math.random(4, 6) end
+	local currentAngles = self:EyeAngles() + self:GetViewPunchAngles()
+	local approachRate = 1000
+	local easeOut = 0.7
+	local lerp = FrameTime()
+	local to = ( ( Pos + self.Enemy:GetAbsVelocity() ) - self:EyePos() ):GetNormalized()
+	local desiredAngles = to:Angle()
+	local dot = self:GetAimVector():Dot( to )
+	
+	if dot > easeOut then
+	
+		local t = math.Remap( dot, easeOut, 1.0, 1.0, 0.02 )
+		local halfPI = 1.57
+		approachRate = approachRate * math.sin( halfPI * t )
+	end
 
+	local easeInTime = 0.25
+	if self.TimeInCombat < easeInTime then
+	
+		approachRate = approachRate * ( self.TimeInCombat / easeInTime )
+	end
+	
+	local angles = angle_zero
+	angles.y = math.ApproachAngle( desiredAngles.y, currentAngles.y, approachRate * lerp )
+	angles.x = math.ApproachAngle( desiredAngles.x, currentAngles.x, approachRate * lerp )
+	angles.z = 0.0
+
+	-- back out "punch angle"
+	angles = angles - self:GetViewPunchAngles()
+
+	angles.x = math.NormalizeAngle( angles.x )
+	angles.y = math.NormalizeAngle( angles.y )
+
+	self:SetEyeAngles( angles )
 end
 
 -- This will check if the bot's cursor is close the enemy the bot is fighting
-function BOT:PointWithinViewAngle(targetpos)
+function BOT:PointWithinViewAngle( targetpos )
 	
-	local trace = util.TraceLine( { start = self:EyePos(), endpos = targetpos, filter = self, mask = TRACE_MASK_SHOT } )
+	local trace = util.TraceLine( { start = self:WorldSpaceCenter(), endpos = targetpos, filter = self, mask = TRACE_MASK_SHOT } )
 	
 	if trace.Entity != self.Enemy then return false end
 	
-	local fov = math.cos(0.5 * 16 * math.pi / 180)
+	local EntWidth = self.Enemy:BoundingRadius() * 0.5
 	local pos = targetpos - self:EyePos()
-	local diff = self:GetAimVector():Dot(pos)
+	local fov = math.cos( math.atan( EntWidth / pos:Length() ) )
+	local diff = self:GetAimVector():Dot( pos )
 	
-	if diff < 0 then return false end
-	
-	local len = pos:LengthSqr()
-	return diff * diff > len * fov * fov
+	return diff > fov
 
 end
 
