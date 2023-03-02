@@ -3,7 +3,7 @@ This is a "player" bot so you will need to set the game to multiplayer and have 
 
 This mod is in Beta, there will be bugs, but constant updates with new features and fixes.
 
-Although you can now clone the repository, "I will put updates into a secondary branch before releasing it," I would suggest downloading the latest release, Thank You!
+Although you can just clone the repository. (I will put updates into a secondary branch before releasing it) I would suggest downloading the latest release, Thank You!
 
 ## Why I made this mod
 I made this because I usually have to play Gmod alone and I also wanted to see what I could do with the nextbot system.
@@ -11,33 +11,48 @@ I made this because I usually have to play Gmod alone and I also wanted to see w
 Special thanks to [Zenlenafelex [PSF]](https://steamcommunity.com/profiles/76561198976669728) for helping me with the pathfinding code for the bot.
 
 # Current Commands
-- CommandName, CommandParameters, Example
-- "TRizzleCreateBot", "botname" "followdist" "dangerdist" "melee" "pistol" "shotgun" "rifle" "sniper" "meleedist" "pistoldist" "shotgundist" "rifledist" "healthreshold" "combathealthreshold" "playermodel" "spawnwithpreferredweapons", TRizzleCreateBot Bot 200 300 weapon_crowbar weapon_pistol weapon_shotgun weapon_smg1 weapon_crossbow 80 1300 300 900 100 25 alyx 1
-- "TBotSetFollowDist", "targetbot" "followdist", TBotSetFollowDist Bot 200
-- "TBotSetDangerDist", "targetbot" "dangerdist", TBotSetDangerDist Bot 300
-- "TBotSetMelee", "targetbot" "melee", TBotSetMelee Bot weapon_crowbar
-- "TBotSetPistol", "targetbot" "pistol", TBotSetPistol Bot weapon_pistol
-- "TBotSetShotgun", "targetbot" "shotgun", TBotSetShotgun Bot weapon_shotgun
-- "TBotSetRifle", "targetbot" "rifle", TBotSetRifle Bot weapon_smg1
-- "TBotSetSniper", "targetbot" "sniper", TBotSetRifle Bot weapon_crossbow
-- "TBotSetMeleeDist", "targetbot" "meleedist", TBotSetMelee Bot weapon_crowbar
-- "TBotSetPistolDist", "targetbot" "pistoldist", TBotSetPistol Bot weapon_pistol
-- "TBotSetShotgunDist", "targetbot" "shotgundist", TBotSetShotgun Bot weapon_shotgun
-- "TBotSetRifleDist", "targetbot" "rifledist", TBotSetRifle Bot weapon_smg1
-- "TBotSetHealThreshold", "targetbot" "healthreshold", TBotSetRifle Bot 100
-- "TBotSetCombatHealThreshold", "targetbot" "combathealthreshold", TBotSetRifle Bot 25
-- "TBotSetPlayerModel", "targetbot" "playermodel", TBotSetRifle Bot alyx
-- "TBotSpawnWithPreferredWeapons", "targetbot" "1 or 0" TBotSpawnWithPreferredWeapons Bot 1
-- "TBotSetDefault", "targetbot", TBotSetDefault Bot
+CommandName, CommandParameters, Example
+- <code>TRizzleCreateBot</code> <code>botname</code> <code>followdist</code> <code>dangerdist</code> <code>melee</code> <code>pistol</code> <code>shotgun</code> <code>rifle</code> <code>sniper</code> <code>meleedist</code> <code>pistoldist</code> <code>shotgundist</code> <code>rifledist</code> <code>healthreshold</code> <code>combathealthreshold</code> <code>playermodel</code> <code>spawnwithpreferredweapons</code>
+  - TRizzleCreateBot Bot 200 300 weapon_crowbar weapon_pistol weapon_shotgun weapon_smg1 weapon_crossbow 80 1300 300 900 100 25 alyx 1
+- <code>TBotSetFollowDist</code> <code>targetbot</code> <code>followdist</code> 
+  -  TBotSetFollowDist Bot 200
+- <code>TBotSetDangerDist</code> <code>targetbot</code> <code>dangerdist</code> 
+  - TBotSetDangerDist Bot 300
+- <code>TBotSetMelee</code> <code>targetbot</code> <code>melee</code> 
+  - TBotSetMelee Bot weapon_crowbar
+- <code>TBotSetPistol</code> <code>targetbot</code>  <code>pistol</code>  
+  - TBotSetPistol Bot weapon_pistol
+- <code>TBotSetShotgun</code> <code>targetbot</code>  <code>shotgun</code>  
+  - TBotSetShotgun Bot weapon_shotgun
+- <code>TBotSetRifle</code> <code>targetbot</code>  <code>rifle</code>  
+  - TBotSetRifle Bot weapon_smg1
+- <code>TBotSetSniper</code> <code>targetbot</code>  <code>sniper</code>  
+  - TBotSetRifle Bot weapon_crossbow
+- <code>TBotSetMeleeDist</code> <code>targetbot</code>  <code>meleedist</code>  
+  - TBotSetMelee Bot weapon_crowbar
+- <code>TBotSetPistolDist</code> <code>targetbot</code>  <code>pistoldist</code>  
+  - TBotSetPistol Bot weapon_pistol
+- <code>TBotSetShotgunDist</code> <code>targetbot</code>  <code>shotgundist</code>  
+  - TBotSetShotgun Bot weapon_shotgun
+- <code>TBotSetRifleDist</code> <code>targetbot</code>  <code>rifledist</code>  
+  - TBotSetRifle Bot weapon_smg1
+- <code>TBotSetHealThreshold</code> <code>targetbot</code>  <code>healthreshold</code>  
+  - TBotSetRifle Bot 100
+- <code>TBotSetPlayerModel</code> <code>targetbot</code>  <code>playermodel</code>  
+  - TBotSetRifle Bot alyx
+- <code>TBotSpawnWithPreferredWeapons</code> <code>targetbot</code>  <code>1 or 0</code>  
+  - TBotSpawnWithPreferredWeapons Bot 1
+- <code>TBotSetDefault</code> <code>targetbot</code>  
+  - TBotSetDefault Bot
 
 
 # Current Features
 - The bot is a player bot
 - The bot can use ladders
-- The bot has smooth aiming
+- The bot has "smooth aiming"
 - The bot can open doors
 - The bot will use its flashlight when in a dark area
-- The bot will attack any NPC that is hostile them and its "owner." (The player that created it)
+- The bot will attack any NPC that is hostile them and its "owner" (The player that created it)
 - The bot, if it has a medkit, will heal itself and any players nearby it, although the bot's owner is prioritized.
 - The bot can enter the vehicle the bot's owner is in. This includes most modded vehicles and chairs. See "Issues"
 - Support for most custom/modded weapons, see "Issues" for more information. 
