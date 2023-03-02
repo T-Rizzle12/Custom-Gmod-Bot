@@ -3,7 +3,7 @@ This is a "player" bot so you will need to set the game to multiplayer and have 
 
 This mod is in Beta, there will be bugs, but constant updates with new features and fixes.
 
-Although you can now clone the repository, "I will put updates into a secondary branch before releasing it," I would suggest downloading the latest release, Thank You!
+Although you can just clone the repository. (I will put updates into a secondary branch before releasing it) I would suggest downloading the latest release, Thank You!
 
 ## Why I made this mod
 I made this because I usually have to play Gmod alone and I also wanted to see what I could do with the nextbot system.
@@ -37,7 +37,7 @@ Special thanks to [Zenlenafelex [PSF]](https://steamcommunity.com/profiles/76561
 - The bot has smooth aiming
 - The bot can open doors
 - The bot will use its flashlight when in a dark area
-- The bot will attack any NPC that is hostile them and its "owner." (The player that created it)
+- The bot will attack any NPC that is hostile them and its "owner" (The player that created it)
 - The bot, if it has a medkit, will heal itself and any players nearby it, although the bot's owner is prioritized.
 - The bot can enter the vehicle the bot's owner is in. This includes most modded vehicles and chairs. See "Issues"
 - Support for most custom/modded weapons, see "Issues" for more information. 
