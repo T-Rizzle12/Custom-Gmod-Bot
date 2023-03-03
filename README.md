@@ -53,7 +53,7 @@ CommandName, CommandParameters, Example
 # Current Features
 - The bot is a player bot
 - The bot can use ladders
-- The bot has "smooth aiming" (Aim won't "jump" to enemies) 
+- The bot has "smooth aiming" (Aim won't instantly aim at enemies) 
 - The bot can open doors
 - The bot will use its flashlight when in a dark area
 - The bot will attack any NPC that is hostile them and its "owner" (The player that created it)
