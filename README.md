@@ -1,7 +1,7 @@
 # Use
 - Install this addon: place the Custom Gmod Bot folder (Unzip before use) in your gmod addons folder.
-- Create at least a 2 player gmod server, This addon will create a "player" bot so you will need have a open player spot because gmod will consider the bot a real player. 
-- Create a bot useing the TRizzleCreateBot Command. (See below)
+- Create at least a 2 player gmod server. This addon creates a "player" bot so you must have a open player spot because gmod will consider the bot a real player. 
+- Create a bot using the TRizzleCreateBot Command. (See below)
 
 # Important [![contributions welcome](https://img.shields.io/badge/contributions-welcome-brightgreen.svg?style=flat)](https://github.com/dwyl/esta/issues) [![HitCount](https://hits.dwyl.com/T-Rizzle12/start-here.svg)](https://hits.dwyl.com/T-Rizzle12/Custom-Gmod-Bot)
 
@@ -53,7 +53,7 @@ CommandName, CommandParameters, Example
 # Current Features
 - The bot is a player bot
 - The bot can use ladders
-- The bot has "smooth aiming"
+- The bot has "smooth aiming" (Aim won't "jump" to enemies) 
 - The bot can open doors
 - The bot will use its flashlight when in a dark area
 - The bot will attack any NPC that is hostile them and its "owner" (The player that created it)
