@@ -5,7 +5,7 @@ local Open_List		=	{}
 local Node_Data		=	{}
 util.AddNetworkString( "TRizzleBotFlashlight" )
 
-function TBotCreate( ply , cmd , args )
+function TBotCreate( ply , cmd , args ) -- This code defines stats of the bot when it is created.  
 	if !args[ 1 ] then return end 
 	
 	local NewBot				=	player.CreateNextBot( args[ 1 ] ) -- Create the bot and store it in a varaible.
@@ -29,7 +29,7 @@ function TBotCreate( ply , cmd , args )
 	NewBot.Jump				=	false -- If this is set to true the bot will jump
 	NewBot.Crouch				=	false -- If this is set to true the bot will crouch
 	NewBot.Use				=	false -- If this is set to true the bot will press its use key
-	NewBot.FullReload		=	false -- Is the bot trying to fully reload a weapon
+	NewBot.FullReload		        =	false -- Is the bot trying to fully reload a weapon
 	NewBot.LastCombatTime			=	CurTime() -- This was how long ago the bot was in combat
 	
 	local param2 = args[ 16 ] or 1
@@ -39,7 +39,7 @@ function TBotCreate( ply , cmd , args )
 	
 end
 
-function TBotSetFollowDist( ply, cmd, args )
+function TBotSetFollowDist( ply, cmd, args ) -- Command for changing the bots "Follow" distance to something other than the default.  
 	if !args[ 1 ] then return end
 	
 	local targetbot = args[ 1 ]
@@ -57,7 +57,7 @@ function TBotSetFollowDist( ply, cmd, args )
 
 end
 
-function TBotSetDangerDist( ply, cmd, args )
+function TBotSetDangerDist( ply, cmd, args ) -- Command for changing the bots "Danger" distance to something other than the default. 
 	if !args[ 1 ] then return end
 	
 	local targetbot = args[ 1 ]
@@ -75,7 +75,7 @@ function TBotSetDangerDist( ply, cmd, args )
 
 end
 
-function TBotSetMelee( ply, cmd, args )
+function TBotSetMelee( ply, cmd, args ) -- Command for changing the bots melee to something other than the default. 
 	if !args[ 1 ] then return end
 	
 	local targetbot = args[ 1 ]
@@ -93,7 +93,7 @@ function TBotSetMelee( ply, cmd, args )
 
 end
 
-function TBotSetPistol( ply, cmd, args )
+function TBotSetPistol( ply, cmd, args ) -- Command for changing the bots pistol to something other than the default. 
 	if !args[ 1 ] then return end
 	
 	local targetbot = args[ 1 ]
@@ -111,7 +111,7 @@ function TBotSetPistol( ply, cmd, args )
 
 end
 
-function TBotSetShotgun( ply, cmd, args )
+function TBotSetShotgun( ply, cmd, args ) -- Command for changing the bots shotgun to something other than the default. 
 	if !args[ 1 ] then return end
 	
 	local targetbot = args[ 1 ]
@@ -129,7 +129,7 @@ function TBotSetShotgun( ply, cmd, args )
 
 end
 
-function TBotSetRifle( ply, cmd, args )
+function TBotSetRifle( ply, cmd, args ) -- Command for changing the bots rifle to something other than the default. 
 	if !args[ 1 ] then return end
 	
 	local targetbot = args[ 1 ]
@@ -147,7 +147,7 @@ function TBotSetRifle( ply, cmd, args )
 
 end
 
-function TBotSetSniper( ply, cmd, args )
+function TBotSetSniper( ply, cmd, args ) -- Command for changing the bots sniper to something other than the default. 
 	if !args[ 1 ] then return end
 	
 	local targetbot = args[ 1 ]
@@ -360,18 +360,17 @@ concommand.Add( "TBotSetDefault" , TBotSetDefault , nil , "Set the specified bot
 function BOT:TBotResetAI()
 	
 	self.Enemy				=	nil -- Refresh our enemy.
-	self.EnemyList			=	{} -- This is the list of enemies the bot can see.
-	self.TimeInCombat		=	0 -- This is how long the bot has been in combat
+	self.EnemyList			        =	{} -- This is the list of enemies the bot can see.
+	self.TimeInCombat		        =	0 -- This is how long the bot has been in combat
 	self.Jump				=	false -- Stop jumping
 	self.Crouch				=	false -- Stop crouching
 	self.Use				=	false -- Stop using
-	self.FullReload			=	false -- Stop reloading
+	self.FullReload			        =	false -- Stop reloading
 	self.Light				=	false -- Turn off the bot's flashlight
-	
 	self.Goal				=	nil -- The vector goal we want to get to.
-	self.NavmeshNodes		=	{} -- The nodes given to us by the pathfinder
+	self.NavmeshNodes		        =	{} -- The nodes given to us by the pathfinder
 	self.Path				=	nil -- The nodes converted into waypoints by our visiblilty checking.
-	self.PathTime			=	CurTime() + 1.0 -- This will limit how often the path gets recreated
+	self.PathTime			        =	CurTime() + 1.0 -- This will limit how often the path gets recreated
 	
 	self:TBotCreateThinking() -- Start our AI
 	
@@ -698,7 +697,7 @@ function BOT:RestoreAmmo()
 	
 	-- This is kind of a cheat, but the bot will only slowly recover ammo when not in combat
 	local pistol		=	self:GetWeapon( self.Pistol )
-	local rifle			=	self:GetWeapon( self.Rifle )
+	local rifle		=	self:GetWeapon( self.Rifle )
 	local shotgun		=	self:GetWeapon( self.Shotgun )
 	local sniper		=	self:GetWeapon( self.Sniper )
 	local pistol_ammo	=	nil
@@ -1174,8 +1173,7 @@ function TRizzleBotPathfinderCheap( StartNode , GoalNode )
 	StartNode:UpdateOnOpenList()
 	
 	local Final_Path		=	{}
-	local Trys				=	0 -- Backup! Prevent crashing.
-	
+	local Trys			=	0 -- Backup! Prevent crashing.
 	local GoalCen			=	GoalNode:GetCenter()
 	
 	while ( !StartNode:IsOpenListEmpty() and Trys < 50000 ) do
@@ -1451,7 +1449,7 @@ function BOT:TBotNavigation()
 			-- Give the computer some time before it does more expensive checks.
 			timer.Simple( 0.03 , function()
 				
-				-- If we can get there and is not already there, Then we will compute the visiblilty.
+				-- If we can get there and we are not already there, Then we will compute the visiblilty.
 				if IsValid( self ) and istable( self.NavmeshNodes ) then
 					
 					self.NavmeshNodes	=	table.Reverse( self.NavmeshNodes )
@@ -1466,11 +1464,11 @@ function BOT:TBotNavigation()
 			-- There is no way we can get there! Remove our goal.
 			if self.NavmeshNodes == false then
 				
-				-- In case we fail.A* will search the whole map to find out there is no valid path.
+				-- In case we fail. A* will search the whole map to find out there is no valid path.
 				-- This can cause major lag if the bot is doing this almost every think.
-				-- To prevent this,We block the bots path finding completely for a while then allow them to path find again.
+				-- To prevent this, We block the bots pathfinding completely for a while before allowing them to pathfind again.
 				-- So its not as bad.
-				self.BlockPathFind		=	true
+				self.BlockPathFind		        =	true
 				self.Goal				=	nil
 				
 				timer.Simple( 1.0 , function() -- Prevent spamming the path finder.
@@ -1638,7 +1636,7 @@ function BOT:TBotUpdateMovement( cmd )
 				endpos			=	self:GetPos() + Vector( 0 , 0 , -16 ),
 				filter			=	self,
 				mask			=	MASK_SOLID,
-				collisiongroup	=	COLLISION_GROUP_DEBRIS
+				collisiongroup	        =	COLLISION_GROUP_DEBRIS
 				
 			})
 			
@@ -1678,7 +1676,6 @@ function Sort_Open_List()
 	
 	local SortedList	=	{}
 	local HasDoneLoop	=	false
-	
 	local UnsortedList	=	{}
 	
 	-- List all the nodes in the table.
@@ -1919,7 +1916,7 @@ function Lad:Node_Remove_From_Open_List()
 end
 
 -- Add a node to the list.
--- Fun fact! This would be the first time i have really added any optimization to the open list.
+-- Fun fact! This would be the first time I have really added any optimization to the open list.
 function Zone:Node_Add_To_Open_List()
 	
 	local OurCost		=		self:Get_F_Cost()

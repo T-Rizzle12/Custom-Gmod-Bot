@@ -1,16 +1,20 @@
-# Important
-This is a "player" bot so you will need to set the game to multiplayer and have a open player spot to create one.
+# Use
+- Install this addon: place the Custom Gmod Bot folder (Unzip before use) in your gmod addons folder.
+- Create at least a 2 player gmod server. This addon creates a "player" bot so you must have a open player spot because gmod will consider the bot a real player. 
+- Create a bot using the TRizzleCreateBot Command. (See below)
 
-This mod is in Beta, there will be bugs, but constant updates with new features and fixes.
+# Important [![contributions welcome](https://img.shields.io/badge/contributions-welcome-brightgreen.svg?style=flat)](https://github.com/dwyl/esta/issues) [![HitCount](https://hits.dwyl.com/T-Rizzle12/start-here.svg)](https://hits.dwyl.com/T-Rizzle12/Custom-Gmod-Bot)
+
+This mod is in *Beta*, there will be bugs, but constant updates with new features and fixes.
 
 Although you can just clone the repository. (I will put updates into a secondary branch before releasing it) I would suggest downloading the latest release, Thank You!
+
+Special thanks to [Zenlenafelex [PSF]](https://steamcommunity.com/profiles/76561198976669728) for helping me with the pathfinding code for the bot.
 
 ## Why I made this mod
 I made this because I usually have to play Gmod alone and I also wanted to see what I could do with the nextbot system.
 
-Special thanks to [Zenlenafelex [PSF]](https://steamcommunity.com/profiles/76561198976669728) for helping me with the pathfinding code for the bot.
-
-# Current Commands
+# Commands
 CommandName, CommandParameters, Example
 - <code>TRizzleCreateBot</code> <code>botname</code> <code>followdist</code> <code>dangerdist</code> <code>melee</code> <code>pistol</code> <code>shotgun</code> <code>rifle</code> <code>sniper</code> <code>meleedist</code> <code>pistoldist</code> <code>shotgundist</code> <code>rifledist</code> <code>healthreshold</code> <code>combathealthreshold</code> <code>playermodel</code> <code>spawnwithpreferredweapons</code>
   - TRizzleCreateBot Bot 200 300 weapon_crowbar weapon_pistol weapon_shotgun weapon_smg1 weapon_crossbow 80 1300 300 900 100 25 alyx 1
@@ -49,7 +53,7 @@ CommandName, CommandParameters, Example
 # Current Features
 - The bot is a player bot
 - The bot can use ladders
-- The bot has "smooth aiming"
+- The bot has "smooth aiming" (Aim won't instantly aim at enemies) 
 - The bot can open doors
 - The bot will use its flashlight when in a dark area
 - The bot will attack any NPC that is hostile them and its "owner" (The player that created it)
@@ -57,7 +61,7 @@ CommandName, CommandParameters, Example
 - The bot can enter the vehicle the bot's owner is in. This includes most modded vehicles and chairs. See "Issues"
 - Support for most custom/modded weapons, see "Issues" for more information. 
 
-# Bot Cheats
+## Bot Cheats
 I know what you are thinking, but these are needed to make the bot fun and easy to use.
 - The bot will slowly regenerate ammo for its weapons when not in combat. This prevents the player from having to "give" the bot ammo or it having to be programed to "find" ammo. (Collect it from dead enemies)     
 
