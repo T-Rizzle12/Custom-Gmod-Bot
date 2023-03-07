@@ -7,6 +7,7 @@ util.AddNetworkString( "TRizzleBotFlashlight" )
 
 function TBotCreate( ply , cmd , args ) -- This code defines stats of the bot when it is created.  
 	if !args[ 1 ] then return end 
+	if game.SinglePlayer() or player.GetCount() >= game.MaxPlayers() then error( "Cannot create new bot there are no avaliable player slots!" ) end
 	
 	local NewBot				=	player.CreateNextBot( args[ 1 ] ) -- Create the bot and store it in a varaible.
 	
@@ -1072,7 +1073,7 @@ end
 
 
 
-function TRizzleBotRangeCheck( FirstNode , SecondNode , Height )
+function TRizzleBotRangeCheck( FirstNode , SecondNode , Ladder , Height )
 	-- Some helper errors.
 	if !IsValid( FirstNode ) then error( "Bad argument #1 CNavArea or CNavLadder expected got " .. type( FirstNode ) ) end
 	if !IsValid( FirstNode ) then error( "Bad argument #2 CNavArea or CNavLadder expected got " .. type( SecondNode ) ) end
@@ -1080,9 +1081,11 @@ function TRizzleBotRangeCheck( FirstNode , SecondNode , Height )
 	if FirstNode:Node_Get_Type() == 2 then return FirstNode:GetLength()
 	elseif SecondNode:Node_Get_Type() == 2 then return SecondNode:GetLength() end
 	
+	if Ladder then return Ladder:GetLength() end
+	
 	DefaultCost = FirstNode:GetCenter():Distance( SecondNode:GetCenter() )
 	
-	if isnumber( Height ) and Height > 32 then
+	if isnumber( Height ) and ( Height > 32 or -Height > 150 ) then
 		
 		DefaultCost		=	DefaultCost + math.abs( Height )
 		
@@ -1095,21 +1098,21 @@ function TRizzleBotRangeCheck( FirstNode , SecondNode , Height )
 	-- Crawling through a vent is very slow.
 	if SecondNode:HasAttributes( NAV_MESH_CROUCH ) then 
 		
-		DefaultCost	=	DefaultCost * 1.5
+		DefaultCost	=	DefaultCost * 7
 		
 	end
 	
 	-- The bot should avoid this area unless alternatives are too dangerous or too far.
 	if SecondNode:HasAttributes( NAV_MESH_AVOID ) then 
 		
-		DefaultCost	=	DefaultCost * 2
+		DefaultCost	=	DefaultCost * 8
 		
 	end
 	
 	-- We will try not to swim since it can be slower than running on land, it can also be very dangerous, Ex. "Acid, Lava, Etc."
 	if SecondNode:IsUnderwater() then
 	
-		DefaultCost		=	DefaultCost * 1.1
+		DefaultCost		=	DefaultCost * 2
 		
 	end
 	
@@ -1165,57 +1168,197 @@ function TRizzleBotPathfinderCheap( StartNode , GoalNode )
 		
 		if Current == GoalNode then
 			
-			return TRizzleBotRetracePathCheap( Final_Path , Current )
+			return TRizzleBotRetracePathCheap( StartNode , GoalNode )
 		end
 		
-		Current:AddToClosedList()
+		local searchWhere = 0
 		
-		for k, neighbor in ipairs( Current:GetAdjacentAreas() ) do
-			local Height	=	Current:ComputeAdjacentConnectionHeightChange( neighbor )
+		local NORTH = 0
+		local EAST = 1
+		local SOUTH = 2
+		local WEST = 3
+		local NUM_DIRECTIONS = 4
+		
+		local AHEAD = 0
+		local LEFT = 1
+		local RIGHT = 2
+		local BEHIND = 3
+		
+		local LADDER_UP = 0
+		local LADDER_DOWN = 1
+		
+		local GO_LADDER_UP = 4
+		local GO_LADDER_DOWN = 5
+		
+		local searchIndex = 1
+		local dir = NORTH
+		local ladderUp = true
+		
+		local floorList = Current:GetAdjacentAreasAtSide( NORTH )
+		local ladderList = nil
+		local ladderTopDir = 0
+		
+		while ( true ) do
+		
+			local newArea = nil
+			local how = nil
+			local ladder = nil
+		
+			if searchWhere == 0 then
+			
+				if searchIndex > #floorList then
+				
+					dir = dir + 1
+					
+					if dir == NUM_DIRECTIONS then
+					
+						searchWhere = 1
+						ladderList = Current:GetLaddersAtSide( LADDER_UP )
+						searchIndex = 1
+						ladderTopDir = AHEAD
+						
+					else
+					
+						floorList = Current:GetAdjacentAreasAtSide( dir )
+						searchIndex = 1
+						
+					end
+					
+					continue
+					
+				end
+				
+				newArea = floorList[ searchIndex ]
+				how = dir
+				searchIndex = searchIndex + 1
+				
+			elseif searchWhere == 1 then
+			
+				if searchIndex > #ladderList then
+					
+					if !ladderUp then
+						
+						searchWhere = 2
+						searchIndex = 1
+						ladder = nil
+						
+					else
+						
+						ladderUp = false
+						ladderList = Current:GetLaddersAtSide( LADDER_DOWN )
+						searchIndex = 1
+						
+					end
+					
+					continue
+					
+				end
+				
+				if ladderUp then
+				
+					ladder = ladderList[ searchIndex ]
+				
+					if ladderTopDir == AHEAD then
+					
+						newArea = ladder:GetTopForwardArea()
+						
+					elseif ladderTopDir == LEFT then
+					
+						newArea = ladder:GetTopLeftArea()
+						
+					elseif ladderTopDir == RIGHT then
+					
+						newArea = ladder:GetTopRightArea()
+						
+					elseif ladderTopDir == BEHIND then
+					
+						newArea = ladder:GetTopBehindArea()
+						
+					else
+					
+						searchIndex = searchIndex + 1
+						ladderTopDir = AHEAD
+						continue
+						
+					end
+					
+					how = GO_LADDER_UP
+					ladderTopDir = ladderTopDir + 1
+				
+				else
+				
+					ladder = ladderList[ searchIndex ]
+					newArea = ladder:GetBottomArea()
+					how = GO_LADDER_DOWN
+					searchIndex = searchIndex + 1
+					
+				end
+				
+				if newArea == nil then
+				
+					continue
+					
+				end
+			
+			else
+			
+				break
+				
+			end
+		
+			if newArea == area then 
+			
+				continue
+				
+			end
+			
+			local Height	=	Current:ComputeAdjacentConnectionHeightChange( newArea )
 			-- Optimization,Prevent computing the height twice.
 			
-			local NewCostSoFar		=	Current:GetCostSoFar() + TRizzleBotRangeCheck( Current , neighbor , Height )
+			local NewCostSoFar		=	Current:GetCostSoFar() + TRizzleBotRangeCheck( Current , newArea , ladder , Height )
 			
+			if ladder != nil then Height = 0 end
 			
-			if !Current:IsUnderwater() and !neighbor:IsUnderwater() and -Height < 200 and Height > 58 then
+			if !Current:IsUnderwater() and !newArea:IsUnderwater() and -Height < 200 and Height > 58 then
 				-- We can't jump that high.
 				
 				continue
 			end
 			
 			
-			if ( neighbor:IsOpen() or neighbor:IsClosed() ) and neighbor:GetCostSoFar() <= NewCostSoFar then
+			if ( newArea:IsOpen() or newArea:IsClosed() ) and newArea:GetCostSoFar() <= NewCostSoFar then
 				
 				continue
 				
 			else
 				
-				neighbor:SetCostSoFar( NewCostSoFar )
-				neighbor:SetTotalCost( NewCostSoFar + TRizzleBotRangeCheck( neighbor , GoalNode ) )
+				newArea:SetCostSoFar( NewCostSoFar )
+				newArea:SetTotalCost( NewCostSoFar + TRizzleBotRangeCheck( newArea , GoalNode ) )
 				
-				if neighbor:IsClosed() then
+				if newArea:IsClosed() then
 					
-					neighbor:RemoveFromClosedList()
+					newArea:RemoveFromClosedList()
 					
 				end
 				
-				if neighbor:IsOpen() then
+				if newArea:IsOpen() then
 					
-					neighbor:UpdateOnOpenList()
+					newArea:UpdateOnOpenList()
 					
 				else
 					
-					neighbor:AddToOpenList()
+					newArea:AddToOpenList()
 					
 				end
 				
 				
-				Final_Path[ neighbor:GetID() ]	=	Current:GetID()
+				newArea:SetParent( Current, how )
 			end
 			
 			
 		end
 		
+		Current:AddToClosedList()
 		
 	end
 	
@@ -1223,16 +1366,40 @@ function TRizzleBotPathfinderCheap( StartNode , GoalNode )
 	return false
 end
 
-function TRizzleBotRetracePathCheap( Final_Path , Current )
+function TRizzleBotRetracePathCheap( StartNode , GoalNode )
 	
-	local NewPath	=	{ Current }
+	local GO_LADDER_UP = 4
+	local GO_LADDER_DOWN = 5
 	
-	Current			=	Current:GetID()
+	local NewPath	=	{ GoalNode }
 	
-	while( Final_Path[ Current ] ) do
+	local Current	=	GoalNode
+	
+	while( Current:GetParent() != StartNode ) do
+	
+		Current		=	Current:GetParent()
+		Parent		=	Current:GetParentHow()
 		
-		Current		=	Final_Path[ Current ]
-		table.insert( NewPath , navmesh.GetNavAreaByID( Current ) )
+		print( Parent )
+		
+		if Parent == GO_LADDER_UP or Parent == GO_LADDER_DOWN then
+		
+			local list = Current:GetLadders()
+			print( "Ladders: " .. #list )
+			for k, ladder in ipairs( list ) do
+				print( ladder:GetTopForwardArea() )
+				print( ladder:GetTopLeftArea() )
+				print( ladder:GetTopRightArea() )
+				print( ladder:GetTopBehindArea() )
+				if ladder:GetTopForwardArea() == Current or ladder:GetTopLeftArea() == Current or ladder:GetTopRightArea() == Current or ladder:GetTopBehindArea() == Current or ladder:GetBottomArea() == Current then
+				
+					NewPath[ #NewPath + 1 ] = ladder
+					break
+					
+				end
+			end
+		end
+		NewPath[ #NewPath + 1 ] = Current
 		
 	end
 	
@@ -1335,7 +1502,7 @@ function BOT:ComputeNavmeshVisibility()
 		
 		if !IsValid( NextNode ) then
 			
-			self.Path[ #self.Path + 1 ]		=	self.Goal
+			self.Path[ #self.Path + 1 ]		=	{ Pos = self.Goal, IsLadder = false }
 			
 			break
 		end
@@ -1346,7 +1513,7 @@ function BOT:ComputeNavmeshVisibility()
 			
 			LastVisPos		=	CloseToStart
 			
-			self.Path[ #self.Path + 1 ]		=	CloseToStart
+			self.Path[ #self.Path + 1 ]		=	{ Pos = CloseToStart, IsLadder = true }
 			
 			continue
 		end
@@ -1357,7 +1524,7 @@ function BOT:ComputeNavmeshVisibility()
 			
 			LastVisPos		=	CloseToEnd
 			
-			self.Path[ #self.Path + 1 ]		=	CloseToEnd
+			self.Path[ #self.Path + 1 ]		=	{ Pos = CloseToEnd, IsLadder = true }
 			
 			continue
 		end
@@ -1370,7 +1537,7 @@ function BOT:ComputeNavmeshVisibility()
 		if SendBoxedLine( LastVisPos , OurClosestPointToNextAreasClosestPointToLastVisPos ) == true then
 			
 			LastVisPos						=	OurClosestPointToNextAreasClosestPointToLastVisPos
-			self.Path[ #self.Path + 1 ]		=	OurClosestPointToNextAreasClosestPointToLastVisPos
+			self.Path[ #self.Path + 1 ]		=	{ Pos = OurClosestPointToNextAreasClosestPointToLastVisPos, IsLadder = false }
 			
 			continue
 		end
@@ -1378,7 +1545,7 @@ function BOT:ComputeNavmeshVisibility()
 		
 		
 		
-		self.Path[ #self.Path + 1 ]			=	CurrentNode:GetCenter()
+		self.Path[ #self.Path + 1 ]			=	{ Pos = CurrentNode:GetCenter(), IsLadder = false }
 		
 	end
 	
@@ -1406,7 +1573,7 @@ function BOT:TBotNavigation()
 			self.Path				=	{} -- Reset that.
 			
 			-- We will compute the path quickly if its far away rather than use my laggy pathfinder for now.
-			if self.Goal:Distance( self:GetPos() ) > 6000 then
+			if self.Goal:Distance( self:GetPos() ) > 6000 or true then
 				
 				self.NavmeshNodes			=	TRizzleBotPathfinderCheap( self.StandingOnNode , TargetArea )
 				
@@ -1426,7 +1593,7 @@ function BOT:TBotNavigation()
 				self.BlockPathFind		        =	true
 				self.Goal				=	nil
 				
-				timer.Simple( 3.0 , function() -- Prevent spamming the path finder.
+				timer.Simple( 1.0 , function() -- Prevent spamming the path finder.
 					
 					if IsValid( self ) then
 						
@@ -1477,10 +1644,10 @@ function BOT:TBotNavigation()
 		
 		if self.Path[ 1 ] then
 			
-			local Waypoint2D		=	Vector( self.Path[ 1 ].x , self.Path[ 1 ].y , self:GetPos().z )
+			local Waypoint2D		=	Vector( self.Path[ 1 ][ "Pos" ].x , self.Path[ 1 ][ "Pos" ].y , self:GetPos().z )
 			-- ALWAYS: Use 2D navigation, It helps by a large amount.
 			
-			if self.Path[ 2 ] and IsVecCloseEnough( self:GetPos() , Waypoint2D , 600 ) and SendBoxedLine( self.Path[ 2 ] , self:GetPos() + Vector( 0 , 0 , 15 ) ) == true and self.Path[ 2 ].z - 20 <= Waypoint2D.z then
+			if !self.Path[ 1 ][ "IsLadder" ] and self.Path[ 2 ] and !self.Path[ 2 ][ "IsLadder" ] and IsVecCloseEnough( self:GetPos() , Waypoint2D , 600 ) and SendBoxedLine( self.Path[ 2 ][ "Pos" ] , self:GetPos() + Vector( 0 , 0 , 15 ) ) == true and self.Path[ 2 ][ "Pos" ].z - 20 <= Waypoint2D.z then
 				
 				table.remove( self.Path , 1 )
 				
@@ -1547,18 +1714,18 @@ function BOT:TBotDebugWaypoints()
 	if !istable( self.Path ) then return end
 	if table.IsEmpty( self.Path ) then return end
 	
-	debugoverlay.Line( self.Path[ 1 ] , self:GetPos() + Vector( 0 , 0 , 44 ) , 0.08 , Color( 0 , 255 , 255 ) )
-	debugoverlay.Sphere( self.Path[ 1 ] , 8 , 0.08 , Color( 0 , 255 , 255 ) , true )
+	debugoverlay.Line( self.Path[ 1 ][ "Pos" ] , self:GetPos() + Vector( 0 , 0 , 44 ) , 0.08 , Color( 0 , 255 , 255 ) )
+	debugoverlay.Sphere( self.Path[ 1 ][ "Pos" ] , 8 , 0.08 , Color( 0 , 255 , 255 ) , true )
 	
 	for k, v in ipairs( self.Path ) do
 		
 		if self.Path[ k + 1 ] then
 			
-			debugoverlay.Line( v , self.Path[ k + 1 ] , 0.08 , Color( 255 , 255 , 0 ) )
+			debugoverlay.Line( v[ "Pos" ] , self.Path[ k + 1 ][ "Pos" ] , 0.08 , Color( 255 , 255 , 0 ) )
 			
 		end
 		
-		debugoverlay.Sphere( v , 8 , 0.08 , Color( 255 , 200 , 0 ) , true )
+		debugoverlay.Sphere( v[ "Pos" ] , 8 , 0.08 , Color( 255 , 200 , 0 ) , true )
 		
 	end
 	
@@ -1608,10 +1775,10 @@ function BOT:TBotUpdateMovement( cmd )
 	
 	if self.Path[ 1 ] then
 		
-		local MovementAngle		=	( self.Path[ 1 ] - self:GetPos() ):GetNormalized():Angle()
+		local MovementAngle		=	( self.Path[ 1 ][ "Pos" ] - self:GetPos() ):GetNormalized():Angle()
 		local lerp = FrameTime() * math.random(4, 6)
 		
-		if self:OnGround() and self.Path[ 1 ].z - 10 >= self:GetPos().z then
+		if self:OnGround() and self.Path[ 1 ][ "Pos" ].z - 10 >= self:GetPos().z and !self.Path[ 1 ][ "IsLadder" ] then
 			local SmartJump		=	util.TraceLine({
 				
 				start			=	self:GetPos(),
@@ -1630,14 +1797,14 @@ function BOT:TBotUpdateMovement( cmd )
 			end
 		end
 		
-		local TargetArea		=	navmesh.GetNearestNavArea( self.Path[ 1 ] )
+		local TargetArea		=	navmesh.GetNearestNavArea( self.Path[ 1 ][ "Pos" ] )
 		
 		if IsValid( TargetArea ) and TargetArea:HasAttributes( NAV_MESH_CROUCH ) then self.Crouch = true end
 		if IsValid( TargetArea ) and TargetArea:HasAttributes( NAV_MESH_JUMP ) then self.Jump = true end
 		
 		cmd:SetViewAngles( MovementAngle )
 		cmd:SetForwardMove( 1000 )
-		if !IsValid ( self.Enemy ) or self:Is_On_Ladder() then self:SetEyeAngles( LerpAngle(lerp, self:EyeAngles(), ( self.Path[ 1 ] - self:GetPos() ):GetNormalized():Angle() ) ) end
+		if !IsValid ( self.Enemy ) or self:Is_On_Ladder() or self.Path[ 1 ][ "IsLadder" ] then self:SetEyeAngles( LerpAngle(lerp, self:EyeAngles(), ( self.Path[ 1 ][ "Pos" ] - self:GetPos() ):GetNormalized():Angle() ) ) end
 		
 	end
 	
