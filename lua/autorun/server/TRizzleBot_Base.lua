@@ -1542,10 +1542,10 @@ function BOT:ComputeNavmeshVisibility()
 			continue
 		end
 		
+		local area, connection = Get_Blue_Connection( CurrentNode, NextNode )
 		
-		
-		
-		self.Path[ #self.Path + 1 ]			=	{ Pos = CurrentNode:GetCenter(), IsLadder = false }
+		self.Path[ #self.Path + 1 ]			=	{ Pos = connection, IsLadder = false }
+		self.Path[ #self.Path + 1 ]			=	{ Pos = area, IsLadder = false }
 		
 	end
 	
@@ -1651,7 +1651,11 @@ function BOT:TBotNavigation()
 				
 				table.remove( self.Path , 1 )
 				
-			elseif IsVecCloseEnough( self:GetPos() , Waypoint2D , 24 ) then
+			elseif IsVecCloseEnough( self:GetPos() , Waypoint2D , 24 ) and !self.Path[ 1 ][ "IsLadder" ] then
+				
+				table.remove( self.Path , 1 )
+				
+			elseif IsVecCloseEnough( self:GetPos() , Waypoint2D , 20 ) then
 				
 				table.remove( self.Path , 1 )
 				
@@ -1805,6 +1809,81 @@ function BOT:TBotUpdateMovement( cmd )
 		cmd:SetViewAngles( MovementAngle )
 		cmd:SetForwardMove( 1000 )
 		if !IsValid ( self.Enemy ) or self:Is_On_Ladder() or self.Path[ 1 ][ "IsLadder" ] then self:SetEyeAngles( LerpAngle(lerp, self:EyeAngles(), ( self.Path[ 1 ][ "Pos" ] - self:GetPos() ):GetNormalized():Angle() ) ) end
+		
+	end
+	
+end
+
+local function NumberMidPoint( num1 , num2 )
+	
+	local sum = num1 + num2
+	
+	return sum / 2
+	
+end
+
+-- This function techically gets the center crossing point of the smallest area.
+-- This is 90% of the time where the blue connection point is.
+-- So keep in mind this will rarely give inaccurate results.
+function Get_Blue_Connection( CurrentArea , TargetArea )
+	if !IsValid( TargetArea ) or !IsValid( CurrentArea ) then return end
+	local dir = Get_Direction( CurrentArea , TargetArea )
+	
+	if dir == 0 or dir == 2 then
+		
+		if TargetArea:GetSizeX() >= CurrentArea:GetSizeX() then
+			
+			local Vec	=	NumberMidPoint( CurrentArea:GetCorner( 0 ).y , CurrentArea:GetCorner( 1 ).y )
+			
+			local NavPoint = Vector( CurrentArea:GetCenter().x , Vec , 0 )
+			
+			return TargetArea:GetClosestPointOnArea( NavPoint ), Vector( NavPoint.x , CurrentArea:GetCenter().y , NavPoint.z )
+		else
+			
+			local Vec	=	NumberMidPoint( TargetArea:GetCorner( 0 ).y , TargetArea:GetCorner( 1 ).y )
+			
+			local NavPoint = Vector( TargetArea:GetCenter().x , Vec , 0 )
+			
+			
+			return TargetArea:GetClosestPointOnArea( CurrentArea:GetClosestPointOnArea( NavPoint ) ), Vector( NavPoint.x , CurrentArea:GetCenter().y , NavPoint.z )
+		end	
+		
+		return
+	end
+	
+	if dir == 1 or dir == 3 then
+		
+		if TargetArea:GetSizeY() >= CurrentArea:GetSizeY() then
+			
+			local Vec	=	NumberMidPoint( CurrentArea:GetCorner( 0 ).x , CurrentArea:GetCorner( 3 ).x )
+			
+			local NavPoint = Vector( Vec , CurrentArea:GetCenter().y , 0 )
+			
+			
+			return TargetArea:GetClosestPointOnArea( NavPoint ), Vector( CurrentArea:GetCenter().x , NavPoint.y , NavPoint.z )
+		else
+			
+			local Vec	=	NumberMidPoint( TargetArea:GetCorner( 0 ).x , TargetArea:GetCorner( 3 ).x )
+			
+			local NavPoint = Vector( Vec , TargetArea:GetCenter().y , 0 )
+			
+			
+			return TargetArea:GetClosestPointOnArea( CurrentArea:GetClosestPointOnArea( NavPoint ) ), Vector( CurrentArea:GetCenter().x , NavPoint.y , NavPoint.z )
+		end
+		
+	end
+	
+end
+
+function Get_Direction( FirstArea , SecondArea )
+	
+	if FirstArea:GetSizeX() + FirstArea:GetSizeY() > SecondArea:GetSizeX() + SecondArea:GetSizeY() then
+		
+		return SecondArea:ComputeDirection( SecondArea:GetClosestPointOnArea( FirstArea:GetClosestPointOnArea( SecondArea:GetCenter() ) ) )
+		
+	else
+		
+		return FirstArea:ComputeDirection( FirstArea:GetClosestPointOnArea( SecondArea:GetClosestPointOnArea( FirstArea:GetCenter() ) ) )
 		
 	end
 	
