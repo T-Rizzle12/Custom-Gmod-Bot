@@ -1487,7 +1487,6 @@ local function SendBoxedLine( pos1 , pos2 )
 	return true
 end
 
-
 -- Creates waypoints using the nodes.
 function BOT:ComputeNavmeshVisibility()
 	
@@ -1997,6 +1996,12 @@ function Sort_Open_List()
 		Open_List[ #Open_List + 1 ]		=	v
 		
 	end
+	
+end
+
+function IsDropDown( currentArea, nextArea )
+	
+	return currentArea.z - nextArea.z > 58
 	
 end
 
