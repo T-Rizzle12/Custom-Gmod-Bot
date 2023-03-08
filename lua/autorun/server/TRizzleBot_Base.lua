@@ -1742,8 +1742,9 @@ function BOT:TBotUpdateMovement( cmd )
 		
 		local MovementAngle		=	( self.Goal - self:GetPos() ):GetNormalized():Angle()
 		local lerp = FrameTime() * math.random(4, 6)
+		local dropDown = IsDropDown( self.GetPos(), self.Goal )
 		
-		if self:OnGround() and self.Goal.z - 10 >= self:GetPos().z then
+		if self:OnGround() and !dropDown then
 			local SmartJump		=	util.TraceLine({
 				
 				start			=	self:GetPos(),
@@ -1780,8 +1781,11 @@ function BOT:TBotUpdateMovement( cmd )
 		
 		local MovementAngle		=	( self.Path[ 1 ][ "Pos" ] - self:GetPos() ):GetNormalized():Angle()
 		local lerp = FrameTime() * math.random(4, 6)
+		local dropDown = false
 		
-		if self:OnGround() and self.Path[ 1 ][ "Pos" ].z - 10 >= self:GetPos().z and !self.Path[ 1 ][ "IsLadder" ] then
+		if self.Path[ 2 ] then dropDown = IsDropDown( self.Path[ 1 ], self.Path[ 2 ] ) end
+		
+		if self:OnGround() and !dropDown and !self.Path[ 1 ][ "IsLadder" ] then
 			local SmartJump		=	util.TraceLine({
 				
 				start			=	self:GetPos(),
@@ -1999,9 +2003,10 @@ function Sort_Open_List()
 	
 end
 
+-- This checks if the next area is a dropdown, ( An area we can't jump back up to )
 function IsDropDown( currentArea, nextArea )
 	
-	return currentArea.z - nextArea.z > 58
+	return nextArea.z - currentArea.z > 58
 	
 end
 
