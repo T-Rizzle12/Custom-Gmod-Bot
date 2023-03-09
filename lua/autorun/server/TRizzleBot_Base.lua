@@ -1380,6 +1380,7 @@ function TRizzleBotRetracePathCheap( StartNode , GoalNode )
 		Current		=	Current:GetParent()
 		Parent		=	Current:GetParentHow()
 		
+		print( Current )
 		print( Parent )
 		
 		if Parent == GO_LADDER_UP or Parent == GO_LADDER_DOWN then
@@ -1399,7 +1400,8 @@ function TRizzleBotRetracePathCheap( StartNode , GoalNode )
 				end
 			end
 		end
-		NewPath[ #NewPath + 1 ] = Current
+		
+		if Parent != GO_LADDER_UP and Parent != GO_LADDER_DOWN then NewPath[ #NewPath + 1 ] = Current end
 		
 	end
 	
@@ -1543,7 +1545,7 @@ function BOT:ComputeNavmeshVisibility()
 		
 		local area, connection = Get_Blue_Connection( CurrentNode, NextNode )
 		
-		self.Path[ #self.Path + 1 ]			=	{ Pos = connection, IsLadder = false }
+		--self.Path[ #self.Path + 1 ]			=	{ Pos = connection, IsLadder = false }
 		self.Path[ #self.Path + 1 ]			=	{ Pos = area, IsLadder = false }
 		
 	end
@@ -1742,7 +1744,7 @@ function BOT:TBotUpdateMovement( cmd )
 		
 		local MovementAngle		=	( self.Goal - self:GetPos() ):GetNormalized():Angle()
 		local lerp = FrameTime() * math.random(4, 6)
-		local dropDown = IsDropDown( self.GetPos(), self.Goal )
+		local dropDown = IsDropDown( self:GetPos(), self.Goal )
 		
 		if self:OnGround() and !dropDown then
 			local SmartJump		=	util.TraceLine({
@@ -1783,7 +1785,7 @@ function BOT:TBotUpdateMovement( cmd )
 		local lerp = FrameTime() * math.random(4, 6)
 		local dropDown = false
 		
-		if self.Path[ 2 ] then dropDown = IsDropDown( self.Path[ 1 ], self.Path[ 2 ] ) end
+		if self.Path[ 2 ] then dropDown = IsDropDown( self.Path[ 1 ][ "Pos" ], self.Path[ 2 ][ "Pos" ] ) end
 		
 		if self:OnGround() and !dropDown and !self.Path[ 1 ][ "IsLadder" ] then
 			local SmartJump		=	util.TraceLine({
