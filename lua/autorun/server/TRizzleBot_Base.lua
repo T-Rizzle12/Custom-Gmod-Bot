@@ -1085,13 +1085,17 @@ function TRizzleBotRangeCheck( FirstNode , SecondNode , Ladder , Height )
 	
 	DefaultCost = FirstNode:GetCenter():Distance( SecondNode:GetCenter() )
 	
-	if isnumber( Height ) and ( Height > 32 or -Height > 150 ) then
+	if isnumber( Height ) and Height > 32 then
 		
-		DefaultCost		=	DefaultCost + math.abs( Height )
-		
+		DefaultCost		=	DefaultCost * 3
 		-- Jumping is slower than ground movement.
-		-- And falling is risky taking fall damage.
 		
+	end
+	
+	if isnumber( Height ) and -Height > 32 then
+	
+		DefaultCost		=	DefaultCost + ( math.abs( Height ) * 1.5 )
+		-- Falling is risky and the bot might take fall damage.
 		
 	end
 	
