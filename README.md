@@ -72,10 +72,5 @@ I know what you are thinking, but these are needed to make the bot fun and easy 
 - The bot doesn’t know how to drive cars.
 
 # Planned Features
-- [x] ~~Get the bot to detect vehicles the bot's owner is in and make the bot enter said vehicle~~
 - [ ] Optimize the pathfinding code
 - [ ] Get the bot to detect Nextbots
-- [x] ~~Add more convars, to make the bot more customizable. :)~~
-- [x] ~~Allow players to change the bot's playermodel~~
-- [x] ~~Get the bot to detect if its in the dark and turn on and off its flashlight~~
-- [x] ~~Get the bot to detect and jump across gaps~~
