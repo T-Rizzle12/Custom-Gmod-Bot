@@ -360,7 +360,9 @@ function BOT:TBotResetAI()
 	self.TimeInCombat		=	0 -- This is how long the bot has been in combat
 	self.LastCombatTime		=	0 -- This was how long ago the bot was in combat
 	self.Jump				=	false -- Stop jumping
+	self.NextJump				=	CurTime() -- This is the next time the bot is allowed to jump
 	self.Crouch				=	false -- Stop crouching
+	self.HoldCrouch				=	CurTime() -- This is how long the bot should hold its crouch button
 	self.Use				=	false -- Stop using
 	self.FullReload			        =	false -- Stop reloading
 	self.Light				=	false -- Turn off the bot's flashlight
@@ -492,15 +494,11 @@ function BOT:HandleButtons( buttons )
 	
 	end
 	
-	if self.Crouch or !self:IsOnGround() then 
+	if self.Crouch or !self:IsOnGround() or self.HoldCrouch > CurTime() then 
 	
 		buttons = buttons + IN_DUCK
 		
-		timer.Simple( 0.3 , function()
-			
-			if IsValid( self ) then self.Crouch = false end
-			
-		end)
+		if self.Crouch or !self:IsOnGround() then self.HoldCrouch = CurTime() + 0.3 end
 		
 	end
 	
@@ -512,10 +510,11 @@ function BOT:HandleButtons( buttons )
 		
 	end
 	
-	if self.Jump then 
+	if self.Jump and self.NextJump < CurTime() then 
 	
 		buttons = buttons + IN_JUMP 
 		
+		self.NextJump = CurTime() + 1.0 -- This cooldown is to prevent the bot from pressing and holding its jump button
 		self.Jump = false 
 		
 	end
@@ -746,7 +745,7 @@ function BOT:RestoreAmmo()
 	
 end
 
--- Going to not use this function for a bit and see what happens
+-- I should make this use the Entity MetaTable
 function IsDoor( v )
 
 	if (v:GetClass() == "func_door") or (v:GetClass() == "prop_door_rotating") or (v:GetClass() == "func_door_rotating") then
@@ -769,7 +768,7 @@ hook.Add( "PlayerDisconnected" , "TRizzleBotPlayerLeave" , function( ply )
 		
 			if bot.IsTRizzleBot and bot.Owner == ply then
 			
-				bot:Kick( "Bot Owner has left the server" )
+				bot:Kick( "Owner " .. ply:Nick() .. " has left the server" )
 			
 			end
 		end
@@ -802,8 +801,8 @@ hook.Add( "PlayerSpawn" , "TRizzleBotSpawnHook" , function( ply )
 	
 	if ply:IsBot() and ply.IsTRizzleBot then
 		
-		ply:TBotResetAI()
-		timer.Simple( 0.03 , function()
+		ply:TBotResetAI() -- For some reason running the a time for 0.0 seconds works, but if I don't use a timer nothing works at all
+		timer.Simple( 0.0 , function()
 			
 			if IsValid( ply ) and ply:Alive() then
 				
@@ -917,16 +916,17 @@ function BOT:TBotCreateThinking()
 			
 				local vehicle = self:FindNearbySeat()
 				
-				if IsValid( vehicle ) then self:EnterVehicle( vehicle ) end
+				if IsValid( vehicle ) then self:EnterVehicle( vehicle ) end -- I should make the bot press its use key instead of this hack
 			
 			end
 			
 			if !self.Owner:InVehicle() and self:InVehicle() then
 			
-				self:ExitVehicle()
+				self:ExitVehicle() -- Should I make the bot press its use key instead?
 			
 			end
 			
+			-- I have to set the flashlight state because some addons have mounted flashlights and I can't check if they are on or not, "This will prevent the flashlight on and off spam"
 			if self:CanUseFlashlight() and !self:FlashlightIsOn() and self.Light and self:GetSuitPower() > 50 then
 				
 				self:Flashlight( true )
@@ -1375,17 +1375,19 @@ function TRizzleBotRetracePathCheap( StartNode , GoalNode )
 	local GO_LADDER_UP = 4
 	local GO_LADDER_DOWN = 5
 	
+	local Trys			=	0 -- Backup! Prevent crashing.
+	
 	local NewPath	=	{ GoalNode }
 	
 	local Current	=	GoalNode
 	
-	while( Current:GetParent() != StartNode ) do
+	while( Current:GetParent() != StartNode and Trys < 50001 ) do
 	
 		Current		=	Current:GetParent()
 		Parent		=	Current:GetParentHow()
 		
-		print( Current )
-		print( Parent )
+		--print( Current )
+		--print( Parent )
 		
 		if Parent == GO_LADDER_UP or Parent == GO_LADDER_DOWN then
 		
@@ -1403,9 +1405,11 @@ function TRizzleBotRetracePathCheap( StartNode , GoalNode )
 					
 				end
 			end
+		else
+			
+			NewPath[ #NewPath + 1 ] = Current
+			
 		end
-		
-		if Parent != GO_LADDER_UP and Parent != GO_LADDER_DOWN then NewPath[ #NewPath + 1 ] = Current end
 		
 	end
 	
@@ -2012,7 +2016,7 @@ end
 -- This checks if the next area is a dropdown, ( An area we can't jump back up to )
 function IsDropDown( currentArea, nextArea )
 	
-	return nextArea.z - currentArea.z > 58
+	return nextArea.z - currentArea.z > 58 -- This can return incorrect results, I need a better way to check for this
 	
 end
 
