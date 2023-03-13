@@ -363,7 +363,7 @@ function BOT:TBotResetAI()
 	self.NextJump				=	CurTime() -- This is the next time the bot is allowed to jump
 	self.Crouch				=	false -- Stop crouching
 	self.HoldCrouch				=	CurTime() -- This is how long the bot should hold its crouch button
-	self.Use				=	false -- Stop using
+	self.PressUse				=	false -- Stop using
 	self.FullReload			        =	false -- Stop reloading
 	self.Light				=	false -- Turn off the bot's flashlight
 	self.Goal				=	nil -- The vector goal we want to get to.
@@ -522,12 +522,12 @@ function BOT:HandleButtons( buttons )
 	
 	local door = self:GetEyeTrace().Entity
 	
-	if self.Use and (door:GetPos() - self:GetPos()):Length() < 80 then 
+	if self.PressUse and (door:GetPos() - self:GetPos()):Length() < 80 then 
 	
 		if IsDoor( door ) then door:Use(self, self, USE_ON, 0.0) end
 		-- else door:Use(self, self, USE_TOGGLE, 0.0) end -- I might add a way for the bot to push buttons the player tells them to
 		
-		self.Use = false 
+		self.PressUse = false 
 		
 	end
 	
@@ -1713,7 +1713,7 @@ function BOT:TBotCreateNavTimer()
 			if IsVecCloseEnough( self:GetPos() , LastBotPos , 2 ) then
 				
 				self.Jump	=	true
-				self.Use	=	true
+				self.PressUse	=	true
 				
 				if Attempts > 10 then self.Path	=	nil end
 				if Attempts > 20 then self.Goal =	nil end
