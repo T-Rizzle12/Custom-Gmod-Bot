@@ -499,6 +499,7 @@ function BOT:HandleButtons( buttons )
 		buttons = buttons + IN_DUCK
 		
 		if self.Crouch or !self:IsOnGround() then self.HoldCrouch = CurTime() + 0.3 end
+		self.Crouch = false
 		
 	end
 	
@@ -1522,7 +1523,7 @@ function BOT:ComputeNavmeshVisibility()
 			
 			LastVisPos		=	CloseToStart
 			
-			self.Path[ #self.Path + 1 ]		=	{ Pos = CloseToStart, IsLadder = true }
+			self.Path[ #self.Path + 1 ]		=	{ Pos = CloseToStart, IsLadder = true, LadderUp = NextNode:ClimbUpLadder( LastVisPos ) }
 			
 			continue
 		end
@@ -1533,7 +1534,7 @@ function BOT:ComputeNavmeshVisibility()
 			
 			LastVisPos		=	CloseToEnd
 			
-			self.Path[ #self.Path + 1 ]		=	{ Pos = CloseToEnd, IsLadder = true }
+			self.Path[ #self.Path + 1 ]		=	{ Pos = CloseToEnd, IsLadder = true, LadderUp = CurrentNode:ClimbUpLadder( NextNode:GetCenter() ) }
 			
 			continue
 		end
@@ -1555,6 +1556,8 @@ function BOT:ComputeNavmeshVisibility()
 		
 		--self.Path[ #self.Path + 1 ]			=	{ Pos = connection, IsLadder = false }
 		self.Path[ #self.Path + 1 ]			=	{ Pos = area, IsLadder = false }
+		
+		LastVisPos							=	area
 		
 	end
 	
@@ -1582,7 +1585,7 @@ function BOT:TBotNavigation()
 			self.Path				=	{} -- Reset that.
 			
 			-- We will compute the path quickly if its far away rather than use my laggy pathfinder for now.
-			if self.Goal:Distance( self:GetPos() ) > 6000 or true then
+			--[[if self.Goal:Distance( self:GetPos() ) > 6000 or true then
 				
 				self.NavmeshNodes			=	TRizzleBotPathfinderCheap( self.StandingOnNode , TargetArea )
 				
@@ -1590,7 +1593,10 @@ function BOT:TBotNavigation()
 				-- Find a path through the navmesh to our TargetArea
 				self.NavmeshNodes		=	TRizzleBotPathfinder( self.StandingOnNode , TargetArea )
 			
-			end
+			end]]
+			
+			-- Pathfollower is not only cheaper, but it can use ladders.
+			self.NavmeshNodes		=	TRizzleBotPathfinderCheap( self.StandingOnNode , TargetArea )
 			
 			-- There is no way we can get there! Remove our goal.
 			if self.NavmeshNodes == false then
@@ -1660,15 +1666,24 @@ function BOT:TBotNavigation()
 				
 				table.remove( self.Path , 1 )
 				
-			elseif IsVecCloseEnough( self:GetPos() , Waypoint2D , 24 ) and !self.Path[ 1 ][ "IsLadder" ] then
+			elseif !self.Path[ 1 ][ "IsLadder" ] and IsVecCloseEnough( self:GetPos() , Waypoint2D , 24 ) then
 				
 				table.remove( self.Path , 1 )
 				
-			elseif IsVecCloseEnough( self:GetPos() , Waypoint2D , 20 ) then
+			elseif self.Path[ 1 ][ "IsLadder" ] and self.Path[ 1 ][ "LadderUp" ] and self:GetPos().z >= self.Path[ 1 ][ "Pos" ].z then
 				
 				table.remove( self.Path , 1 )
 				
+			elseif self.Path[ 1 ][ "IsLadder" ] and !self.Path[ 1 ][ "LadderUp" ] and self:GetPos().z <= self.Path[ 1 ][ "Pos" ].z then
+			
+				table.remove( self.Path , 1 )
+			
 			end
+			--[[elseif IsVecCloseEnough( self:GetPos() , Waypoint2D , 8 ) then -- This is a backup this should never happen
+			
+				table.remove( self.Path , 1 )
+			
+			end]]
 			
 		end
 		
@@ -2325,6 +2340,19 @@ function Lad:Get_Closest_Point( pos )
 	end
 	
 	return self:GetBottom()
+end
+
+function Lad:ClimbUpLadder( pos )
+	
+	local TopArea	=	self:GetTop():Distance( pos )
+	local LowArea	=	self:GetBottom():Distance( pos )
+	
+	if TopArea < LowArea then
+		
+		return true
+	end
+	
+	return false
 end
 
 -- See if a node is an area : 1 or a ladder : 2
