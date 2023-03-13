@@ -1767,7 +1767,7 @@ function BOT:TBotUpdateMovement( cmd )
 		
 		local MovementAngle		=	( self.Goal - self:GetPos() ):GetNormalized():Angle()
 		local lerp = FrameTime() * math.random(4, 6)
-		local dropDown = IsDropDown( self:GetPos(), self.Goal )
+		local dropDown = self:IsDropDown( self.Goal )
 		
 		if self:OnGround() and !dropDown then
 			local SmartJump		=	util.TraceLine({
@@ -1806,9 +1806,7 @@ function BOT:TBotUpdateMovement( cmd )
 		
 		local MovementAngle		=	( self.Path[ 1 ][ "Pos" ] - self:GetPos() ):GetNormalized():Angle()
 		local lerp = FrameTime() * math.random(4, 6)
-		local dropDown = false
-		
-		if self.Path[ 2 ] then dropDown = IsDropDown( self.Path[ 1 ][ "Pos" ], self.Path[ 2 ][ "Pos" ] ) end
+		local dropDown = self:IsDropDown( self.Path[ 1 ][ "Pos" ] )
 		
 		if self:OnGround() and !dropDown and !self.Path[ 1 ][ "IsLadder" ] then
 			local SmartJump		=	util.TraceLine({
@@ -2028,10 +2026,10 @@ function Sort_Open_List()
 	
 end
 
--- This checks if the next area is a dropdown, ( An area we can't jump back up to )
-function IsDropDown( currentArea, nextArea )
+-- This checks if we should not smart jump to reach the next node
+function BOT:IsDropDown( nextArea )
 	
-	return nextArea.z - currentArea.z > 58 -- This can return incorrect results, I need a better way to check for this
+	return self.GetPos().z - nextArea.z > self:GetStepSize() -- This can return incorrect results, I need a better way to check for this
 	
 end
 
