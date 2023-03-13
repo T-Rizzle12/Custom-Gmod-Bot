@@ -7,6 +7,7 @@ util.AddNetworkString( "TRizzleBotFlashlight" )
 
 function TBotCreate( ply , cmd , args ) -- This code defines stats of the bot when it is created.  
 	if !args[ 1 ] then return end 
+	if game.SinglePlayer() or player.GetCount() >= game.MaxPlayers() then error( "Cannot create new bot there are no avaliable player slots!" ) end
 	
 	local NewBot				=	player.CreateNextBot( args[ 1 ] ) -- Create the bot and store it in a varaible.
 	
@@ -23,14 +24,9 @@ function TBotCreate( ply , cmd , args ) -- This code defines stats of the bot wh
 	NewBot.PistolDist			=	tonumber( args[ 10 ] ) or 1300 -- If an enemy is closer than this, the bot will use its pistol
 	NewBot.ShotgunDist			=	tonumber( args[ 11 ] ) or 300 -- If an enemy is closer than this, the bot will use its shotgun
 	NewBot.RifleDist			=	tonumber( args[ 12 ] ) or 900 -- If an enemy is closer than this, the bot will use its rifle
-	NewBot.HealThreshold			=	tonumber( args[ 13 ] ) or 100 -- If the bot's health drops below this and the bot is not in combat the bot will use its medkit
-	NewBot.CombatHealThreshold		=	tonumber( args[ 14 ] ) or 25 -- If the bot's health drops below this and the bot is not in combat the bot will use its medkit
+	NewBot.HealThreshold			=	tonumber( args[ 13 ] ) or 100 -- If the bot's health or a teammate's health drops below this and the bot is not in combat the bot will use its medkit
+	NewBot.CombatHealThreshold		=	tonumber( args[ 14 ] ) or 25 -- If the bot's health drops below this and the bot is in combat the bot will use its medkit
 	NewBot.PlayerModel			=	args[ 15 ] or "kleiner" -- This is the player model the bot will use
-	NewBot.Jump				=	false -- If this is set to true the bot will jump
-	NewBot.Crouch				=	false -- If this is set to true the bot will crouch
-	NewBot.Use				=	false -- If this is set to true the bot will press its use key
-	NewBot.FullReload		        =	false -- Is the bot trying to fully reload a weapon
-	NewBot.LastCombatTime			=	CurTime() -- This was how long ago the bot was in combat
 	
 	local param2 = args[ 16 ] or 1
 	TBotSpawnWithPreferredWeapons( ply, cmd, { args[ 1 ], param2 } )
@@ -335,7 +331,7 @@ function TBotSetDefault( ply, cmd, args )
 
 end
 
-concommand.Add( "TRizzleCreateBot" , TBotCreate , nil , "Creates a TRizzle Bot with the specified parameters. Example: TRizzleCreateBot <botname> <followdist> <dangerdist> <melee> <pistol> <shotgun> <rifle> <sniper> <meleedist> <pistoldist> <shotgundist> <rifledist> <healthreshold> <combathealthreshold> <playermodel> Example2: TRizzleCreateBot Bot 200 300 weapon_crowbar weapon_pistol weapon_shotgun weapon_smg1 80 1300 300 900 100 25 alyx" )
+concommand.Add( "TRizzleCreateBot" , TBotCreate , nil , "Creates a TRizzle Bot with the specified parameters. Example: TRizzleCreateBot <botname> <followdist> <dangerdist> <melee> <pistol> <shotgun> <rifle> <sniper> <meleedist> <pistoldist> <shotgundist> <rifledist> <healthreshold> <combathealthreshold> <playermodel> Example2: TRizzleCreateBot Bot 200 300 weapon_crowbar weapon_pistol weapon_shotgun weapon_smg1 weapon_crossbow 80 1300 300 900 100 25 alyx" )
 concommand.Add( "TBotSetFollowDist" , TBotSetFollowDist , nil , "Changes the specified bot's how close it should be to its owner. If only the bot is specified the value will revert back to the default." )
 concommand.Add( "TBotSetDangerDist" , TBotSetDangerDist , nil , "Changes the specified bot's how far the bot can be from its owner while in combat. If only the bot is specified the value will revert back to the default." )
 concommand.Add( "TBotSetMelee" , TBotSetMelee , nil , "Changes the specified bot's preferred melee weapon. If only the bot is specified the value will revert back to the default." )
@@ -360,11 +356,14 @@ concommand.Add( "TBotSetDefault" , TBotSetDefault , nil , "Set the specified bot
 function BOT:TBotResetAI()
 	
 	self.Enemy				=	nil -- Refresh our enemy.
-	self.EnemyList			        =	{} -- This is the list of enemies the bot can see.
-	self.TimeInCombat		        =	0 -- This is how long the bot has been in combat
+	self.EnemyList			=	{} -- This is the list of enemies the bot can see.
+	self.TimeInCombat		=	0 -- This is how long the bot has been in combat
+	self.LastCombatTime		=	0 -- This was how long ago the bot was in combat
 	self.Jump				=	false -- Stop jumping
+	self.NextJump				=	CurTime() -- This is the next time the bot is allowed to jump
 	self.Crouch				=	false -- Stop crouching
-	self.Use				=	false -- Stop using
+	self.HoldCrouch				=	CurTime() -- This is how long the bot should hold its crouch button
+	self.PressUse				=	false -- Stop using
 	self.FullReload			        =	false -- Stop reloading
 	self.Light				=	false -- Turn off the bot's flashlight
 	self.Goal				=	nil -- The vector goal we want to get to.
@@ -389,18 +388,17 @@ hook.Add( "StartCommand" , "TRizzleBotAIHook" , function( bot , cmd )
 	if IsValid( bot.Enemy ) then
 		
 		local trace = util.TraceLine( { start = bot:EyePos(), endpos = bot.Enemy:EyePos() - Vector( 0, 0, 10 ), filter = bot, mask = TRACE_MASK_SHOT } )
-		local lerp = FrameTime() * bot:GetCombatAimSpeed()
 		
 		-- Turn and face our enemy!
-		if trace.Entity == bot.Enemy then
+		if trace.Entity == bot.Enemy and !bot:IsActiveWeaponRecoilHigh() then
 		
 			-- Can we aim the enemy's head?
-			bot:SetEyeAngles( LerpAngle(lerp, bot:EyeAngles(), ( (bot.Enemy:EyePos() - Vector( 0, 0, 10 ) ) - bot:GetShootPos() ):GetNormalized():Angle() ) )
+			bot:AimAtPos( ( bot.Enemy:EyePos() - Vector( 0, 0, 10 ) ) )
 		
 		else
 			
 			-- If we can't aim at our enemy's head aim at the center of their body instead.
-			bot:SetEyeAngles( LerpAngle(lerp, bot:EyeAngles(), ( bot.Enemy:WorldSpaceCenter() - bot:GetShootPos() ):GetNormalized():Angle() ) )
+			bot:AimAtPos( bot.Enemy:WorldSpaceCenter() )
 		
 		end
 		
@@ -417,7 +415,7 @@ hook.Add( "StartCommand" , "TRizzleBotAIHook" , function( bot , cmd )
 		if math.random(2) == 1 and botWeapon:IsWeapon() and botWeapon:GetClass() == "weapon_medkit" and bot.CombatHealThreshold > bot:Health() then
 			buttons = buttons + IN_ATTACK2
 		end
-			
+		
 		if math.random(2) == 1 and botWeapon:IsWeapon() and botWeapon:Clip1() == 0 then
 			if botWeapon:GetClass() == bot.Shotgun then bot.FullReload = true end
 			buttons = buttons + IN_RELOAD
@@ -490,21 +488,18 @@ function BOT:HandleButtons( buttons )
 	end
 	
 	-- Run if we are too far from our owner
-	if self:IsOnGround() and !self.Crouch and (self.Owner:GetPos() - self:GetPos()):Length() > self.DangerDist and self:GetSuitPower() > 20 then 
+	if (self.Owner:GetPos() - self:GetPos()):Length() > self.DangerDist and self:GetSuitPower() > 20 then 
 		
 		buttons = buttons + IN_SPEED 
 	
 	end
 	
-	if self.Crouch or !self:IsOnGround() then 
+	if self.Crouch or !self:IsOnGround() or self.HoldCrouch > CurTime() then 
 	
 		buttons = buttons + IN_DUCK
 		
-		timer.Simple( 0.3 , function()
-			
-			self.Crouch = false 
-			
-		end)
+		if self.Crouch or !self:IsOnGround() then self.HoldCrouch = CurTime() + 0.3 end
+		self.Crouch = false
 		
 	end
 	
@@ -516,21 +511,25 @@ function BOT:HandleButtons( buttons )
 		
 	end
 	
-	if self.Jump then 
+	if self.NextJump > CurTime() then self.Jump = false end -- The bot shouldn't jump while its on cooldown
+	
+	if self.Jump and self.NextJump < CurTime() then 
 	
 		buttons = buttons + IN_JUMP 
 		
+		self.NextJump = CurTime() + 1.0 -- This cooldown is to prevent the bot from pressing and holding its jump button
 		self.Jump = false 
 		
 	end
 	
 	local door = self:GetEyeTrace().Entity
 	
-	if self.Use and IsDoor( door ) and (door:GetPos() - self:GetPos()):Length() < 80 then 
+	if self.PressUse and (door:GetPos() - self:GetPos()):Length() < 80 then 
 	
-		door:Use(self, self, USE_ON, 0.0)
+		if IsDoor( door ) then door:Use(self, self, USE_ON, 0.0) end
+		-- else door:Use(self, self, USE_TOGGLE, 0.0) end -- I might add a way for the bot to push buttons the player tells them to
 		
-		self.Use = false 
+		self.PressUse = false 
 		
 	end
 	
@@ -575,30 +574,43 @@ function BOT:IsInCombat()
 	
 end
 
--- The longer the bot is in combat the faster the bot will aim
-function BOT:GetCombatAimSpeed()
+function BOT:AimAtPos( Pos )
 
-	if self.TimeInCombat >= 30 then return math.random(8, 10)
-	elseif self.TimeInCombat >= 15 then return math.random(6, 8)
-	else return math.random(4, 6) end
+	local currentAngles = self:EyeAngles() + self:GetViewPunchAngles()
+	local targetPos = ( Pos - self:EyePos() ):GetNormalized()
+	
+	local lerp = FrameTime() * math.random(10, 20)
+	
+	local angles = LerpAngle( lerp, currentAngles, targetPos:Angle() )
+	
+	-- back out "punch angle"
+	angles = angles - self:GetViewPunchAngles()
 
+	self:SetEyeAngles( angles )
+end
+
+-- Got this from CS:GO Source Code, made some changes so it works for Lua
+function BOT:IsActiveWeaponRecoilHigh()
+
+	local angles = self:GetViewPunchAngles()
+	local highRecoil = -1.5
+	return (angles.x < highRecoil)
 end
 
 -- This will check if the bot's cursor is close the enemy the bot is fighting
-function BOT:PointWithinViewAngle(targetpos)
+function BOT:PointWithinViewAngle( targetpos )
 	
-	local trace = util.TraceLine( { start = self:EyePos(), endpos = targetpos, filter = self, mask = TRACE_MASK_SHOT } )
+	local trace = util.TraceLine( { start = self:WorldSpaceCenter(), endpos = targetpos, filter = self, mask = TRACE_MASK_SHOT } )
 	
 	if trace.Entity != self.Enemy then return false end
 	
-	local fov = math.cos(0.5 * 20 * math.pi / 180)
+	local EntWidth = self.Enemy:BoundingRadius() * 0.5
 	local pos = targetpos - self:EyePos()
-	local diff = self:GetAimVector():Dot(pos)
+	local fov = math.cos( math.atan( EntWidth / pos:Length() ) )
+	local diff = self:GetAimVector():Dot( pos )
 	
-	if diff < 0 then return false end
-	
-	local len = pos:LengthSqr()
-	return diff * diff > len * fov * fov
+	local length = pos:LengthSqr()
+	return diff * diff > length * fov * fov
 
 end
 
@@ -612,7 +624,7 @@ function BOT:IsCursorOnTarget()
 			return true
 		end
 
-		return self:PointWithinViewAngle( self.Enemy:EyePos() - Vector( 0, 0, 10) )
+		return self:PointWithinViewAngle( self.Enemy:EyePos() - Vector( 0, 0, 10 ) )
 	
 	end
 end
@@ -736,6 +748,7 @@ function BOT:RestoreAmmo()
 	
 end
 
+-- I should make this use the Entity MetaTable
 function IsDoor( v )
 
 	if (v:GetClass() == "func_door") or (v:GetClass() == "prop_door_rotating") or (v:GetClass() == "func_door_rotating") then
@@ -758,7 +771,7 @@ hook.Add( "PlayerDisconnected" , "TRizzleBotPlayerLeave" , function( ply )
 		
 			if bot.IsTRizzleBot and bot.Owner == ply then
 			
-				bot:Kick( "Bot Owner has left the server" )
+				bot:Kick( "Owner " .. ply:Nick() .. " has left the server" )
 			
 			end
 		end
@@ -791,8 +804,8 @@ hook.Add( "PlayerSpawn" , "TRizzleBotSpawnHook" , function( ply )
 	
 	if ply:IsBot() and ply.IsTRizzleBot then
 		
-		ply:TBotResetAI()
-		timer.Simple( 0.03 , function()
+		ply:TBotResetAI() -- For some reason running the a time for 0.0 seconds works, but if I don't use a timer nothing works at all
+		timer.Simple( 0.0 , function()
 			
 			if IsValid( ply ) and ply:Alive() then
 				
@@ -906,16 +919,17 @@ function BOT:TBotCreateThinking()
 			
 				local vehicle = self:FindNearbySeat()
 				
-				if IsValid( vehicle ) then self:EnterVehicle( vehicle ) end
+				if IsValid( vehicle ) then self:EnterVehicle( vehicle ) end -- I should make the bot press its use key instead of this hack
 			
 			end
 			
 			if !self.Owner:InVehicle() and self:InVehicle() then
 			
-				self:ExitVehicle()
+				self:ExitVehicle() -- Should I make the bot press its use key instead?
 			
 			end
 			
+			-- I have to set the flashlight state because some addons have mounted flashlights and I can't check if they are on or not, "This will prevent the flashlight on and off spam"
 			if self:CanUseFlashlight() and !self:FlashlightIsOn() and self.Light and self:GetSuitPower() > 50 then
 				
 				self:Flashlight( true )
@@ -1002,6 +1016,7 @@ function TRizzleBotPathfinder( StartNode , GoalNode )
 	Prepare_Path_Find()
 	
 	StartNode:Node_Add_To_Open_List()
+	
 	local Attempts		=	0 
 	-- Backup Varaible! In case something goes wrong, The game will not get into an infinite loop.
 	
@@ -1020,9 +1035,9 @@ function TRizzleBotPathfinder( StartNode , GoalNode )
 			local Height = 0
 			
 			if neighbor:Node_Get_Type() == 1 and Current:Node_Get_Type() == 1 then
-				Height			=	math.abs( Current:ComputeAdjacentConnectionHeightChange( neighbor ) )
+				Height			=	Current:ComputeAdjacentConnectionHeightChange( neighbor )
 				
-				if !Current:IsUnderwater() and neighbor:IsUnderwater() and Height > 1000 or Height > 58 and !neighbor:IsUnderwater() then
+				if !Current:IsUnderwater() and !neighbor:IsUnderwater() and -Height < 200 and Height > 58 then
 					-- We can't jump that high.
 					
 					continue
@@ -1061,7 +1076,7 @@ end
 
 
 
-function TRizzleBotRangeCheck( FirstNode , SecondNode , Height )
+function TRizzleBotRangeCheck( FirstNode , SecondNode , Ladder , Height )
 	-- Some helper errors.
 	if !IsValid( FirstNode ) then error( "Bad argument #1 CNavArea or CNavLadder expected got " .. type( FirstNode ) ) end
 	if !IsValid( FirstNode ) then error( "Bad argument #2 CNavArea or CNavLadder expected got " .. type( SecondNode ) ) end
@@ -1069,25 +1084,23 @@ function TRizzleBotRangeCheck( FirstNode , SecondNode , Height )
 	if FirstNode:Node_Get_Type() == 2 then return FirstNode:GetLength()
 	elseif SecondNode:Node_Get_Type() == 2 then return SecondNode:GetLength() end
 	
+	if Ladder then return Ladder:GetLength() end
+	
 	DefaultCost = FirstNode:GetCenter():Distance( SecondNode:GetCenter() )
 	
 	if isnumber( Height ) and Height > 32 then
 		
-		DefaultCost		=	DefaultCost * 5
-		
+		DefaultCost		=	DefaultCost * 3
 		-- Jumping is slower than ground movement.
-		-- And falling is risky taking fall damage.
-		
 		
 	end
 	
-	-- Jump nodes however,We find slightly easier to jump with.Its more recommended than jumping without them.
-	if SecondNode:HasAttributes( NAV_MESH_JUMP ) then 
-		
-		DefaultCost	=	DefaultCost * 3.50
+	if isnumber( Height ) and -Height > 32 then
+	
+		DefaultCost		=	DefaultCost + ( math.abs( Height ) * 1.5 )
+		-- Falling is risky and the bot might take fall damage.
 		
 	end
-	
 	
 	-- Crawling through a vent is very slow.
 	if SecondNode:HasAttributes( NAV_MESH_CROUCH ) then 
@@ -1099,21 +1112,7 @@ function TRizzleBotRangeCheck( FirstNode , SecondNode , Height )
 	-- The bot should avoid this area unless alternatives are too dangerous or too far.
 	if SecondNode:HasAttributes( NAV_MESH_AVOID ) then 
 		
-		DefaultCost	=	DefaultCost * 7
-		
-	end
-	
-	-- We are less interested in smaller nodes as it can make less realistic paths.
-	-- Also its easy to get stuck on them.
-	if SecondNode:GetSizeY() <= 50 then
-		
-		DefaultCost		=	DefaultCost * 3
-		
-	end
-	
-	if SecondNode:GetSizeX() <= 50 then
-		
-		DefaultCost		=	DefaultCost * 3
+		DefaultCost	=	DefaultCost * 8
 		
 	end
 	
@@ -1142,15 +1141,8 @@ function TRizzleBotRetracePath( StartNode , GoalNode )
 		
 		Current			=	Current:Get_Parent_Node()
 		
-		if Current:Node_Get_Type() == 1 then
+		NodePath[ #NodePath + 1 ]	=	Current
 		
-			table.insert( NodePath , navmesh.GetNavAreaByID( Current:GetID() ) )
-			
-		else
-		
-			table.insert( NodePath , navmesh.GetNavLadderByID( Current:GetID() ) )
-			
-		end
 	end
 	
 	
@@ -1183,57 +1175,197 @@ function TRizzleBotPathfinderCheap( StartNode , GoalNode )
 		
 		if Current == GoalNode then
 			
-			return TRizzleBotRetracePathCheap( Final_Path , Current )
+			return TRizzleBotRetracePathCheap( StartNode , GoalNode )
 		end
 		
-		Current:AddToClosedList()
+		local searchWhere = 0
 		
-		for k, neighbor in ipairs( Current:GetAdjacentAreas() ) do
-			local Height	=	math.abs( Current:ComputeAdjacentConnectionHeightChange( neighbor ) ) 
+		local NORTH = 0
+		local EAST = 1
+		local SOUTH = 2
+		local WEST = 3
+		local NUM_DIRECTIONS = 4
+		
+		local AHEAD = 0
+		local LEFT = 1
+		local RIGHT = 2
+		local BEHIND = 3
+		
+		local LADDER_UP = 0
+		local LADDER_DOWN = 1
+		
+		local GO_LADDER_UP = 4
+		local GO_LADDER_DOWN = 5
+		
+		local searchIndex = 1
+		local dir = NORTH
+		local ladderUp = true
+		
+		local floorList = Current:GetAdjacentAreasAtSide( NORTH )
+		local ladderList = nil
+		local ladderTopDir = 0
+		
+		while ( true ) do
+		
+			local newArea = nil
+			local how = nil
+			local ladder = nil
+		
+			if searchWhere == 0 then
+			
+				if searchIndex > #floorList then
+				
+					dir = dir + 1
+					
+					if dir == NUM_DIRECTIONS then
+					
+						searchWhere = 1
+						ladderList = Current:GetLaddersAtSide( LADDER_UP )
+						searchIndex = 1
+						ladderTopDir = AHEAD
+						
+					else
+					
+						floorList = Current:GetAdjacentAreasAtSide( dir )
+						searchIndex = 1
+						
+					end
+					
+					continue
+					
+				end
+				
+				newArea = floorList[ searchIndex ]
+				how = dir
+				searchIndex = searchIndex + 1
+				
+			elseif searchWhere == 1 then
+			
+				if searchIndex > #ladderList then
+					
+					if !ladderUp then
+						
+						searchWhere = 2
+						searchIndex = 1
+						ladder = nil
+						
+					else
+						
+						ladderUp = false
+						ladderList = Current:GetLaddersAtSide( LADDER_DOWN )
+						searchIndex = 1
+						
+					end
+					
+					continue
+					
+				end
+				
+				if ladderUp then
+				
+					ladder = ladderList[ searchIndex ]
+				
+					if ladderTopDir == AHEAD then
+					
+						newArea = ladder:GetTopForwardArea()
+						
+					elseif ladderTopDir == LEFT then
+					
+						newArea = ladder:GetTopLeftArea()
+						
+					elseif ladderTopDir == RIGHT then
+					
+						newArea = ladder:GetTopRightArea()
+						
+					elseif ladderTopDir == BEHIND then
+					
+						newArea = ladder:GetTopBehindArea()
+						
+					else
+					
+						searchIndex = searchIndex + 1
+						ladderTopDir = AHEAD
+						continue
+						
+					end
+					
+					how = GO_LADDER_UP
+					ladderTopDir = ladderTopDir + 1
+				
+				else
+				
+					ladder = ladderList[ searchIndex ]
+					newArea = ladder:GetBottomArea()
+					how = GO_LADDER_DOWN
+					searchIndex = searchIndex + 1
+					
+				end
+				
+				if newArea == nil then
+				
+					continue
+					
+				end
+			
+			else
+			
+				break
+				
+			end
+		
+			if newArea == area then 
+			
+				continue
+				
+			end
+			
+			local Height	=	Current:ComputeAdjacentConnectionHeightChange( newArea )
 			-- Optimization,Prevent computing the height twice.
 			
-			local NewCostSoFar		=	Current:GetCostSoFar() + TRizzleBotRangeCheck( Current , neighbor , Height )
+			local NewCostSoFar		=	Current:GetCostSoFar() + TRizzleBotRangeCheck( Current , newArea , ladder , Height )
 			
+			if ladder != nil then Height = 0 end
 			
-			if !Current:IsUnderwater() and neighbor:IsUnderwater() and Height > 1000 or Height > 58 and !neighbor:IsUnderwater() then
+			if !Current:IsUnderwater() and !newArea:IsUnderwater() and -Height < 200 and Height > 58 then
 				-- We can't jump that high.
 				
 				continue
 			end
 			
 			
-			if neighbor:IsOpen() or neighbor:IsClosed() and neighbor:GetCostSoFar() <= NewCostSoFar then
+			if ( newArea:IsOpen() or newArea:IsClosed() ) and newArea:GetCostSoFar() <= NewCostSoFar then
 				
 				continue
 				
 			else
 				
-				neighbor:SetCostSoFar( NewCostSoFar )
-				neighbor:SetTotalCost( NewCostSoFar + TRizzleBotRangeCheck( neighbor , GoalNode ) )
+				newArea:SetCostSoFar( NewCostSoFar )
+				newArea:SetTotalCost( NewCostSoFar + TRizzleBotRangeCheck( newArea , GoalNode ) )
 				
-				if neighbor:IsClosed() then
+				if newArea:IsClosed() then
 					
-					neighbor:RemoveFromClosedList()
+					newArea:RemoveFromClosedList()
 					
 				end
 				
-				if neighbor:IsOpen() then
+				if newArea:IsOpen() then
 					
-					neighbor:UpdateOnOpenList()
+					newArea:UpdateOnOpenList()
 					
 				else
 					
-					neighbor:AddToOpenList()
+					newArea:AddToOpenList()
 					
 				end
 				
 				
-				Final_Path[ neighbor:GetID() ]	=	Current:GetID()
+				newArea:SetParent( Current, how )
 			end
 			
 			
 		end
 		
+		Current:AddToClosedList()
 		
 	end
 	
@@ -1241,16 +1373,46 @@ function TRizzleBotPathfinderCheap( StartNode , GoalNode )
 	return false
 end
 
-function TRizzleBotRetracePathCheap( Final_Path , Current )
+function TRizzleBotRetracePathCheap( StartNode , GoalNode )
 	
-	local NewPath	=	{ Current }
+	local GO_LADDER_UP = 4
+	local GO_LADDER_DOWN = 5
 	
-	Current			=	Current:GetID()
+	local Trys			=	0 -- Backup! Prevent crashing.
 	
-	while( Final_Path[ Current ] ) do
+	local NewPath	=	{ GoalNode }
+	
+	local Current	=	GoalNode
+	
+	while( Current:GetParent() != StartNode and Trys < 50001 ) do
+	
+		Current		=	Current:GetParent()
+		Parent		=	Current:GetParentHow()
 		
-		Current		=	Final_Path[ Current ]
-		table.insert( NewPath , navmesh.GetNavAreaByID( Current ) )
+		--print( Current )
+		--print( Parent )
+		
+		if Parent == GO_LADDER_UP or Parent == GO_LADDER_DOWN then
+		
+			local list = Current:GetLadders()
+			print( "Ladders: " .. #list )
+			for k, ladder in ipairs( list ) do
+				print( ladder:GetTopForwardArea() )
+				print( ladder:GetTopLeftArea() )
+				print( ladder:GetTopRightArea() )
+				print( ladder:GetTopBehindArea() )
+				if ladder:GetTopForwardArea() == Current or ladder:GetTopLeftArea() == Current or ladder:GetTopRightArea() == Current or ladder:GetTopBehindArea() == Current or ladder:GetBottomArea() == Current then
+				
+					NewPath[ #NewPath + 1 ] = ladder
+					break
+					
+				end
+			end
+		else
+			
+			NewPath[ #NewPath + 1 ] = Current
+			
+		end
 		
 	end
 	
@@ -1260,8 +1422,8 @@ end
 function BOT:TBotSetNewGoal( NewGoal )
 	if !isvector( NewGoal ) then error( "Bad argument #1 vector expected got " .. type( NewGoal ) ) end
 	
-	self.Goal				=	NewGoal
 	if self.PathTime < CurTime() then
+		self.Goal				=	NewGoal
 		self.Path				=	{}
 		self.PathTime			=	CurTime() + 1.0
 	end
@@ -1338,7 +1500,6 @@ local function SendBoxedLine( pos1 , pos2 )
 	return true
 end
 
-
 -- Creates waypoints using the nodes.
 function BOT:ComputeNavmeshVisibility()
 	
@@ -1353,7 +1514,7 @@ function BOT:ComputeNavmeshVisibility()
 		
 		if !IsValid( NextNode ) then
 			
-			self.Path[ #self.Path + 1 ]		=	self.Goal
+			self.Path[ #self.Path + 1 ]		=	{ Pos = self.Goal, IsLadder = false }
 			
 			break
 		end
@@ -1364,7 +1525,7 @@ function BOT:ComputeNavmeshVisibility()
 			
 			LastVisPos		=	CloseToStart
 			
-			self.Path[ #self.Path + 1 ]		=	CloseToStart
+			self.Path[ #self.Path + 1 ]		=	{ Pos = CloseToStart, IsLadder = true, LadderUp = NextNode:ClimbUpLadder( LastVisPos ) }
 			
 			continue
 		end
@@ -1375,7 +1536,7 @@ function BOT:ComputeNavmeshVisibility()
 			
 			LastVisPos		=	CloseToEnd
 			
-			self.Path[ #self.Path + 1 ]		=	CloseToEnd
+			self.Path[ #self.Path + 1 ]		=	{ Pos = CloseToEnd, IsLadder = true, LadderUp = CurrentNode:ClimbUpLadder( NextNode:GetCenter() ) }
 			
 			continue
 		end
@@ -1388,15 +1549,17 @@ function BOT:ComputeNavmeshVisibility()
 		if SendBoxedLine( LastVisPos , OurClosestPointToNextAreasClosestPointToLastVisPos ) == true then
 			
 			LastVisPos						=	OurClosestPointToNextAreasClosestPointToLastVisPos
-			self.Path[ #self.Path + 1 ]		=	OurClosestPointToNextAreasClosestPointToLastVisPos
+			self.Path[ #self.Path + 1 ]		=	{ Pos = OurClosestPointToNextAreasClosestPointToLastVisPos, IsLadder = false }
 			
 			continue
 		end
 		
+		local area, connection = Get_Blue_Connection( CurrentNode, NextNode )
 		
+		--self.Path[ #self.Path + 1 ]			=	{ Pos = connection, IsLadder = false }
+		self.Path[ #self.Path + 1 ]			=	{ Pos = area, IsLadder = false }
 		
-		
-		self.Path[ #self.Path + 1 ]			=	CurrentNode:GetCenter()
+		LastVisPos							=	area
 		
 	end
 	
@@ -1424,7 +1587,7 @@ function BOT:TBotNavigation()
 			self.Path				=	{} -- Reset that.
 			
 			-- We will compute the path quickly if its far away rather than use my laggy pathfinder for now.
-			if self.Goal:Distance( self:GetPos() ) > 6000 then
+			--[[if self.Goal:Distance( self:GetPos() ) > 6000 or true then
 				
 				self.NavmeshNodes			=	TRizzleBotPathfinderCheap( self.StandingOnNode , TargetArea )
 				
@@ -1432,34 +1595,10 @@ function BOT:TBotNavigation()
 				-- Find a path through the navmesh to our TargetArea
 				self.NavmeshNodes		=	TRizzleBotPathfinder( self.StandingOnNode , TargetArea )
 			
-			end
-			-- Prevent spamming the pathfinder.
-			self.BlockPathFind		=	true
-			timer.Simple( 0.50 , function()
-				
-				if IsValid( self ) then
-					
-					self.BlockPathFind		=	false
-					
-				end
-				
-			end)
+			end]]
 			
-			
-			-- Give the computer some time before it does more expensive checks.
-			timer.Simple( 0.03 , function()
-				
-				-- If we can get there and we are not already there, Then we will compute the visiblilty.
-				if IsValid( self ) and istable( self.NavmeshNodes ) then
-					
-					self.NavmeshNodes	=	table.Reverse( self.NavmeshNodes )
-					
-					self:ComputeNavmeshVisibility()
-					
-				end
-				
-			end)
-			
+			-- Pathfollower is not only cheaper, but it can use ladders.
+			self.NavmeshNodes		=	TRizzleBotPathfinderCheap( self.StandingOnNode , TargetArea )
 			
 			-- There is no way we can get there! Remove our goal.
 			if self.NavmeshNodes == false then
@@ -1481,9 +1620,36 @@ function BOT:TBotNavigation()
 					
 				end)
 				
-				return
-			end
+			else
 			
+				-- Prevent spamming the pathfinder.
+				self.BlockPathFind		=	true
+				timer.Simple( 0.50 , function()
+					
+					if IsValid( self ) then
+						
+						self.BlockPathFind		=	false
+						
+					end
+					
+				end)
+				
+				
+				-- Give the computer some time before it does more expensive checks.
+				timer.Simple( 0.03 , function()
+					
+					-- If we can get there and is not already there, Then we will compute the visiblilty.
+					if IsValid( self ) and istable( self.NavmeshNodes ) then
+						
+						self.NavmeshNodes	=	table.Reverse( self.NavmeshNodes )
+						
+						self:ComputeNavmeshVisibility()
+						
+					end
+					
+				end)
+				
+			end
 			
 		end
 		
@@ -1495,18 +1661,31 @@ function BOT:TBotNavigation()
 		
 		if self.Path[ 1 ] then
 			
-			local Waypoint2D		=	Vector( self.Path[ 1 ].x , self.Path[ 1 ].y , self:GetPos().z )
+			local Waypoint2D		=	Vector( self.Path[ 1 ][ "Pos" ].x , self.Path[ 1 ][ "Pos" ].y , self:GetPos().z )
 			-- ALWAYS: Use 2D navigation, It helps by a large amount.
 			
-			if self.Path[ 2 ] and IsVecCloseEnough( self:GetPos() , Waypoint2D , 600 ) and SendBoxedLine( self.Path[ 2 ] , self:GetPos() + Vector( 0 , 0 , 15 ) ) == true and self.Path[ 2 ].z - 20 <= Waypoint2D.z then
+			if !self.Path[ 1 ][ "IsLadder" ] and self.Path[ 2 ] and !self.Path[ 2 ][ "IsLadder" ] and IsVecCloseEnough( self:GetPos() , Waypoint2D , 600 ) and SendBoxedLine( self.Path[ 2 ][ "Pos" ] , self:GetPos() + Vector( 0 , 0 , 15 ) ) == true and self.Path[ 2 ][ "Pos" ].z - 20 <= Waypoint2D.z then
 				
 				table.remove( self.Path , 1 )
 				
-			elseif IsVecCloseEnough( self:GetPos() , Waypoint2D , 24 ) then
+			elseif !self.Path[ 1 ][ "IsLadder" ] and IsVecCloseEnough( self:GetPos() , Waypoint2D , 24 ) then
 				
 				table.remove( self.Path , 1 )
 				
+			elseif self.Path[ 1 ][ "IsLadder" ] and self.Path[ 1 ][ "LadderUp" ] and self:GetPos().z >= self.Path[ 1 ][ "Pos" ].z then
+				
+				table.remove( self.Path , 1 )
+				
+			elseif self.Path[ 1 ][ "IsLadder" ] and !self.Path[ 1 ][ "LadderUp" ] and self:GetPos().z <= self.Path[ 1 ][ "Pos" ].z then
+			
+				table.remove( self.Path , 1 )
+			
 			end
+			--[[elseif IsVecCloseEnough( self:GetPos() , Waypoint2D , 8 ) then -- This is a backup this should never happen
+			
+				table.remove( self.Path , 1 )
+			
+			end]]
 			
 		end
 		
@@ -1536,7 +1715,7 @@ function BOT:TBotCreateNavTimer()
 			if IsVecCloseEnough( self:GetPos() , LastBotPos , 2 ) then
 				
 				self.Jump	=	true
-				self.Use	=	true
+				self.PressUse	=	true
 				
 				if Attempts > 10 then self.Path	=	nil end
 				if Attempts > 20 then self.Goal =	nil end
@@ -1565,18 +1744,18 @@ function BOT:TBotDebugWaypoints()
 	if !istable( self.Path ) then return end
 	if table.IsEmpty( self.Path ) then return end
 	
-	debugoverlay.Line( self.Path[ 1 ] , self:GetPos() + Vector( 0 , 0 , 44 ) , 0.08 , Color( 0 , 255 , 255 ) )
-	debugoverlay.Sphere( self.Path[ 1 ] , 8 , 0.08 , Color( 0 , 255 , 255 ) , true )
+	debugoverlay.Line( self.Path[ 1 ][ "Pos" ] , self:GetPos() + Vector( 0 , 0 , 44 ) , 0.08 , Color( 0 , 255 , 255 ) )
+	debugoverlay.Sphere( self.Path[ 1 ][ "Pos" ] , 8 , 0.08 , Color( 0 , 255 , 255 ) , true )
 	
 	for k, v in ipairs( self.Path ) do
 		
 		if self.Path[ k + 1 ] then
 			
-			debugoverlay.Line( v , self.Path[ k + 1 ] , 0.08 , Color( 255 , 255 , 0 ) )
+			debugoverlay.Line( v[ "Pos" ] , self.Path[ k + 1 ][ "Pos" ] , 0.08 , Color( 255 , 255 , 0 ) )
 			
 		end
 		
-		debugoverlay.Sphere( v , 8 , 0.08 , Color( 255 , 200 , 0 ) , true )
+		debugoverlay.Sphere( v[ "Pos" ] , 8 , 0.08 , Color( 255 , 200 , 0 ) , true )
 		
 	end
 	
@@ -1590,8 +1769,9 @@ function BOT:TBotUpdateMovement( cmd )
 		
 		local MovementAngle		=	( self.Goal - self:GetPos() ):GetNormalized():Angle()
 		local lerp = FrameTime() * math.random(4, 6)
+		local dropDown = self:IsDropDown( self.Goal )
 		
-		if self:OnGround() and self.Goal.z - 10 >= self:GetPos().z then
+		if self:OnGround() and !dropDown then
 			local SmartJump		=	util.TraceLine({
 				
 				start			=	self:GetPos(),
@@ -1626,10 +1806,11 @@ function BOT:TBotUpdateMovement( cmd )
 	
 	if self.Path[ 1 ] then
 		
-		local MovementAngle		=	( self.Path[ 1 ] - self:GetPos() ):GetNormalized():Angle()
+		local MovementAngle		=	( self.Path[ 1 ][ "Pos" ] - self:GetPos() ):GetNormalized():Angle()
 		local lerp = FrameTime() * math.random(4, 6)
+		local dropDown = self:IsDropDown( self.Path[ 1 ][ "Pos" ] )
 		
-		if self:OnGround() and self.Path[ 1 ].z - 10 >= self:GetPos().z then
+		if self:OnGround() and !dropDown and !self.Path[ 1 ][ "IsLadder" ] then
 			local SmartJump		=	util.TraceLine({
 				
 				start			=	self:GetPos(),
@@ -1648,13 +1829,89 @@ function BOT:TBotUpdateMovement( cmd )
 			end
 		end
 		
-		local TargetArea		=	navmesh.GetNearestNavArea( self.Path[ 1 ] )
+		local TargetArea		=	navmesh.GetNearestNavArea( self.Path[ 1 ][ "Pos" ] )
 		
 		if IsValid( TargetArea ) and TargetArea:HasAttributes( NAV_MESH_CROUCH ) then self.Crouch = true end
+		if IsValid( TargetArea ) and TargetArea:HasAttributes( NAV_MESH_JUMP ) then self.Jump = true end
 		
 		cmd:SetViewAngles( MovementAngle )
 		cmd:SetForwardMove( 1000 )
-		if !IsValid ( self.Enemy ) or self:Is_On_Ladder() then self:SetEyeAngles( LerpAngle(lerp, self:EyeAngles(), ( self.Path[ 1 ] - self:GetPos() ):GetNormalized():Angle() ) ) end
+		if !IsValid ( self.Enemy ) or self:Is_On_Ladder() or self.Path[ 1 ][ "IsLadder" ] then self:SetEyeAngles( LerpAngle(lerp, self:EyeAngles(), ( self.Path[ 1 ][ "Pos" ] - self:GetPos() ):GetNormalized():Angle() ) ) end
+		
+	end
+	
+end
+
+local function NumberMidPoint( num1 , num2 )
+	
+	local sum = num1 + num2
+	
+	return sum / 2
+	
+end
+
+-- This function techically gets the center crossing point of the smallest area.
+-- This is 90% of the time where the blue connection point is.
+-- So keep in mind this will rarely give inaccurate results.
+function Get_Blue_Connection( CurrentArea , TargetArea )
+	if !IsValid( TargetArea ) or !IsValid( CurrentArea ) then return end
+	local dir = Get_Direction( CurrentArea , TargetArea )
+	
+	if dir == 0 or dir == 2 then
+		
+		if TargetArea:GetSizeX() >= CurrentArea:GetSizeX() then
+			
+			local Vec	=	NumberMidPoint( CurrentArea:GetCorner( 0 ).y , CurrentArea:GetCorner( 1 ).y )
+			
+			local NavPoint = Vector( CurrentArea:GetCenter().x , Vec , 0 )
+			
+			return TargetArea:GetClosestPointOnArea( NavPoint ), Vector( NavPoint.x , CurrentArea:GetCenter().y , NavPoint.z )
+		else
+			
+			local Vec	=	NumberMidPoint( TargetArea:GetCorner( 0 ).y , TargetArea:GetCorner( 1 ).y )
+			
+			local NavPoint = Vector( TargetArea:GetCenter().x , Vec , 0 )
+			
+			
+			return TargetArea:GetClosestPointOnArea( CurrentArea:GetClosestPointOnArea( NavPoint ) ), Vector( NavPoint.x , CurrentArea:GetCenter().y , NavPoint.z )
+		end	
+		
+		return
+	end
+	
+	if dir == 1 or dir == 3 then
+		
+		if TargetArea:GetSizeY() >= CurrentArea:GetSizeY() then
+			
+			local Vec	=	NumberMidPoint( CurrentArea:GetCorner( 0 ).x , CurrentArea:GetCorner( 3 ).x )
+			
+			local NavPoint = Vector( Vec , CurrentArea:GetCenter().y , 0 )
+			
+			
+			return TargetArea:GetClosestPointOnArea( NavPoint ), Vector( CurrentArea:GetCenter().x , NavPoint.y , NavPoint.z )
+		else
+			
+			local Vec	=	NumberMidPoint( TargetArea:GetCorner( 0 ).x , TargetArea:GetCorner( 3 ).x )
+			
+			local NavPoint = Vector( Vec , TargetArea:GetCenter().y , 0 )
+			
+			
+			return TargetArea:GetClosestPointOnArea( CurrentArea:GetClosestPointOnArea( NavPoint ) ), Vector( CurrentArea:GetCenter().x , NavPoint.y , NavPoint.z )
+		end
+		
+	end
+	
+end
+
+function Get_Direction( FirstArea , SecondArea )
+	
+	if FirstArea:GetSizeX() + FirstArea:GetSizeY() > SecondArea:GetSizeX() + SecondArea:GetSizeY() then
+		
+		return SecondArea:ComputeDirection( SecondArea:GetClosestPointOnArea( FirstArea:GetClosestPointOnArea( SecondArea:GetCenter() ) ) )
+		
+	else
+		
+		return FirstArea:ComputeDirection( FirstArea:GetClosestPointOnArea( SecondArea:GetClosestPointOnArea( FirstArea:GetCenter() ) ) )
 		
 	end
 	
@@ -1768,6 +2025,13 @@ function Sort_Open_List()
 		Open_List[ #Open_List + 1 ]		=	v
 		
 	end
+	
+end
+
+-- This checks if we should not smart jump to reach the next node
+function BOT:IsDropDown( nextArea )
+	
+	return self.GetPos().z - nextArea.z > self:GetStepSize() -- This can return incorrect results, I need a better way to check for this
 	
 end
 
@@ -1941,12 +2205,6 @@ function Lad:Node_Add_To_Open_List()
 	
 end
 
-
-
-
-
-
-
 function Zone:Node_Remove_From_Closed_List()
 	
 	Node_Data[ 1 ][ self:GetID() ][ "State" ]	=	"Unset"
@@ -2082,6 +2340,19 @@ function Lad:Get_Closest_Point( pos )
 	end
 	
 	return self:GetBottom()
+end
+
+function Lad:ClimbUpLadder( pos )
+	
+	local TopArea	=	self:GetTop():Distance( pos )
+	local LowArea	=	self:GetBottom():Distance( pos )
+	
+	if TopArea < LowArea then
+		
+		return true
+	end
+	
+	return false
 end
 
 -- See if a node is an area : 1 or a ladder : 2
