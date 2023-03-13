@@ -24,8 +24,8 @@ function TBotCreate( ply , cmd , args ) -- This code defines stats of the bot wh
 	NewBot.PistolDist			=	tonumber( args[ 10 ] ) or 1300 -- If an enemy is closer than this, the bot will use its pistol
 	NewBot.ShotgunDist			=	tonumber( args[ 11 ] ) or 300 -- If an enemy is closer than this, the bot will use its shotgun
 	NewBot.RifleDist			=	tonumber( args[ 12 ] ) or 900 -- If an enemy is closer than this, the bot will use its rifle
-	NewBot.HealThreshold			=	tonumber( args[ 13 ] ) or 100 -- If the bot's health drops below this and the bot is not in combat the bot will use its medkit
-	NewBot.CombatHealThreshold		=	tonumber( args[ 14 ] ) or 25 -- If the bot's health drops below this and the bot is not in combat the bot will use its medkit
+	NewBot.HealThreshold			=	tonumber( args[ 13 ] ) or 100 -- If the bot's health or a teammate's health drops below this and the bot is not in combat the bot will use its medkit
+	NewBot.CombatHealThreshold		=	tonumber( args[ 14 ] ) or 25 -- If the bot's health drops below this and the bot is in combat the bot will use its medkit
 	NewBot.PlayerModel			=	args[ 15 ] or "kleiner" -- This is the player model the bot will use
 	
 	local param2 = args[ 16 ] or 1
@@ -510,6 +510,8 @@ function BOT:HandleButtons( buttons )
 		return buttons
 		
 	end
+	
+	if self.NextJump > CurTime() then self.Jump = false end -- The bot shouldn't jump while its on cooldown
 	
 	if self.Jump and self.NextJump < CurTime() then 
 	
