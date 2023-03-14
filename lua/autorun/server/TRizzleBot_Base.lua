@@ -1,4 +1,5 @@
 local BOT		=	FindMetaTable( "Player" )
+local Ent		=	FindMetaTable( "Entity" )
 local Zone		=	FindMetaTable( "CNavArea" )
 local Lad		=	FindMetaTable( "CNavLadder" )
 local Open_List		=	{}
@@ -356,9 +357,9 @@ concommand.Add( "TBotSetDefault" , TBotSetDefault , nil , "Set the specified bot
 function BOT:TBotResetAI()
 	
 	self.Enemy				=	nil -- Refresh our enemy.
-	self.EnemyList			=	{} -- This is the list of enemies the bot can see.
-	self.TimeInCombat		=	0 -- This is how long the bot has been in combat
-	self.LastCombatTime		=	0 -- This was how long ago the bot was in combat
+	self.EnemyList				=	{} -- This is the list of enemies the bot can see.
+	self.TimeInCombat			=	0 -- This is how long the bot has been in combat
+	self.LastCombatTime			=	0 -- This was how long ago the bot was in combat
 	self.Jump				=	false -- Stop jumping
 	self.NextJump				=	CurTime() -- This is the next time the bot is allowed to jump
 	self.Crouch				=	false -- Stop crouching
@@ -524,9 +525,10 @@ function BOT:HandleButtons( buttons )
 	
 	local door = self:GetEyeTrace().Entity
 	
-	if self.PressUse and (door:GetPos() - self:GetPos()):Length() < 80 then 
+	-- I want to make the bot press its use key instead of faking the action, I would need to make a method to check if the bot's cursor is on the door/targetent
+	if self.PressUse and IsValid( door ) and (door:GetPos() - self:GetPos()):Length() < 80 then 
 	
-		if IsDoor( door ) then door:Use(self, self, USE_ON, 0.0) end
+		if door:IsDoor() then door:Use(self, self, USE_ON, 0.0) end
 		-- else door:Use(self, self, USE_TOGGLE, 0.0) end -- I might add a way for the bot to push buttons the player tells them to
 		
 		self.PressUse = false 
@@ -748,10 +750,9 @@ function BOT:RestoreAmmo()
 	
 end
 
--- I should make this use the Entity MetaTable
-function IsDoor( v )
+function Ent:IsDoor()
 
-	if (v:GetClass() == "func_door") or (v:GetClass() == "prop_door_rotating") or (v:GetClass() == "func_door_rotating") then
+	if (self:GetClass() == "func_door") or (self:GetClass() == "prop_door_rotating") or (self:GetClass() == "func_door_rotating") then
         
 		return true
     
@@ -822,9 +823,9 @@ hook.Add( "PlayerSpawn" , "TRizzleBotSpawnHook" , function( ply )
 					
 				end
 				
-				-- For some reason the bot's run and walk speed is slower than a human player
-				ply:SetRunSpeed( ply.Owner:GetRunSpeed() )
-				ply:SetWalkSpeed( ply.Owner:GetWalkSpeed() )
+				-- For some reason the bot's run and walk speed is slower than the default
+				ply:SetRunSpeed( 600 )
+				ply:SetWalkSpeed( 400 )
 				
 			end
 			
@@ -954,7 +955,7 @@ end
 
 -- Target any hostile NPCS that is visible to us.
 function BOT:TBotFindClosestEnemy()
-	local VisibleEnemies		=	{} -- This is how many enemies the bot can see. Currently not used......yet
+	local VisibleEnemies			=	{} -- This is how many enemies the bot can see. Currently not used......yet
 	local targetdist			=	10000 -- This will allow the bot to select the closest enemy to it.
 	local target				=	self.Enemy -- This is the closest enemy to the bot.
 	
@@ -1829,7 +1830,7 @@ function BOT:TBotUpdateMovement( cmd )
 			end
 		end
 		
-		local TargetArea		=	navmesh.GetNearestNavArea( self.Path[ 1 ][ "Pos" ] )
+		local TargetArea		=	navmesh.GetNearestNavArea( self.Path[ 1 ][ "Pos" ] ) -- This can return the wrong area, I should append the attributes to the path list
 		
 		if IsValid( TargetArea ) and TargetArea:HasAttributes( NAV_MESH_CROUCH ) then self.Crouch = true end
 		if IsValid( TargetArea ) and TargetArea:HasAttributes( NAV_MESH_JUMP ) then self.Jump = true end
@@ -2342,6 +2343,7 @@ function Lad:Get_Closest_Point( pos )
 	return self:GetBottom()
 end
 
+-- This checks if the bot should climb up or down the ladder
 function Lad:ClimbUpLadder( pos )
 	
 	local TopArea	=	self:GetTop():Distance( pos )
