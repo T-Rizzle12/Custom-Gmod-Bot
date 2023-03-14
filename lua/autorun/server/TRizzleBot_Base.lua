@@ -471,6 +471,9 @@ end)
 function BOT:HandleButtons( buttons )
 
 	local Close		=	navmesh.GetNearestNavArea( self:GetPos() )
+	local CanRun		=	true
+	local ShouldRun		=	false
+	local ShouldWalk	=	false
 	
 	if IsValid ( Close ) then -- If their is no nav_mesh this will not run to prevent the addon from spamming errors
 		
@@ -486,12 +489,34 @@ function BOT:HandleButtons( buttons )
 			
 		end
 		
+		if Close:HasAttributes( NAV_MESH_RUN ) then
+			
+			ShouldRun		=	true
+			ShouldWalk		=	false
+			
+		end
+		
+		if Close:HasAttributes( NAV_MESH_WALK ) then
+			
+			ShouldRun		=	false
+			CanRun			=	false
+			ShouldWalk		=	true
+			
+		end
+		
 	end
 	
-	-- Run if we are too far from our owner
-	if (self.Owner:GetPos() - self:GetPos()):Length() > self.DangerDist and self:GetSuitPower() > 20 then 
+	-- Run if we are too far from our owner or the navmesh tells us to
+	if CanRun and ( ShouldRun or (self.Owner:GetPos() - self:GetPos()):Length() > self.DangerDist ) and self:GetSuitPower() > 20 then 
 		
 		buttons = buttons + IN_SPEED 
+	
+	end
+	
+	-- Walk if the navmesh tells us to
+	if ShouldWalk then -- I might make the bot walk if near its owner
+		
+		buttons = buttons + IN_WALK 
 	
 	end
 	
