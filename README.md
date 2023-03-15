@@ -41,9 +41,9 @@ CommandName, CommandParameters, Example
 - <code>TBotSetRifleDist</code> <code>targetbot</code>  <code>rifledist</code>  
   - TBotSetRifle Bot weapon_smg1
 - <code>TBotSetHealThreshold</code> <code>targetbot</code>  <code>healthreshold</code>  
-  - TBotSetRifle Bot 100
+  - TBotSetHealThreshold Bot 100
 - <code>TBotSetCombatHealThreshold</code> <code>targetbot</code>  <code>combathealthreshold</code>  
-  - TBotSetRifle Bot 25
+  - TBotSetCombatHealThreshold Bot 25
 - <code>TBotSetPlayerModel</code> <code>targetbot</code>  <code>playermodel</code>  
   - TBotSetRifle Bot alyx
 - <code>TBotSpawnWithPreferredWeapons</code> <code>targetbot</code>  <code>1 or 0</code>  
