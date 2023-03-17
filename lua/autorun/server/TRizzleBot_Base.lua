@@ -1063,7 +1063,7 @@ function TRizzleBotPathfinder( StartNode , GoalNode )
 			if neighbor:Node_Get_Type() == 1 and Current:Node_Get_Type() == 1 then
 				Height			=	Current:ComputeAdjacentConnectionHeightChange( neighbor )
 				
-				if !Current:IsUnderwater() and !neighbor:IsUnderwater() and -Height < 200 and Height > 58 then
+				if !Current:IsUnderwater() and !neighbor:IsUnderwater() and -Height < 200 and Height > 64 then
 					-- We can't jump that high.
 					
 					continue
@@ -1352,7 +1352,7 @@ function TRizzleBotPathfinderCheap( StartNode , GoalNode )
 			
 			if ladder != nil then Height = 0 end
 			
-			if !Current:IsUnderwater() and !newArea:IsUnderwater() and -Height < 200 and Height > 58 then
+			if !Current:IsUnderwater() and !newArea:IsUnderwater() and -Height < 200 and Height > 64 then
 				-- We can't jump that high.
 				
 				continue
@@ -1694,7 +1694,11 @@ function BOT:TBotNavigation()
 				
 				table.remove( self.Path , 1 )
 				
-			elseif !self.Path[ 1 ][ "IsLadder" ] and IsVecCloseEnough( self:GetPos() , Waypoint2D , 24 ) then
+			elseif !self.Path[ 1 ][ "IsLadder" ] and !self:ShouldDropDown( self.Path[ 1 ][ "Pos" ] ) and IsVecCloseEnough( self:GetPos() , Waypoint2D , 24 ) then
+				
+				table.remove( self.Path , 1 )
+				
+			elseif !self.Path[ 1 ][ "IsLadder" ] and self:GetPos().z - self.Path[ 1 ][ "Pos" ].z < self:GetStepSize() and IsVecCloseEnough( self:GetPos() , Waypoint2D , 24 ) then
 				
 				table.remove( self.Path , 1 )
 				
@@ -1857,8 +1861,7 @@ function BOT:TBotUpdateMovement( cmd )
 		
 		local TargetArea		=	navmesh.GetNearestNavArea( self.Path[ 1 ][ "Pos" ] ) -- This can return the wrong area, I should append the attributes to the path list
 		
-		if IsValid( TargetArea ) and TargetArea:HasAttributes( NAV_MESH_CROUCH ) then self.Crouch = true end
-		if IsValid( TargetArea ) and TargetArea:HasAttributes( NAV_MESH_JUMP ) then self.Jump = true end
+		if IsValid( TargetArea ) and TargetArea:HasAttributes( NAV_MESH_JUMP ) or self:ShouldJump( self.Path[ 1 ][ "Pos" ] ) then self.Jump = true end
 		
 		cmd:SetViewAngles( MovementAngle )
 		cmd:SetForwardMove( 1000 )
@@ -2057,14 +2060,14 @@ end
 -- This checks if we should drop down to reach the next node
 function BOT:ShouldDropDown( nextArea )
 	
-	return self.GetPos().z - nextArea.z > self:GetStepSize() -- This can return incorrect results, I need a better way to check for this
+	return self:GetPos().z - nextArea.z > self:GetStepSize() -- This can return incorrect results, I need a better way to check for this
 	
 end
 
 -- This checks if we should jump to reach the next node
 function BOT:ShouldJump( nextArea )
 	
-	return nextArea.z - self.GetPos().z > self:GetStepSize() -- This can return incorrect results, I need a better way to check for this
+	return nextArea.z - self:GetPos().z > self:GetStepSize() -- This can return incorrect results, I need a better way to check for this
 	
 end
 
