@@ -1328,7 +1328,7 @@ function TRizzleBotPathfinderCheap( StartNode , GoalNode )
 					
 				end
 				
-				if newArea == nil then
+				if !IsValid( newArea ) then
 				
 					continue
 					
@@ -1419,15 +1419,17 @@ function TRizzleBotRetracePathCheap( StartNode , GoalNode )
 		--print( Current )
 		--print( Parent )
 		
+		NewPath[ #NewPath + 1 ] = Current -- You may think this is incorrectly placed, but this entire table will be flipped before waypoints are created
+		
 		if Parent == GO_LADDER_UP or Parent == GO_LADDER_DOWN then
 		
 			local list = Current:GetLadders()
-			print( "Ladders: " .. #list )
+			--print( "Ladders: " .. #list )
 			for k, ladder in ipairs( list ) do
-				print( ladder:GetTopForwardArea() )
-				print( ladder:GetTopLeftArea() )
-				print( ladder:GetTopRightArea() )
-				print( ladder:GetTopBehindArea() )
+				--print( ladder:GetTopForwardArea() )
+				--print( ladder:GetTopLeftArea() )
+				--print( ladder:GetTopRightArea() )
+				--print( ladder:GetTopBehindArea() )
 				if ladder:GetTopForwardArea() == Current or ladder:GetTopLeftArea() == Current or ladder:GetTopRightArea() == Current or ladder:GetTopBehindArea() == Current or ladder:GetBottomArea() == Current then
 				
 					NewPath[ #NewPath + 1 ] = ladder
@@ -1435,10 +1437,7 @@ function TRizzleBotRetracePathCheap( StartNode , GoalNode )
 					
 				end
 			end
-		else
-			
-			NewPath[ #NewPath + 1 ] = Current
-			
+		
 		end
 		
 	end
@@ -1453,8 +1452,8 @@ function BOT:TBotSetNewGoal( NewGoal )
 		self.Goal				=	NewGoal
 		self.Path				=	{}
 		self.PathTime			=	CurTime() + 1.0
+		self:TBotCreateNavTimer()
 	end
-	self:TBotCreateNavTimer()
 	
 end
 
