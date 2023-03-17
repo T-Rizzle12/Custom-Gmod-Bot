@@ -7,8 +7,8 @@ local Node_Data		=	{}
 util.AddNetworkString( "TRizzleBotFlashlight" )
 
 function TBotCreate( ply , cmd , args ) -- This code defines stats of the bot when it is created.  
-	if !args[ 1 ] then return end 
-	if game.SinglePlayer() or player.GetCount() >= game.MaxPlayers() then error( "Cannot create new bot there are no avaliable player slots!" ) end
+	if !args[ 1 ] then error( "[WARNING] Please give a name for the bot!" ) end 
+	if game.SinglePlayer() or player.GetCount() >= game.MaxPlayers() then error( "[INFORMATION] Cannot create new bot there are no avaliable player slots!" ) end
 	
 	local NewBot				=	player.CreateNextBot( args[ 1 ] ) -- Create the bot and store it in a varaible.
 	
