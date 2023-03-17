@@ -2382,10 +2382,10 @@ function Lad:Get_Closest_Point( pos )
 	
 	if TopArea < LowArea then
 		
-		return self:GetTop()
+		return self:GetTop() - self:GetNormal() * 2.0 * 16
 	end
 	
-	return self:GetBottom()
+	return self:GetBottom() + self:GetNormal() * 2.0 * 16
 end
 
 -- This checks if the bot should climb up or down the ladder
