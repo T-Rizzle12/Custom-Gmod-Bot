@@ -520,7 +520,7 @@ function BOT:HandleButtons( buttons )
 	
 	end
 	
-	if self.Crouch or !self:IsOnGround() or self.HoldCrouch > CurTime() then 
+	if ( self.Crouch and !self.Jump ) or !self:IsOnGround() or self.HoldCrouch > CurTime() then 
 	
 		buttons = buttons + IN_DUCK
 		
@@ -555,6 +555,7 @@ function BOT:HandleButtons( buttons )
 	
 		if door:IsDoor() then door:Use(self, self, USE_ON, 0.0) end
 		-- else door:Use(self, self, USE_TOGGLE, 0.0) end -- I might add a way for the bot to push buttons the player tells them to
+		-- buttons = buttons + IN_USE -- Can't add this until a make a method that checks if the bot's cursor is on the door, would GetEyeTrace work?
 		
 		self.PressUse = false 
 		
@@ -1582,8 +1583,7 @@ function BOT:ComputeNavmeshVisibility()
 		
 		local area, connection = Get_Blue_Connection( CurrentNode, NextNode )
 		
-		--self.Path[ #self.Path + 1 ]			=	{ Pos = connection, IsLadder = false }
-		self.Path[ #self.Path + 1 ]			=	{ Pos = area, IsLadder = false }
+		self.Path[ #self.Path + 1 ]			=	{ Pos = area, IsLadder = false, Check = connection }
 		
 		LastVisPos							=	area
 		
@@ -1839,6 +1839,16 @@ function BOT:TBotUpdateMovement( cmd )
 		local MovementAngle		=	( self.Path[ 1 ][ "Pos" ] - self:GetPos() ):GetNormalized():Angle()
 		local lerp = FrameTime() * math.random(4, 6)
 		local dropDown = self:ShouldDropDown( self.Path[ 1 ][ "Pos" ] )
+		
+		if isvector( self.Path[ 1 ][ "Check" ] ) then
+			MovementAngle = ( self.Path[ 1 ][ "Check" ] - self:GetPos() ):GetNormalized():Angle()
+			
+			local CheckIn2D			=	Vector( self.Path[ 1 ][ "Check" ].x , self.Path[ 1 ][ "Check" ].y , self:GetPos().z )
+			
+			if IsVecCloseEnough( self:GetPos() , CheckIn2D , 24 ) or SendBoxedLine( self:GetPos() , CheckIn2D ) == true then
+				self.Path[ 1 ][ "Check" ] = nil
+			end
+		end
 		
 		if self:OnGround() and !dropDown and !self.Path[ 1 ][ "IsLadder" ] then
 			local SmartJump		=	util.TraceLine({
