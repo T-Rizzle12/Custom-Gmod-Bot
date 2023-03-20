@@ -543,7 +543,7 @@ function BOT:HandleButtons( buttons )
 	
 		buttons = buttons + IN_JUMP 
 		
-		self.NextJump = CurTime() + 1.0 -- This cooldown is to prevent the bot from pressing and holding its jump button
+		self.NextJump = CurTime() + 0.5 -- This cooldown is to prevent the bot from pressing and holding its jump button
 		self.Jump = false 
 		
 	end
@@ -837,6 +837,7 @@ hook.Add( "PlayerSpawn" , "TRizzleBotSpawnHook" , function( ply )
 			if IsValid( ply ) and ply:Alive() then
 				
 				ply:SetModel( ply.PlayerModel )
+				ply:SetupHands()
 				
 				if ply.SpawnWithWeapons then
 					
@@ -1419,8 +1420,6 @@ function TRizzleBotRetracePathCheap( StartNode , GoalNode )
 		--print( Current )
 		--print( Parent )
 		
-		NewPath[ #NewPath + 1 ] = Current -- You may think this is incorrectly placed, but this entire table will be flipped before waypoints are created
-		
 		if Parent == GO_LADDER_UP or Parent == GO_LADDER_DOWN then
 		
 			local list = Current:GetLadders()
@@ -1439,6 +1438,8 @@ function TRizzleBotRetracePathCheap( StartNode , GoalNode )
 			end
 		
 		end
+		
+		NewPath[ #NewPath + 1 ] = Current
 		
 	end
 	
@@ -1537,6 +1538,7 @@ function BOT:ComputeNavmeshVisibility()
 		-- I should also make sure that the nodes exist as this is called 0.03 seconds after the pathfind.
 		
 		local NextNode		=	self.NavmeshNodes[ k + 1 ]
+		local Gap			=	false
 		
 		if !IsValid( NextNode ) then
 			
@@ -1568,19 +1570,47 @@ function BOT:ComputeNavmeshVisibility()
 		end
 		
 		-- The next area ahead's closest point to us.
-		local NextAreasClosetPointToLastVisPos		=	NextNode:GetClosestPointOnArea( LastVisPos ) + Vector( 0 , 0 , 32 )
-		local OurClosestPointToNextAreasClosestPointToLastVisPos	=	CurrentNode:GetClosestPointOnArea( NextAreasClosetPointToLastVisPos ) + Vector( 0 , 0 , 32 )
+		local CloseToVis		=	NextNode:GetClosestPointOnArea( LastVisPos )
 		
 		-- If we are visible then we shall put the waypoint there.
-		if SendBoxedLine( LastVisPos , OurClosestPointToNextAreasClosestPointToLastVisPos ) == true then
+		if SendBoxedLine( LastVisPos , CloseToVis ) == true then
 			
-			LastVisPos						=	OurClosestPointToNextAreasClosestPointToLastVisPos
-			self.Path[ #self.Path + 1 ]		=	{ Pos = OurClosestPointToNextAreasClosestPointToLastVisPos, IsLadder = false }
+			LastVisPos						=	CloseToVis
+			self.Path[ #self.Path + 1 ]		=	{ Pos = CloseToVis, IsLadder = false }
+			
+			continue
+		end
+		
+		-- By checking ahead we can make realistic navigation.
+		if IsValid( self.NavmeshNodes[ k + 2 ] ) and self.NavmeshNodes[ k + 2 ]:Node_Get_Type() == 1 then
+			
+			TargetCut		=	NextNode:GetClosestPointOnArea( self.NavmeshNodes[ k + 2 ]:GetCenter() )
+			
+		else
+			
+			TargetCut		=	self.Goal
+			
+		end
+		
+		-- If we are visible then we shall put the waypoint there.
+		if SendBoxedLine( LastVisPos , TargetCut ) == true then
+			
+			LastVisPos						=	TargetCut
+			self.Path[ #self.Path + 1 ]		=	{ Pos = TargetCut, IsLadder = false }
 			
 			continue
 		end
 		
 		local area, connection = Get_Blue_Connection( CurrentNode, NextNode )
+		
+		-- If we are visible then we shall put the waypoint there.
+		if SendBoxedLine( LastVisPos , connection ) == true then
+			
+			LastVisPos						=	TargetCut
+			self.Path[ #self.Path + 1 ]		=	{ Pos = area, IsLadder = false }
+			
+			continue
+		end
 		
 		self.Path[ #self.Path + 1 ]			=	{ Pos = area, IsLadder = false, Check = connection }
 		
@@ -1689,15 +1719,7 @@ function BOT:TBotNavigation()
 			local Waypoint2D		=	Vector( self.Path[ 1 ][ "Pos" ].x , self.Path[ 1 ][ "Pos" ].y , self:GetPos().z )
 			-- ALWAYS: Use 2D navigation, It helps by a large amount.
 			
-			if !self.Path[ 1 ][ "IsLadder" ] and self.Path[ 2 ] and !self.Path[ 2 ][ "IsLadder" ] and IsVecCloseEnough( self:GetPos() , Waypoint2D , 600 ) and SendBoxedLine( self.Path[ 2 ][ "Pos" ] , self:GetPos() + Vector( 0 , 0 , 15 ) ) == true and self.Path[ 2 ][ "Pos" ].z - 20 <= Waypoint2D.z then
-				
-				table.remove( self.Path , 1 )
-				
-			elseif !self.Path[ 1 ][ "IsLadder" ] and !self:ShouldDropDown( self.Path[ 1 ][ "Pos" ] ) and IsVecCloseEnough( self:GetPos() , Waypoint2D , 24 ) then
-				
-				table.remove( self.Path , 1 )
-				
-			elseif !self.Path[ 1 ][ "IsLadder" ] and self:GetPos().z - self.Path[ 1 ][ "Pos" ].z < self:GetStepSize() and IsVecCloseEnough( self:GetPos() , Waypoint2D , 24 ) then
+			if !self.Path[ 1 ][ "IsLadder" ] and IsVecCloseEnough( self:GetPos() , Waypoint2D , 20 ) then
 				
 				table.remove( self.Path , 1 )
 				
@@ -1738,6 +1760,8 @@ function BOT:TBotCreateNavTimer()
 			self:TBotNavigation()
 			
 			self:TBotDebugWaypoints()
+			
+			if self:Is_On_Ladder() then return end
 			
 			LastBotPos		=	Vector( LastBotPos.x , LastBotPos.y , self:GetPos().z )
 			
@@ -1798,9 +1822,8 @@ function BOT:TBotUpdateMovement( cmd )
 		
 		local MovementAngle		=	( self.Goal - self:GetPos() ):GetNormalized():Angle()
 		local lerp = FrameTime() * math.random(4, 6)
-		local dropDown = self:ShouldDropDown( self.Goal )
 		
-		if self:OnGround() and !dropDown then
+		if self:OnGround() then
 			local SmartJump		=	util.TraceLine({
 				
 				start			=	self:GetPos(),
@@ -1820,7 +1843,7 @@ function BOT:TBotUpdateMovement( cmd )
 		end
 		
 		cmd:SetViewAngles( MovementAngle )
-		cmd:SetForwardMove( 1000 )
+		cmd:SetForwardMove( self:GetRunSpeed() )
 		if !IsValid( self.Enemy ) or self:Is_On_Ladder() then self:SetEyeAngles( LerpAngle(lerp, self:EyeAngles(), ( self.Goal - self:GetPos() ):GetNormalized():Angle() ) ) end
 		
 		local GoalIn2D			=	Vector( self.Goal.x , self.Goal.y , self:GetPos().z )
@@ -1837,19 +1860,18 @@ function BOT:TBotUpdateMovement( cmd )
 		
 		local MovementAngle		=	( self.Path[ 1 ][ "Pos" ] - self:GetPos() ):GetNormalized():Angle()
 		local lerp = FrameTime() * math.random(4, 6)
-		local dropDown = self:ShouldDropDown( self.Path[ 1 ][ "Pos" ] )
 		
 		if isvector( self.Path[ 1 ][ "Check" ] ) then
 			MovementAngle = ( self.Path[ 1 ][ "Check" ] - self:GetPos() ):GetNormalized():Angle()
 			
 			local CheckIn2D			=	Vector( self.Path[ 1 ][ "Check" ].x , self.Path[ 1 ][ "Check" ].y , self:GetPos().z )
 			
-			if IsVecCloseEnough( self:GetPos() , CheckIn2D , 24 ) or SendBoxedLine( self:GetPos() , CheckIn2D ) == true then
+			if ( IsVecCloseEnough( self:GetPos() , CheckIn2D , 24 ) or SendBoxedLine( self:GetPos() , CheckIn2D ) == true ) then
 				self.Path[ 1 ][ "Check" ] = nil
 			end
 		end
 		
-		if self:OnGround() and !dropDown and !self.Path[ 1 ][ "IsLadder" ] then
+		if self:OnGround() and !self.Path[ 1 ][ "IsLadder" ] then
 			local SmartJump		=	util.TraceLine({
 				
 				start			=	self:GetPos(),
@@ -1868,12 +1890,8 @@ function BOT:TBotUpdateMovement( cmd )
 			end
 		end
 		
-		local TargetArea		=	navmesh.GetNearestNavArea( self.Path[ 1 ][ "Pos" ] ) -- This can return the wrong area, I should append the attributes to the path list
-		
-		if IsValid( TargetArea ) and TargetArea:HasAttributes( NAV_MESH_JUMP ) or self:ShouldJump( self.Path[ 1 ][ "Pos" ] ) then self.Jump = true end
-		
 		cmd:SetViewAngles( MovementAngle )
-		cmd:SetForwardMove( 1000 )
+		cmd:SetForwardMove( self:GetRunSpeed() )
 		if !IsValid ( self.Enemy ) or self:Is_On_Ladder() or self.Path[ 1 ][ "IsLadder" ] then self:SetEyeAngles( LerpAngle(lerp, self:EyeAngles(), ( self.Path[ 1 ][ "Pos" ] - self:GetPos() ):GetNormalized():Angle() ) ) end
 		
 	end
@@ -2067,16 +2085,16 @@ function Sort_Open_List()
 end
 
 -- This checks if we should drop down to reach the next node
-function BOT:ShouldDropDown( nextArea )
+function BOT:ShouldDropDown( curentArea, nextArea )
 	
-	return self:GetPos().z - nextArea.z > self:GetStepSize() -- This can return incorrect results, I need a better way to check for this
+	return curentArea.z - nextArea.z > self:GetStepSize()
 	
 end
 
 -- This checks if we should jump to reach the next node
-function BOT:ShouldJump( nextArea )
+function BOT:ShouldJump( curentArea, nextArea )
 	
-	return nextArea.z - self:GetPos().z > self:GetStepSize() -- This can return incorrect results, I need a better way to check for this
+	return nextArea.z - curentArea.z > self:GetStepSize()
 	
 end
 
@@ -2387,9 +2405,8 @@ function Lad:Get_Closest_Point( pos )
 	return self:GetBottom() + self:GetNormal() * 2.0 * 16
 end
 
--- This checks if the bot should climb up or down the ladder
 function Lad:ClimbUpLadder( pos )
-	
+
 	local TopArea	=	self:GetTop():Distance( pos )
 	local LowArea	=	self:GetBottom():Distance( pos )
 	
@@ -2399,6 +2416,7 @@ function Lad:ClimbUpLadder( pos )
 	end
 	
 	return false
+
 end
 
 -- See if a node is an area : 1 or a ladder : 2
@@ -2411,3 +2429,15 @@ function Lad:Node_Get_Type()
 	
 	return 2
 end
+
+-- This grabs every internal variable of the specified entity
+--[[function Test( ply )
+
+	for k, v in pairs( ply:GetSaveTable( true ) ) do
+		
+		print( k )
+		print( v )
+		
+	end 
+
+end]]
