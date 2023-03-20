@@ -61,7 +61,7 @@ CommandName, CommandParameters, Example
 - The bot will attack any NPC that is hostile them and its "owner" (The player that created it)
 - The bot, if it has a medkit, will heal itself and any players nearby it, although the bot's owner is prioritized.
 - The bot can enter the vehicle the bot's owner is in. This includes most modded vehicles and chairs. See "Issues"
-- Support for most custom/modded weapons, see "Issues" for more information. 
+- Support for most custom/modded weapons. 
 
 ## Bot Cheats
 I know what you are thinking, but these are needed to make the bot fun and easy to use.
@@ -69,10 +69,7 @@ I know what you are thinking, but these are needed to make the bot fun and easy 
 
 # Issues
 - The bot doesn't know if a Nextbot is hostile or friendly, wont attack nextbots at all!
-- The bot doesn't account for recoil on modded weapons.
-- The bot will lag the game if it can't find a path to its owner.
 - The bot doesn’t know how to drive cars.
 
 # Planned Features
-- [ ] Optimize the pathfinding code
 - [ ] Get the bot to detect Nextbots
