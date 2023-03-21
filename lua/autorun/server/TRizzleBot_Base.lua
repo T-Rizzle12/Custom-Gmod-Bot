@@ -1419,8 +1419,6 @@ function TRizzleBotRetracePathCheap( StartNode , GoalNode )
 		--print( Current )
 		--print( Parent )
 		
-		NewPath[ #NewPath + 1 ] = Current
-		
 		if Parent == GO_LADDER_UP or Parent == GO_LADDER_DOWN then
 		
 			local list = Current:GetLadders()
@@ -1431,13 +1429,18 @@ function TRizzleBotRetracePathCheap( StartNode , GoalNode )
 				--print( ladder:GetTopRightArea() )
 				--print( ladder:GetTopBehindArea() )
 				if ladder:GetTopForwardArea() == Current or ladder:GetTopLeftArea() == Current or ladder:GetTopRightArea() == Current or ladder:GetTopBehindArea() == Current or ladder:GetBottomArea() == Current then
-				
-					NewPath[ #NewPath + 1 ] = ladder
+					local currentIndex = #NewPath
+					NewPath[ currentIndex + 1 ] = ladder
+					NewPath[ currentIndex + 2 ] = Current
 					break
 					
 				end
 			end
 		
+		else
+			
+			NewPath[ #NewPath + 1 ] = Current
+			
 		end
 		
 	end
