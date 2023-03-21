@@ -29,8 +29,7 @@ function TBotCreate( ply , cmd , args ) -- This code defines stats of the bot wh
 	NewBot.CombatHealThreshold		=	tonumber( args[ 14 ] ) or 25 -- If the bot's health drops below this and the bot is in combat the bot will use its medkit
 	NewBot.PlayerModel			=	args[ 15 ] or "kleiner" -- This is the player model the bot will use
 	
-	local param2 = args[ 16 ] or 1
-	TBotSpawnWithPreferredWeapons( ply, cmd, { args[ 1 ], param2 } )
+	TBotSpawnWithPreferredWeapons( ply, cmd, { args[ 1 ], args[ 16 ] } )
 	TBotSetPlayerModel( ply, cmd, { args[ 1 ], NewBot.PlayerModel } )
 	NewBot:TBotResetAI() -- Fully reset your bots AI.
 	
