@@ -357,20 +357,20 @@ concommand.Add( "TBotSetDefault" , TBotSetDefault , nil , "Set the specified bot
 function BOT:TBotResetAI()
 	
 	self.Enemy				=	nil -- Refresh our enemy.
-	self.EnemyList				=	{} -- This is the list of enemies the bot can see.
-	self.TimeInCombat			=	0 -- This is how long the bot has been in combat
-	self.LastCombatTime			=	0 -- This was how long ago the bot was in combat
+	self.EnemyList			=	{} -- This is the list of enemies the bot can see.
+	self.TimeInCombat		=	0 -- This is how long the bot has been in combat
+	self.LastCombatTime		=	0 -- This was how long ago the bot was in combat
 	self.Jump				=	false -- Stop jumping
-	self.NextJump				=	CurTime() -- This is the next time the bot is allowed to jump
+	self.NextJump			=	CurTime() -- This is the next time the bot is allowed to jump
 	self.Crouch				=	false -- Stop crouching
-	self.HoldCrouch				=	CurTime() -- This is how long the bot should hold its crouch button
-	self.PressUse				=	false -- Stop using
-	self.FullReload			        =	false -- Stop reloading
+	self.HoldCrouch			=	CurTime() -- This is how long the bot should hold its crouch button
+	self.PressUse			=	false -- Stop using
+	self.FullReload			=	false -- Stop reloading
 	self.Light				=	false -- Turn off the bot's flashlight
 	self.Goal				=	nil -- The vector goal we want to get to.
-	self.NavmeshNodes		        =	{} -- The nodes given to us by the pathfinder
+	self.NavmeshNodes		=	{} -- The nodes given to us by the pathfinder
 	self.Path				=	nil -- The nodes converted into waypoints by our visiblilty checking.
-	self.PathTime			        =	CurTime() + 1.0 -- This will limit how often the path gets recreated
+	self.PathTime			=	CurTime() + 0.5 -- This will limit how often the path gets recreated
 	
 	self:TBotCreateThinking() -- Start our AI
 	
@@ -407,7 +407,7 @@ hook.Add( "StartCommand" , "TRizzleBotAIHook" , function( bot , cmd )
 		
 		local botWeapon = bot:GetActiveWeapon()
 		
-		if botWeapon:IsWeapon() and bot.FullReload and ( botWeapon:Clip1() >= botWeapon:GetMaxClip1() or bot:GetAmmoCount( botWeapon:GetPrimaryAmmoType() ) < botWeapon:GetMaxClip1() or botWeapon:GetClass() != bot.Shotgun ) then bot.FullReload = false end -- Fully reloaded :)
+		if botWeapon:IsWeapon() and bot.FullReload and ( botWeapon:Clip1() >= botWeapon:GetMaxClip1() or bot:GetAmmoCount( botWeapon:GetPrimaryAmmoType() ) <= botWeapon:Clip1() or botWeapon:GetClass() != bot.Shotgun ) then bot.FullReload = false end -- Fully reloaded :)
 		
 		if math.random(2) == 1 and botWeapon:IsWeapon() and !bot.FullReload and botWeapon:GetClass() != "weapon_medkit" and ( bot:GetEyeTraceNoCursor().Entity == bot.Enemy or bot:IsCursorOnTarget() or (bot.Enemy:GetPos() - bot:GetPos()):Length() < bot.MeleeDist ) then
 			buttons = buttons + IN_ATTACK
@@ -470,7 +470,7 @@ end)
 
 function BOT:HandleButtons( buttons )
 
-	local Close		=	navmesh.GetNearestNavArea( self:GetPos() )
+	local Close			=	navmesh.GetNearestNavArea( self:GetPos() )
 	local CanRun		=	true
 	local ShouldRun		=	false
 	local ShouldWalk	=	false
@@ -520,11 +520,11 @@ function BOT:HandleButtons( buttons )
 	
 	end
 	
-	if ( self.Crouch and !self.Jump ) or !self:IsOnGround() or self.HoldCrouch > CurTime() then 
+	if ( self.Crouch and !self.Jump ) or ( !self:IsOnGround() and self:WaterLevel() < 2 ) or self.HoldCrouch > CurTime() then 
 	
 		buttons = buttons + IN_DUCK
 		
-		if self.Crouch or !self:IsOnGround() then self.HoldCrouch = CurTime() + 0.3 end
+		if self.Crouch or ( !self:IsOnGround() and self:WaterLevel() < 2 ) then self.HoldCrouch = CurTime() + 0.3 end
 		self.Crouch = false
 		
 	end
@@ -553,9 +553,9 @@ function BOT:HandleButtons( buttons )
 	-- I want to make the bot press its use key instead of faking the action, I would need to make a method to check if the bot's cursor is on the door/targetent
 	if self.PressUse and IsValid( door ) and (door:GetPos() - self:GetPos()):Length() < 80 then 
 	
-		if door:IsDoor() then door:Use(self, self, USE_ON, 0.0) end
+		-- if door:IsDoor() then door:Use(self, self, USE_ON, 0.0) end
 		-- else door:Use(self, self, USE_TOGGLE, 0.0) end -- I might add a way for the bot to push buttons the player tells them to
-		-- buttons = buttons + IN_USE -- Can't add this until a make a method that checks if the bot's cursor is on the door, would GetEyeTrace work?
+		buttons = buttons + IN_USE -- Can't add this until a make a method that checks if the bot's cursor is on the door, would GetEyeTrace work?
 		
 		self.PressUse = false 
 		
@@ -737,7 +737,7 @@ function BOT:RestoreAmmo()
 	
 	-- This is kind of a cheat, but the bot will only slowly recover ammo when not in combat
 	local pistol		=	self:GetWeapon( self.Pistol )
-	local rifle		=	self:GetWeapon( self.Rifle )
+	local rifle			=	self:GetWeapon( self.Rifle )
 	local shotgun		=	self:GetWeapon( self.Shotgun )
 	local sniper		=	self:GetWeapon( self.Sniper )
 	local pistol_ammo	=	nil
@@ -869,7 +869,7 @@ function BOT:IsCurrentEnemyAlive()
 	elseif self.Enemy:IsPlayer() and !self.Enemy:Alive() then self.Enemy				=	nil -- Just incase the bot's enemy is set to a player even though the bot should only target NPCS and "hopefully" NEXTBOTS 
 	elseif !self.Enemy:Visible( self ) then self.Enemy						=	nil
 	elseif self.Enemy:IsNPC() and ( self.Enemy:GetNPCState() == NPC_STATE_DEAD or (self.Enemy:Disposition( self ) != D_HT and self.Enemy:Disposition( self.Owner ) != D_HT) ) then self.Enemy	=	nil
-	elseif GetConVar( "ai_ignoreplayers" ):GetInt() != 0 or GetConVar( "ai_disabled" ):GetInt() != 0 then	self.Enemy	=	nil end
+	elseif GetConVar( "ai_ignoreplayers" ):GetInt() != 0 or GetConVar( "ai_disabled" ):GetInt() != 0 then self.Enemy	=	nil end
 	
 end
 
@@ -1177,7 +1177,7 @@ function TRizzleBotRetracePath( StartNode , GoalNode )
 	return NodePath
 end
 
--- This is a cheaper version of the pathfinder, their is only one problem though, it can't use ladders :(
+-- This is a hybrid version of pathfollower, it can use ladders and is very optimized
 function TRizzleBotPathfinderCheap( StartNode , GoalNode )
 	if !IsValid( StartNode ) or !IsValid( GoalNode ) then return false end
 	if StartNode == GoalNode then return true end
@@ -1420,6 +1420,8 @@ function TRizzleBotRetracePathCheap( StartNode , GoalNode )
 		--print( Current )
 		--print( Parent )
 		
+		NewPath[ #NewPath + 1 ] = Current
+		
 		if Parent == GO_LADDER_UP or Parent == GO_LADDER_DOWN then
 		
 			local list = Current:GetLadders()
@@ -1439,8 +1441,6 @@ function TRizzleBotRetracePathCheap( StartNode , GoalNode )
 		
 		end
 		
-		NewPath[ #NewPath + 1 ] = Current
-		
 	end
 	
 	return NewPath
@@ -1452,7 +1452,7 @@ function BOT:TBotSetNewGoal( NewGoal )
 	if self.PathTime < CurTime() then
 		self.Goal				=	NewGoal
 		self.Path				=	{}
-		self.PathTime			=	CurTime() + 1.0
+		self.PathTime			=	CurTime() + 0.5
 		self:TBotCreateNavTimer()
 	end
 	
@@ -1518,11 +1518,38 @@ end
 
 local function SendBoxedLine( pos1 , pos2 )
 	
-	for i = 1, 12 do
+	local Trace				=	util.TraceLine({
+		
+		start				=	pos1 + Vector( 0 , 0 , 15 ),
+		endpos				=	pos2 + Vector( 0 , 0 , 15 ),
+		
+		filter				=	self,
+		collisiongroup 		=	COLLISION_GROUP_DEBRIS,
+		
+	})
+	
+	if Trace.Hit then return false end
+	
+	for i = 1, 36 do
 		
 		if CheckLOS( 3 * i , pos1 , pos2 ) == false then return false end
 		
 	end
+	
+	local HullTrace			=	util.TraceHull({
+		
+		mins				=	Vector( -16 , -16 , 0 ),
+		maxs				=	Vector( 16 , 16 , 71 ),
+		
+		start				=	position,
+		endpos				=	position,
+		
+		filter				=	self,
+		collisiongroup 		=	COLLISION_GROUP_DEBRIS,
+		
+	})
+	
+	if HullTrace.Hit then return false end
 	
 	return true
 end
@@ -1719,15 +1746,15 @@ function BOT:TBotNavigation()
 			local Waypoint2D		=	Vector( self.Path[ 1 ][ "Pos" ].x , self.Path[ 1 ][ "Pos" ].y , self:GetPos().z )
 			-- ALWAYS: Use 2D navigation, It helps by a large amount.
 			
-			if !self.Path[ 1 ][ "IsLadder" ] and IsVecCloseEnough( self:GetPos() , Waypoint2D , 20 ) then
+			if !self.Path[ 1 ][ "IsLadder" ] and IsVecCloseEnough( self:GetPos() , Waypoint2D , 8 ) then
 				
 				table.remove( self.Path , 1 )
 				
-			elseif self.Path[ 1 ][ "IsLadder" ] and self.Path[ 1 ][ "LadderUp" ] and self:GetPos().z >= self.Path[ 1 ][ "Pos" ].z then
+			elseif self.Path[ 1 ][ "IsLadder" ] and self.Path[ 1 ][ "LadderUp" ] and self:GetPos().z >= self.Path[ 1 ][ "Pos" ].z and IsVecCloseEnough( self:GetPos() , Waypoint2D , 8 ) then
 				
 				table.remove( self.Path , 1 )
 				
-			elseif self.Path[ 1 ][ "IsLadder" ] and !self.Path[ 1 ][ "LadderUp" ] and self:GetPos().z <= self.Path[ 1 ][ "Pos" ].z then
+			elseif self.Path[ 1 ][ "IsLadder" ] and !self.Path[ 1 ][ "LadderUp" ] and self:GetPos().z <= self.Path[ 1 ][ "Pos" ].z and IsVecCloseEnough( self:GetPos() , Waypoint2D , 8 ) then
 			
 				table.remove( self.Path , 1 )
 			
@@ -1767,7 +1794,7 @@ function BOT:TBotCreateNavTimer()
 			
 			if IsVecCloseEnough( self:GetPos() , LastBotPos , 2 ) then
 				
-				self.Jump	=	true
+				self.Jump		=	true
 				self.PressUse	=	true
 				
 				if Attempts > 10 then self.Path	=	nil end
@@ -1866,7 +1893,14 @@ function BOT:TBotUpdateMovement( cmd )
 			
 			local CheckIn2D			=	Vector( self.Path[ 1 ][ "Check" ].x , self.Path[ 1 ][ "Check" ].y , self:GetPos().z )
 			
-			if ( IsVecCloseEnough( self:GetPos() , CheckIn2D , 24 ) or SendBoxedLine( self:GetPos() , CheckIn2D ) == true ) then
+			if IsVecCloseEnough( self:GetPos() , CheckIn2D , 24 ) then
+				
+				self.Path[ 1 ][ "Check" ] = nil
+				return
+			end
+			
+			if SendBoxedLine( self:GetPos() , CheckIn2D ) == true then
+			
 				self.Path[ 1 ][ "Check" ] = nil
 			end
 		end
@@ -1891,7 +1925,7 @@ function BOT:TBotUpdateMovement( cmd )
 		end
 		
 		cmd:SetViewAngles( MovementAngle )
-		cmd:SetForwardMove( self:GetRunSpeed() )
+		cmd:SetForwardMove( 1000 )
 		if !IsValid ( self.Enemy ) or self:Is_On_Ladder() or self.Path[ 1 ][ "IsLadder" ] then self:SetEyeAngles( LerpAngle(lerp, self:EyeAngles(), ( self.Path[ 1 ][ "Pos" ] - self:GetPos() ):GetNormalized():Angle() ) ) end
 		
 	end
@@ -2429,15 +2463,3 @@ function Lad:Node_Get_Type()
 	
 	return 2
 end
-
--- This grabs every internal variable of the specified entity
---[[function Test( ply )
-
-	for k, v in pairs( ply:GetSaveTable( true ) ) do
-		
-		print( k )
-		print( v )
-		
-	end 
-
-end]]
