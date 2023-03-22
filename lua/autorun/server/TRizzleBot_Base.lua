@@ -523,7 +523,7 @@ function BOT:HandleButtons( buttons )
 	
 		buttons = buttons + IN_DUCK
 		
-		if self.Crouch or ( !self:IsOnGround() and self:WaterLevel() < 2 ) then self.HoldCrouch = CurTime() + 0.3 end
+		if ( self.Crouch and !self.Jump ) or ( !self:IsOnGround() and self:WaterLevel() < 2 ) then self.HoldCrouch = CurTime() + 0.3 end
 		self.Crouch = false
 		
 	end
@@ -531,8 +531,6 @@ function BOT:HandleButtons( buttons )
 	if self:Is_On_Ladder() then
 		
 		buttons = buttons + IN_FORWARD
-		
-		return buttons
 		
 	end
 	
@@ -749,25 +747,25 @@ function BOT:RestoreAmmo()
 	if IsValid ( shotgun ) then shotgun_ammo	=	self:GetAmmoCount( shotgun:GetPrimaryAmmoType() ) end
 	if IsValid ( sniper ) then sniper_ammo		=	self:GetAmmoCount( sniper:GetPrimaryAmmoType() ) end
 	
-	if pistol_ammo != nil and self:HasWeapon( self.Pistol ) and pistol_ammo < 100 then
+	if isnumber( pistol_ammo ) and self:HasWeapon( self.Pistol ) and pistol_ammo < 100 then
 		
 		self:GiveAmmo( 1, pistol:GetPrimaryAmmoType(), true )
 		
 	end
 	
-	if rifle_ammo != nil and self:HasWeapon( self.Rifle ) and rifle_ammo < 250 then
+	if isnumber( rifle_ammo ) and self:HasWeapon( self.Rifle ) and rifle_ammo < 250 then
 		
 		self:GiveAmmo( 1, rifle:GetPrimaryAmmoType(), true )
 		
 	end
 	
-	if shotgun_ammo != nil and self:HasWeapon( self.Shotgun ) and shotgun_ammo < 60 then
+	if isnumber( shotgun_ammo ) and self:HasWeapon( self.Shotgun ) and shotgun_ammo < 60 then
 		
 		self:GiveAmmo( 1, shotgun:GetPrimaryAmmoType(), true )
 		
 	end
 	
-	if sniper_ammo != nil and self:HasWeapon( self.Sniper ) and sniper_ammo < 40 then
+	if isnumber( sniper_ammo ) and self:HasWeapon( self.Sniper ) and sniper_ammo < 40 then
 		
 		self:GiveAmmo( 1, sniper:GetPrimaryAmmoType(), true )
 		
@@ -1430,8 +1428,8 @@ function TRizzleBotRetracePathCheap( StartNode , GoalNode )
 				--print( ladder:GetTopBehindArea() )
 				if ladder:GetTopForwardArea() == Current or ladder:GetTopLeftArea() == Current or ladder:GetTopRightArea() == Current or ladder:GetTopBehindArea() == Current or ladder:GetBottomArea() == Current then
 					local currentIndex = #NewPath
-					NewPath[ currentIndex + 1 ] = ladder
-					NewPath[ currentIndex + 2 ] = Current
+					NewPath[ currentIndex + 1 ] = Current
+					NewPath[ currentIndex + 2 ] = ladder
 					break
 					
 				end
@@ -1568,6 +1566,7 @@ function BOT:ComputeNavmeshVisibility()
 		
 		local NextNode		=	self.NavmeshNodes[ k + 1 ]
 		local Gap			=	false
+		local TargetCut		=	nil
 		
 		if !IsValid( NextNode ) then
 			
@@ -1605,7 +1604,7 @@ function BOT:ComputeNavmeshVisibility()
 		if SendBoxedLine( LastVisPos , CloseToVis ) == true then
 			
 			LastVisPos						=	CloseToVis
-			self.Path[ #self.Path + 1 ]		=	{ Pos = CloseToVis, IsLadder = false }
+			self.Path[ #self.Path + 1 ]		=	{ Pos = CloseToVis, IsLadder = false, IsDropDown = self:ShouldDropDown( LastVisPos, CloseToVis ) }
 			
 			continue
 		end
@@ -1625,7 +1624,7 @@ function BOT:ComputeNavmeshVisibility()
 		if SendBoxedLine( LastVisPos , TargetCut ) == true then
 			
 			LastVisPos						=	TargetCut
-			self.Path[ #self.Path + 1 ]		=	{ Pos = TargetCut, IsLadder = false }
+			self.Path[ #self.Path + 1 ]		=	{ Pos = TargetCut, IsLadder = false, IsDropDown = self:ShouldDropDown( LastVisPos, TargetCut ) }
 			
 			continue
 		end
@@ -1635,13 +1634,13 @@ function BOT:ComputeNavmeshVisibility()
 		-- If we are visible then we shall put the waypoint there.
 		if SendBoxedLine( LastVisPos , connection ) == true then
 			
-			LastVisPos						=	TargetCut
-			self.Path[ #self.Path + 1 ]		=	{ Pos = area, IsLadder = false }
+			LastVisPos						=	connection
+			self.Path[ #self.Path + 1 ]		=	{ Pos = area, IsLadder = false, IsDropDown = self:ShouldDropDown( LastVisPos, connection ) }
 			
 			continue
 		end
 		
-		self.Path[ #self.Path + 1 ]			=	{ Pos = area, IsLadder = false, Check = connection }
+		self.Path[ #self.Path + 1 ]			=	{ Pos = area, IsLadder = false, Check = connection, IsDropDown = self:ShouldDropDown( LastVisPos, area ) }
 		
 		LastVisPos							=	area
 		
@@ -1748,11 +1747,15 @@ function BOT:TBotNavigation()
 			local Waypoint2D		=	Vector( self.Path[ 1 ][ "Pos" ].x , self.Path[ 1 ][ "Pos" ].y , self:GetPos().z )
 			-- ALWAYS: Use 2D navigation, It helps by a large amount.
 			
-			if !self.Path[ 1 ][ "IsLadder" ] and IsVecCloseEnough( self:GetPos() , Waypoint2D , 8 ) then
+			if !self.Path[ 1 ][ "IsLadder" ] and !self.Path[ 1 ][ "IsDropDown" ] and IsVecCloseEnough( self:GetPos() , Waypoint2D , 24 ) then
 				
 				table.remove( self.Path , 1 )
 				
-			elseif self.Path[ 1 ][ "IsLadder" ] and self.Path[ 1 ][ "LadderUp" ] and self:GetPos().z >= self.Path[ 1 ][ "Pos" ].z and IsVecCloseEnough( self:GetPos() , Waypoint2D , 8 ) then
+			elseif !self.Path[ 1 ][ "IsLadder" ] and self.Path[ 1 ][ "IsDropDown" ] and !self:ShouldDropDown( self:GetPos(), self.Path[ 1 ][ "Pos" ] ) and IsVecCloseEnough( self:GetPos() , Waypoint2D , 24 ) then
+				
+				table.remove( self.Path , 1 )
+				
+			elseif self.Path[ 1 ][ "IsLadder" ] and self.Path[ 1 ][ "LadderUp" ] and ( self:GetPos().z >= self.Path[ 1 ][ "Pos" ].z or IsVecCloseEnough( self:GetPos() , Waypoint2D , 8 ) ) then
 				
 				table.remove( self.Path , 1 )
 				
@@ -1907,7 +1910,7 @@ function BOT:TBotUpdateMovement( cmd )
 			end
 		end
 		
-		if self:OnGround() and !self.Path[ 1 ][ "IsLadder" ] then
+		if self:OnGround() and !self.Path[ 1 ][ "IsLadder" ] and !self.Path[ 1 ][ "IsDropDown" ] then
 			local SmartJump		=	util.TraceLine({
 				
 				start			=	self:GetPos(),
@@ -1925,6 +1928,8 @@ function BOT:TBotUpdateMovement( cmd )
 
 			end
 		end
+		
+		if !self.Path[ 1 ][ "IsLadder" ] and self:Is_On_Ladder() then self.Jump = true end
 		
 		cmd:SetViewAngles( MovementAngle )
 		cmd:SetForwardMove( 1000 )
