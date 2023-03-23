@@ -387,13 +387,13 @@ hook.Add( "StartCommand" , "TRizzleBotAIHook" , function( bot , cmd )
 	-- Better make sure they exist of course.
 	if IsValid( bot.Enemy ) then
 		
-		local trace = util.TraceLine( { start = bot:EyePos(), endpos = bot.Enemy:EyePos() - Vector( 0, 0, 10 ), filter = bot, mask = TRACE_MASK_SHOT } )
+		local trace = util.TraceLine( { start = bot:EyePos(), endpos = bot.Enemy:EyePos(), filter = bot, mask = TRACE_MASK_SHOT } )
 		
 		-- Turn and face our enemy!
 		if trace.Entity == bot.Enemy and !bot:IsActiveWeaponRecoilHigh() then
 		
 			-- Can we aim the enemy's head?
-			bot:AimAtPos( ( bot.Enemy:EyePos() - Vector( 0, 0, 10 ) ) )
+			bot:AimAtPos( bot.Enemy:EyePos() )
 		
 		else
 			
