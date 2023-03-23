@@ -547,12 +547,11 @@ function BOT:HandleButtons( buttons )
 	
 	local door = self:GetEyeTrace().Entity
 	
-	-- I want to make the bot press its use key instead of faking the action, I would need to make a method to check if the bot's cursor is on the door/targetent
-	if self.PressUse and IsValid( door ) and (door:GetPos() - self:GetPos()):Length() < 80 then 
+	if self.PressUse and IsValid( door ) and door:IsDoor() and (door:GetPos() - self:GetPos()):Length() < 80 then 
 	
 		-- if door:IsDoor() then door:Use(self, self, USE_ON, 0.0) end
 		-- else door:Use(self, self, USE_TOGGLE, 0.0) end -- I might add a way for the bot to push buttons the player tells them to
-		buttons = buttons + IN_USE -- Can't add this until a make a method that checks if the bot's cursor is on the door, would GetEyeTrace work?
+		buttons = buttons + IN_USE
 		
 		self.PressUse = false 
 		
@@ -623,7 +622,7 @@ function BOT:IsActiveWeaponRecoilHigh()
 end
 
 -- This will check if the bot's cursor is close the enemy the bot is fighting
-function BOT:PointWithinViewAngle( targetpos )
+function BOT:PointWithinCursor( targetpos )
 	
 	local trace = util.TraceLine( { start = self:WorldSpaceCenter(), endpos = targetpos, filter = self, mask = TRACE_MASK_SHOT } )
 	
@@ -645,11 +644,11 @@ function BOT:IsCursorOnTarget()
 		-- we must check eyepos and worldspacecenter
 		-- maybe in the future add more points
 
-		if self:PointWithinViewAngle( self.Enemy:WorldSpaceCenter() ) then
+		if self:PointWithinCursor( self.Enemy:WorldSpaceCenter() ) then
 			return true
 		end
 
-		return self:PointWithinViewAngle( self.Enemy:EyePos() - Vector( 0, 0, 10 ) )
+		return self:PointWithinCursor( self.Enemy:EyePos() )
 	
 	end
 end
