@@ -1530,7 +1530,7 @@ local function SendBoxedLine( pos1 , pos2 )
 	
 	if Trace.Hit then return false end
 	
-	for i = 1, 36 do
+	for i = 1, 12 do
 		
 		if CheckLOS( 3 * i , pos1 , pos2 ) == false then return false end
 		
@@ -1566,6 +1566,7 @@ function BOT:ComputeNavmeshVisibility()
 		
 		local NextNode		=	self.NavmeshNodes[ k + 1 ]
 		local Gap			=	false
+		local Drop			=	false
 		local TargetCut		=	nil
 		
 		if !IsValid( NextNode ) then
@@ -1577,22 +1578,22 @@ function BOT:ComputeNavmeshVisibility()
 		
 		if NextNode:Node_Get_Type() == 2 then
 		
-			local CloseToStart		=	NextNode:Get_Closest_Point( LastVisPos )
+			local CloseToStart, ClimbUp		=	NextNode:Get_Closest_Point( LastVisPos )
 			
 			LastVisPos		=	CloseToStart
 			
-			self.Path[ #self.Path + 1 ]		=	{ Pos = CloseToStart, IsLadder = true, LadderUp = NextNode:ClimbUpLadder( LastVisPos ) }
+			self.Path[ #self.Path + 1 ]		=	{ Pos = CloseToStart, IsLadder = true, LadderUp = ClimbUp }
 			
 			continue
 		end
 		
 		if CurrentNode:Node_Get_Type() == 2 then
 		
-			local CloseToEnd		=	CurrentNode:Get_Closest_Point( NextNode:GetCenter() )
+			local CloseToEnd, ClimbUp		=	CurrentNode:Get_Closest_Point( NextNode:GetCenter() )
 			
 			LastVisPos		=	CloseToEnd
 			
-			self.Path[ #self.Path + 1 ]		=	{ Pos = CloseToEnd, IsLadder = true, LadderUp = CurrentNode:ClimbUpLadder( NextNode:GetCenter() ) }
+			self.Path[ #self.Path + 1 ]		=	{ Pos = CloseToEnd, IsLadder = true, LadderUp = ClimbUp }
 			
 			continue
 		end
@@ -1603,8 +1604,10 @@ function BOT:ComputeNavmeshVisibility()
 		-- If we are visible then we shall put the waypoint there.
 		if SendBoxedLine( LastVisPos , CloseToVis ) == true then
 			
+			Drop = self:ShouldDropDown( LastVisPos, CloseToVis )
+			
 			LastVisPos						=	CloseToVis
-			self.Path[ #self.Path + 1 ]		=	{ Pos = CloseToVis, IsLadder = false, IsDropDown = self:ShouldDropDown( LastVisPos, CloseToVis ) }
+			self.Path[ #self.Path + 1 ]		=	{ Pos = CloseToVis, IsLadder = false, IsDropDown = Drop }
 			
 			continue
 		end
@@ -1623,24 +1626,27 @@ function BOT:ComputeNavmeshVisibility()
 		-- If we are visible then we shall put the waypoint there.
 		if SendBoxedLine( LastVisPos , TargetCut ) == true then
 			
+			Drop = self:ShouldDropDown( LastVisPos, TargetCut )
+			
 			LastVisPos						=	TargetCut
-			self.Path[ #self.Path + 1 ]		=	{ Pos = TargetCut, IsLadder = false, IsDropDown = self:ShouldDropDown( LastVisPos, TargetCut ) }
+			self.Path[ #self.Path + 1 ]		=	{ Pos = TargetCut, IsLadder = false, IsDropDown = Drop }
 			
 			continue
 		end
 		
 		local area, connection = Get_Blue_Connection( CurrentNode, NextNode )
+		Drop = self:ShouldDropDown( LastVisPos, area )
 		
 		-- If we are visible then we shall put the waypoint there.
-		if SendBoxedLine( LastVisPos , connection ) == true then
+		if SendBoxedLine( LastVisPos , area ) == true then
 			
-			LastVisPos						=	connection
-			self.Path[ #self.Path + 1 ]		=	{ Pos = area, IsLadder = false, IsDropDown = self:ShouldDropDown( LastVisPos, connection ) }
+			LastVisPos						=	area
+			self.Path[ #self.Path + 1 ]		=	{ Pos = area, IsLadder = false, IsDropDown = Drop }
 			
 			continue
 		end
 		
-		self.Path[ #self.Path + 1 ]			=	{ Pos = area, IsLadder = false, Check = connection, IsDropDown = self:ShouldDropDown( LastVisPos, area ) }
+		self.Path[ #self.Path + 1 ]			=	{ Pos = area, IsLadder = false, Check = connection, IsDropDown = Drop }
 		
 		LastVisPos							=	area
 		
@@ -1757,10 +1763,14 @@ function BOT:TBotNavigation()
 				
 			elseif self.Path[ 1 ][ "IsLadder" ] and self.Path[ 1 ][ "LadderUp" ] and ( self:GetPos().z >= self.Path[ 1 ][ "Pos" ].z or IsVecCloseEnough( self:GetPos() , Waypoint2D , 8 ) ) then
 				
+				self.Jump = true
+				self.NextJump =	CurTime()
 				table.remove( self.Path , 1 )
 				
 			elseif self.Path[ 1 ][ "IsLadder" ] and !self.Path[ 1 ][ "LadderUp" ] and self:GetPos().z <= self.Path[ 1 ][ "Pos" ].z and IsVecCloseEnough( self:GetPos() , Waypoint2D , 8 ) then
 			
+				self.Jump = true
+				self.NextJump = CurTime()
 				table.remove( self.Path , 1 )
 			
 			end
@@ -1928,8 +1938,6 @@ function BOT:TBotUpdateMovement( cmd )
 
 			end
 		end
-		
-		if !self.Path[ 1 ][ "IsLadder" ] and self:Is_On_Ladder() then self.Jump = true end
 		
 		cmd:SetViewAngles( MovementAngle )
 		cmd:SetForwardMove( 1000 )
@@ -2440,24 +2448,10 @@ function Lad:Get_Closest_Point( pos )
 	
 	if TopArea < LowArea then
 		
-		return self:GetTop() - self:GetNormal() * 2.0 * 16
+		return self:GetTop() - self:GetNormal() * 16, true
 	end
 	
-	return self:GetBottom() + self:GetNormal() * 2.0 * 16
-end
-
-function Lad:ClimbUpLadder( pos )
-
-	local TopArea	=	self:GetTop():Distance( pos )
-	local LowArea	=	self:GetBottom():Distance( pos )
-	
-	if TopArea < LowArea then
-		
-		return true
-	end
-	
-	return false
-
+	return self:GetBottom() + self:GetNormal() * 16, false
 end
 
 -- See if a node is an area : 1 or a ladder : 2
