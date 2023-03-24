@@ -858,41 +858,6 @@ hook.Add( "PlayerSpawn" , "TRizzleBotSpawnHook" , function( ply )
 	
 end)
 
--- Checks if its current enemy is still alive and still visible to the bot
-function BOT:CheckCurrentEnemyStatus()
-	
-	if !IsValid( self.Enemy ) then self.Enemy							=	nil
-	elseif self.Enemy:IsPlayer() and !self.Enemy:Alive() then self.Enemy				=	nil -- Just incase the bot's enemy is set to a player even though the bot should only target NPCS and "hopefully" NEXTBOTS 
-	elseif !self.Enemy:Visible( self ) then self.Enemy						=	nil
-	elseif self.Enemy:IsNPC() and ( self.Enemy:GetNPCState() == NPC_STATE_DEAD or (self.Enemy:Disposition( self ) != D_HT and self.Enemy:Disposition( self.Owner ) != D_HT) ) then self.Enemy	=	nil
-	elseif GetConVar( "ai_ignoreplayers" ):GetInt() != 0 or GetConVar( "ai_disabled" ):GetInt() != 0 then self.Enemy	=	nil end
-	
-end
-
-function BOT:FindNearbySeat()
-	
-	local targetdist			=	200 -- This will allow the bot to select the closest vehicle to it.
-	local target				=	nil -- This is the closest vehicle to the bot.
-	
-	for k, v in ipairs( ents.GetAll() ) do
-		
-		if IsValid ( v ) and v:IsVehicle() and v:GetDriver() == NULL then -- The bot should enter the closest vehicle to it
-			
-			local vehicledist = (v:GetPos() - self:GetPos()):Length()
-			
-			if vehicledist < targetdist then 
-				target = v
-				targetdist = vehicledist
-			end
-			
-		end
-		
-	end
-	
-	return target
-	
-end
-
 -- The main AI is here.
 function BOT:TBotCreateThinking()
 	
@@ -972,6 +937,17 @@ function BOT:TBotCreateThinking()
 		end
 		
 	end)
+	
+end
+
+-- Checks if its current enemy is still alive and still visible to the bot
+function BOT:CheckCurrentEnemyStatus()
+	
+	if !IsValid( self.Enemy ) then self.Enemy							=	nil
+	elseif self.Enemy:IsPlayer() and !self.Enemy:Alive() then self.Enemy				=	nil -- Just incase the bot's enemy is set to a player even though the bot should only target NPCS and "hopefully" NEXTBOTS 
+	elseif !self.Enemy:Visible( self ) then self.Enemy						=	nil
+	elseif self.Enemy:IsNPC() and ( self.Enemy:GetNPCState() == NPC_STATE_DEAD or (self.Enemy:Disposition( self ) != D_HT and self.Enemy:Disposition( self.Owner ) != D_HT) ) then self.Enemy	=	nil
+	elseif GetConVar( "ai_ignoreplayers" ):GetInt() != 0 or GetConVar( "ai_disabled" ):GetInt() != 0 then self.Enemy	=	nil end
 	
 end
 
@@ -1062,6 +1038,30 @@ function BOT:TBotFindClosestTeammate()
 					target = v
 					targetdist = teammatedist
 				end
+			end
+			
+		end
+		
+	end
+	
+	return target
+	
+end
+
+function BOT:FindNearbySeat()
+	
+	local targetdist			=	200 -- This will allow the bot to select the closest vehicle to it.
+	local target				=	nil -- This is the closest vehicle to the bot.
+	
+	for k, v in ipairs( ents.GetAll() ) do
+		
+		if IsValid ( v ) and v:IsVehicle() and v:GetDriver() == NULL then -- The bot should enter the closest vehicle to it
+			
+			local vehicledist = (v:GetPos() - self:GetPos()):Length()
+			
+			if vehicledist < targetdist then 
+				target = v
+				targetdist = vehicledist
 			end
 			
 		end
