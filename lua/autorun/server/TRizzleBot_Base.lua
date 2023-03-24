@@ -1348,9 +1348,7 @@ function TRizzleBotPathfinderCheap( StartNode , GoalNode )
 			
 			local NewCostSoFar		=	Current:GetCostSoFar() + TRizzleBotRangeCheck( Current , newArea , ladder , Height )
 			
-			if ladder != nil then Height = 0 end
-			
-			if !Current:IsUnderwater() and !newArea:IsUnderwater() and -Height < 200 and Height > 64 then
+			if !IsValid( ladder ) and !Current:IsUnderwater() and !newArea:IsUnderwater() and -Height < 200 and Height > 64 then
 				-- We can't jump that high.
 				
 				continue
