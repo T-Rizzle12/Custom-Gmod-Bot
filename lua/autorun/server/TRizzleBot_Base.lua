@@ -648,7 +648,7 @@ function BOT:IsCursorOnTarget()
 			return true
 		end
 
-		return self:PointWithinCursor( self.Enemy:GetShootPos() )
+		return self:PointWithinCursor( self.Enemy:EyePos() )
 	
 	end
 end
