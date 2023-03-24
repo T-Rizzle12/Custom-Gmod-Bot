@@ -859,7 +859,7 @@ hook.Add( "PlayerSpawn" , "TRizzleBotSpawnHook" , function( ply )
 end)
 
 -- Checks if its current enemy is still alive and still visible to the bot
-function BOT:IsCurrentEnemyAlive()
+function BOT:CheckCurrentEnemyStatus()
 	
 	if !IsValid( self.Enemy ) then self.Enemy							=	nil
 	elseif self.Enemy:IsPlayer() and !self.Enemy:Alive() then self.Enemy				=	nil -- Just incase the bot's enemy is set to a player even though the bot should only target NPCS and "hopefully" NEXTBOTS 
@@ -905,7 +905,8 @@ function BOT:TBotCreateThinking()
 		if IsValid( self ) and self:Alive() then
 			
 			-- A quick condition statement to check if our enemy is no longer a threat.
-			self:IsCurrentEnemyAlive()
+			self:CheckCurrentEnemyStatus()
+			self:TBotCheckEnemyList()
 			
 			if GetConVar( "ai_ignoreplayers" ):GetInt() == 0 and GetConVar( "ai_disabled" ):GetInt() == 0 then self:TBotFindClosestEnemy() end
 			
@@ -974,21 +975,59 @@ function BOT:TBotCreateThinking()
 	
 end
 
-
+-- This checks every enemy on the bot's Known Enemy List and checks to see if they are alive, visible, and valid
+function BOT:TBotCheckEnemyList()
+	
+	for k, v in pairs( self.EnemyList ) do
+		
+		-- I don't think I have to use this
+		--local enemy = self.EnemyList[ k ][ "Enemy" ]
+		--local lastSeenTime = self.EnemyList[ k ][ "LastSeenTime" ]
+		
+		if !IsValid( v.Enemy ) then
+			
+			self.EnemyList[ k ] = nil
+			continue
+			
+		elseif v.Enemy:IsPlayer() and !v.Enemy:Alive() then 
+			
+			self.EnemyList[ k ] = nil -- Just incase the bot's enemy is set to a player even though the bot should only target NPCS and "hopefully" NEXTBOTS
+			continue
+			
+		elseif v.Enemy:IsNPC() and ( v.Enemy:GetNPCState() == NPC_STATE_DEAD or (v.Enemy:Disposition( self ) != D_HT and v.Enemy:Disposition( self.Owner ) != D_HT) ) then 
+			
+			self.EnemyList[ k ] = nil
+			continue
+			
+		elseif GetConVar( "ai_ignoreplayers" ):GetInt() != 0 or GetConVar( "ai_disabled" ):GetInt() != 0 then 
+			
+			self.EnemyList[ k ] = nil
+			continue
+			
+		elseif !v.Enemy:Visible() and v.LastSeenTime < CurTime() then 
+			
+			self.EnemyList[ k ] = nil
+			continue
+		
+		end
+		
+		if v.Enemy:Visible() then self.EnemyList[ k ][ "LastSeenTime" ] = CurTime() + 10.0 end
+	
+end
 
 -- Target any hostile NPCS that is visible to us.
 function BOT:TBotFindClosestEnemy()
-	local VisibleEnemies			=	{} -- This is how many enemies the bot can see. Currently not used......yet
+	local VisibleEnemies			=	self.EnemyList -- This is how many enemies the bot can see. Currently not used......yet
 	local targetdist			=	10000 -- This will allow the bot to select the closest enemy to it.
 	local target				=	self.Enemy -- This is the closest enemy to the bot.
 	
 	for k, v in ipairs( ents.GetAll() ) do
 		
-		if IsValid ( v ) and v:IsNPC() and v:GetNPCState() != NPC_STATE_DEAD and (v:Disposition( self ) == D_HT or v:Disposition( self.Owner ) == D_HT) then -- The bot should attack any NPC that is hostile to them or their owner. D_HT means hostile/hate
+		if IsValid ( v ) and !VisibleEnemies[ v:GetCreationID() ] and v:IsNPC() and v:GetNPCState() != NPC_STATE_DEAD and (v:Disposition( self ) == D_HT or v:Disposition( self.Owner ) == D_HT) then -- The bot should attack any NPC that is hostile to them or their owner. D_HT means hostile/hate
 			
 			if v:Visible( self ) then
 				local enemydist = (v:GetPos() - self:GetPos()):Length()
-				VisibleEnemies[ #VisibleEnemies + 1 ]		=	v
+				VisibleEnemies[ v:GetCreationID() ]		=	{ Enemy = v, LastSeenTime = CurTime() + 10.0 } -- We grab the entity's Creation ID because the will never be the same as any other entity.
 				if enemydist < targetdist then 
 					target = v
 					targetdist = enemydist
