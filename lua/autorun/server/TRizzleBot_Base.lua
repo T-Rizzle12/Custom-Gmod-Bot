@@ -387,7 +387,7 @@ hook.Add( "StartCommand" , "TRizzleBotAIHook" , function( bot , cmd )
 	-- Better make sure they exist of course.
 	if IsValid( bot.Enemy ) then
 		
-		local trace = util.TraceLine( { start = bot:EyePos(), endpos = bot.Enemy:EyePos(), filter = bot, mask = TRACE_MASK_SHOT } )
+		local trace = util.TraceLine( { start = bot:GetShootPos(), endpos = bot.Enemy:EyePos(), filter = bot, mask = TRACE_MASK_SHOT } )
 		
 		-- Turn and face our enemy!
 		if trace.Entity == bot.Enemy and !bot:IsActiveWeaponRecoilHigh() then
@@ -601,7 +601,7 @@ end
 function BOT:AimAtPos( Pos )
 
 	local currentAngles = self:EyeAngles() + self:GetViewPunchAngles()
-	local targetPos = ( Pos - self:EyePos() ):GetNormalized()
+	local targetPos = ( Pos - self:GetShootPos() ):GetNormalized()
 	
 	local lerp = FrameTime() * math.random(10, 20)
 	
@@ -629,7 +629,7 @@ function BOT:PointWithinCursor( targetpos )
 	if trace.Entity != self.Enemy then return false end
 	
 	local EntWidth = self.Enemy:BoundingRadius() * 0.5
-	local pos = targetpos - self:EyePos()
+	local pos = targetpos - self:GetShootPos()
 	local fov = math.cos( math.atan( EntWidth / pos:Length() ) )
 	local diff = self:GetAimVector():Dot( pos )
 	
@@ -648,7 +648,7 @@ function BOT:IsCursorOnTarget()
 			return true
 		end
 
-		return self:PointWithinCursor( self.Enemy:EyePos() )
+		return self:PointWithinCursor( self.Enemy:GetShootPos() )
 	
 	end
 end
@@ -1516,6 +1516,7 @@ local function CheckLOS( val , pos1 , pos2 )
 end
 
 local function SendBoxedLine( pos1 , pos2 )
+	if !isvector( pos1 ) or !isvector( pos2 ) then return false end
 	
 	local Trace				=	util.TraceLine({
 		
@@ -1570,7 +1571,9 @@ function BOT:ComputeNavmeshVisibility()
 		
 		if !IsValid( NextNode ) then
 			
-			self.Path[ #self.Path + 1 ]		=	{ Pos = self.Goal, IsLadder = false }
+			Drop = self:ShouldDropDown( LastVisPos, self.Goal )
+			
+			self.Path[ #self.Path + 1 ]		=	{ Pos = self.Goal, IsLadder = false, IsDropDown = Drop }
 			
 			break
 		end
@@ -1752,24 +1755,26 @@ function BOT:TBotNavigation()
 			local Waypoint2D		=	Vector( self.Path[ 1 ][ "Pos" ].x , self.Path[ 1 ][ "Pos" ].y , self:GetPos().z )
 			-- ALWAYS: Use 2D navigation, It helps by a large amount.
 			
-			if !self.Path[ 1 ][ "IsLadder" ] and !self.Path[ 1 ][ "IsDropDown" ] and IsVecCloseEnough( self:GetPos() , Waypoint2D , 24 ) then
-				
-				table.remove( self.Path , 1 )
-				
-			elseif !self.Path[ 1 ][ "IsLadder" ] and self.Path[ 1 ][ "IsDropDown" ] and !self:ShouldDropDown( self:GetPos(), self.Path[ 1 ][ "Pos" ] ) and IsVecCloseEnough( self:GetPos() , Waypoint2D , 24 ) then
+			if !self.Path[ 1 ][ "IsLadder" ] and !isvector( self.Path[ 1 ][ "Check" ] ) and IsVecCloseEnough( self:GetPos() , Waypoint2D , 24 ) then
 				
 				table.remove( self.Path , 1 )
 				
 			elseif self.Path[ 1 ][ "IsLadder" ] and self.Path[ 1 ][ "LadderUp" ] and ( self:GetPos().z >= self.Path[ 1 ][ "Pos" ].z or IsVecCloseEnough( self:GetPos() , Waypoint2D , 8 ) ) then
 				
-				self.Jump = true
-				self.NextJump =	CurTime()
+				if self.Path[ 2 ] and !self.Path[ 2 ][ "IsLadder" ] then
+					self.Jump = true
+					self.NextJump =	CurTime()
+				end
+				
 				table.remove( self.Path , 1 )
 				
 			elseif self.Path[ 1 ][ "IsLadder" ] and !self.Path[ 1 ][ "LadderUp" ] and self:GetPos().z <= self.Path[ 1 ][ "Pos" ].z and IsVecCloseEnough( self:GetPos() , Waypoint2D , 8 ) then
 			
-				self.Jump = true
-				self.NextJump = CurTime()
+				if self.Path[ 2 ] and !self.Path[ 2 ][ "IsLadder" ] then
+					self.Jump = true
+					self.NextJump = CurTime()
+				end
+				
 				table.remove( self.Path , 1 )
 			
 			end
@@ -1885,7 +1890,7 @@ function BOT:TBotUpdateMovement( cmd )
 		
 		cmd:SetViewAngles( MovementAngle )
 		cmd:SetForwardMove( self:GetRunSpeed() )
-		if !IsValid( self.Enemy ) or self:Is_On_Ladder() then self:SetEyeAngles( LerpAngle(lerp, self:EyeAngles(), ( self.Goal - self:GetPos() ):GetNormalized():Angle() ) ) end
+		if !IsValid( self.Enemy ) or self:Is_On_Ladder() then self:AimAtPos( self.Goal + Vector( 0 , 0 , 64 ) ) end
 		
 		local GoalIn2D			=	Vector( self.Goal.x , self.Goal.y , self:GetPos().z )
 		if IsVecCloseEnough( self:GetPos() , GoalIn2D , 32 ) then
@@ -1907,7 +1912,7 @@ function BOT:TBotUpdateMovement( cmd )
 			
 			local CheckIn2D			=	Vector( self.Path[ 1 ][ "Check" ].x , self.Path[ 1 ][ "Check" ].y , self:GetPos().z )
 			
-			if IsVecCloseEnough( self:GetPos() , CheckIn2D , 24 ) then
+			if IsVecCloseEnough( self:GetPos() , CheckIn2D , 24 ) and ( !self.Path[ 1 ][ "IsDropDown" ] or !self:ShouldDropDown( self:GetPos(), self.Path[ 1 ][ "Pos" ] )  ) then
 				
 				self.Path[ 1 ][ "Check" ] = nil
 				return
@@ -1940,7 +1945,7 @@ function BOT:TBotUpdateMovement( cmd )
 		
 		cmd:SetViewAngles( MovementAngle )
 		cmd:SetForwardMove( 1000 )
-		if !IsValid ( self.Enemy ) or self:Is_On_Ladder() or self.Path[ 1 ][ "IsLadder" ] then self:SetEyeAngles( LerpAngle(lerp, self:EyeAngles(), ( self.Path[ 1 ][ "Pos" ] - self:GetPos() ):GetNormalized():Angle() ) ) end
+		if !IsValid ( self.Enemy ) or self:Is_On_Ladder() or self.Path[ 1 ][ "IsLadder" ] then self:AimAtPos( self.Path[ 1 ][ "Pos" ] + Vector( 0 , 0 , 64 ) ) end
 		
 	end
 	
@@ -1961,18 +1966,23 @@ function Get_Blue_Connection( CurrentArea , TargetArea )
 	if !IsValid( TargetArea ) or !IsValid( CurrentArea ) then return end
 	local dir = Get_Direction( CurrentArea , TargetArea )
 	
-	if dir == 0 or dir == 2 then
+	local NORTH = 0
+	local EAST = 1
+	local SOUTH = 2
+	local WEST = 3
+	
+	if dir == NORTH or dir == SOUTH then
 		
 		if TargetArea:GetSizeX() >= CurrentArea:GetSizeX() then
 			
-			local Vec	=	NumberMidPoint( CurrentArea:GetCorner( 0 ).y , CurrentArea:GetCorner( 1 ).y )
+			local Vec	=	NumberMidPoint( CurrentArea:GetCorner( NORTH ).y , CurrentArea:GetCorner( EAST ).y )
 			
 			local NavPoint = Vector( CurrentArea:GetCenter().x , Vec , 0 )
 			
 			return TargetArea:GetClosestPointOnArea( NavPoint ), Vector( NavPoint.x , CurrentArea:GetCenter().y , NavPoint.z )
 		else
 			
-			local Vec	=	NumberMidPoint( TargetArea:GetCorner( 0 ).y , TargetArea:GetCorner( 1 ).y )
+			local Vec	=	NumberMidPoint( TargetArea:GetCorner( NORTH ).y , TargetArea:GetCorner( EAST ).y )
 			
 			local NavPoint = Vector( TargetArea:GetCenter().x , Vec , 0 )
 			
@@ -1983,11 +1993,11 @@ function Get_Blue_Connection( CurrentArea , TargetArea )
 		return
 	end
 	
-	if dir == 1 or dir == 3 then
+	if dir == EAST or dir == WEST then
 		
 		if TargetArea:GetSizeY() >= CurrentArea:GetSizeY() then
 			
-			local Vec	=	NumberMidPoint( CurrentArea:GetCorner( 0 ).x , CurrentArea:GetCorner( 3 ).x )
+			local Vec	=	NumberMidPoint( CurrentArea:GetCorner( NORTH ).x , CurrentArea:GetCorner( WEST ).x )
 			
 			local NavPoint = Vector( Vec , CurrentArea:GetCenter().y , 0 )
 			
@@ -1995,7 +2005,7 @@ function Get_Blue_Connection( CurrentArea , TargetArea )
 			return TargetArea:GetClosestPointOnArea( NavPoint ), Vector( CurrentArea:GetCenter().x , NavPoint.y , NavPoint.z )
 		else
 			
-			local Vec	=	NumberMidPoint( TargetArea:GetCorner( 0 ).x , TargetArea:GetCorner( 3 ).x )
+			local Vec	=	NumberMidPoint( TargetArea:GetCorner( NORTH ).x , TargetArea:GetCorner( WEST ).x )
 			
 			local NavPoint = Vector( Vec , TargetArea:GetCenter().y , 0 )
 			
@@ -2447,10 +2457,10 @@ function Lad:Get_Closest_Point( pos )
 	
 	if TopArea < LowArea then
 		
-		return self:GetTop() - self:GetNormal() * 16, true
+		return self:GetTop() - self:GetNormal() * 2.0 * 16, true
 	end
 	
-	return self:GetBottom() + self:GetNormal() * 16, false
+	return self:GetBottom() + self:GetNormal() * 2.0 * 16, false
 end
 
 -- See if a node is an area : 1 or a ladder : 2
