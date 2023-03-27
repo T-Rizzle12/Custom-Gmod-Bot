@@ -1481,8 +1481,8 @@ function TRizzleBotRetracePathCheap( StartNode , GoalNode )
 				--print( ladder:GetTopBehindArea() )
 				if ladder:GetTopForwardArea() == Current or ladder:GetTopLeftArea() == Current or ladder:GetTopRightArea() == Current or ladder:GetTopBehindArea() == Current or ladder:GetBottomArea() == Current then
 					local currentIndex = #NewPath
-					NewPath[ currentIndex + 1 ] = Current
-					NewPath[ currentIndex + 2 ] = ladder
+					NewPath[ currentIndex + 1 ] = { area = Current, how = Parent }
+					NewPath[ currentIndex + 2 ] = { area = ladder, how = Parent }
 					break
 					
 				end
@@ -1490,7 +1490,7 @@ function TRizzleBotRetracePathCheap( StartNode , GoalNode )
 		
 		else
 			
-			NewPath[ #NewPath + 1 ] = Current
+			NewPath[ #NewPath + 1 ] = { area = Current, how = Parent }
 			
 		end
 		
@@ -1615,10 +1615,11 @@ function BOT:ComputeNavmeshVisibility()
 	
 	local LastVisPos		=	self:GetPos()
 	
-	for k, CurrentNode in ipairs( self.NavmeshNodes ) do
+	for k, v in ipairs( self.NavmeshNodes ) do
 		-- I should also make sure that the nodes exist as this is called 0.03 seconds after the pathfind.
 		
-		local NextNode		=	self.NavmeshNodes[ k + 1 ]
+		local CurrentNode	=	v.area
+		local NextNode		=	self.NavmeshNodes[ k + 1 ].area
 		local Gap			=	false
 		local Drop			=	false
 		local TargetCut		=	nil
