@@ -356,7 +356,7 @@ concommand.Add( "TBotSetDefault" , TBotSetDefault , nil , "Set the specified bot
 function BOT:TBotResetAI()
 	
 	self.Enemy				=	nil -- Refresh our enemy.
-	self.EnemyList			=	{} -- This is the list of enemies the bot can see.
+	self.EnemyList			=	{} -- This is the list of enemies the bot knows about.
 	self.TimeInCombat		=	0 -- This is how long the bot has been in combat
 	self.LastCombatTime		=	0 -- This was how long ago the bot was in combat
 	self.Jump				=	false -- Stop jumping
@@ -365,6 +365,7 @@ function BOT:TBotResetAI()
 	self.HoldCrouch			=	CurTime() -- This is how long the bot should hold its crouch button
 	self.PressUse			=	false -- Stop using
 	self.FullReload			=	false -- Stop reloading
+	self.FireWeaponInterval	=	CurTime() -- Limits how often the bot presses its attack button
 	self.Light				=	false -- Turn off the bot's flashlight
 	self.Goal				=	nil -- The vector goal we want to get to.
 	self.NavmeshNodes		=	{} -- The nodes given to us by the pathfinder
@@ -387,7 +388,7 @@ hook.Add( "StartCommand" , "TRizzleBotAIHook" , function( bot , cmd )
 	-- Better make sure they exist of course.
 	if IsValid( bot.Enemy ) then
 		
-		local trace = util.TraceLine( { start = bot:GetShootPos(), endpos = bot.Enemy:EyePos(), filter = bot, mask = TRACE_MASK_SHOT } )
+		local trace = util.TraceLine( { start = bot:GetShootPos(), endpos = bot.Enemy:EyePos() - Vector( 0, 0, 0.50 ), filter = { self, bot }, mask = TRACE_MASK_SHOT } )
 		
 		-- Turn and face our enemy!
 		if trace.Entity == bot.Enemy and !bot:IsActiveWeaponRecoilHigh() then
@@ -408,15 +409,16 @@ hook.Add( "StartCommand" , "TRizzleBotAIHook" , function( bot , cmd )
 		
 		if botWeapon:IsWeapon() and bot.FullReload and ( botWeapon:Clip1() >= botWeapon:GetMaxClip1() or bot:GetAmmoCount( botWeapon:GetPrimaryAmmoType() ) <= botWeapon:Clip1() or botWeapon:GetClass() != bot.Shotgun ) then bot.FullReload = false end -- Fully reloaded :)
 		
-		if math.random(2) == 1 and botWeapon:IsWeapon() and !bot.FullReload and botWeapon:GetClass() != "weapon_medkit" and ( bot:GetEyeTraceNoCursor().Entity == bot.Enemy or bot:IsCursorOnTarget() or (bot.Enemy:GetPos() - bot:GetPos()):Length() < bot.MeleeDist ) then
+		if CurTime() > bot.FireWeaponInterval and botWeapon:IsWeapon() and !botWeapon:GetInternalVariable( "m_bInReload" ) and !bot.FullReload and botWeapon:GetClass() != "weapon_medkit" and ( bot:GetEyeTraceNoCursor().Entity == bot.Enemy or bot:IsCursorOnTarget() or (bot.Enemy:GetPos() - bot:GetPos()):Length() < bot.MeleeDist ) then
 			buttons = buttons + IN_ATTACK
+			bot.FireWeaponInterval = CurTime() + math.Rand( 0.3 , 0.15 )
 		end
 		
 		if math.random(2) == 1 and botWeapon:IsWeapon() and botWeapon:GetClass() == "weapon_medkit" and bot.CombatHealThreshold > bot:Health() then
 			buttons = buttons + IN_ATTACK2
 		end
 		
-		if math.random(2) == 1 and botWeapon:IsWeapon() and botWeapon:Clip1() == 0 then
+		if math.random(2) == 1 and !botWeapon:GetInternalVariable( "m_bInReload" ) and botWeapon:IsWeapon() and botWeapon:Clip1() == 0 then
 			if botWeapon:GetClass() == bot.Shotgun then bot.FullReload = true end
 			buttons = buttons + IN_RELOAD
 		end
@@ -846,9 +848,13 @@ hook.Add( "PlayerSpawn" , "TRizzleBotSpawnHook" , function( ply )
 					
 				end
 				
-				-- For some reason the bot's run and walk speed is slower than the default
-				ply:SetRunSpeed( 600 )
-				ply:SetWalkSpeed( 400 )
+				timer.Simple( 0.3 , function()
+					
+					-- For some reason the bot's run and walk speed is slower than the default
+					ply:SetRunSpeed( 600 )
+					ply:SetWalkSpeed( 400 )
+					
+				end)
 				
 			end
 			
@@ -872,8 +878,7 @@ function BOT:TBotCreateThinking()
 			-- A quick condition statement to check if our enemy is no longer a threat.
 			self:CheckCurrentEnemyStatus()
 			self:TBotCheckEnemyList()
-			
-			if GetConVar( "ai_ignoreplayers" ):GetInt() == 0 and GetConVar( "ai_disabled" ):GetInt() == 0 then self:TBotFindClosestEnemy() end
+			self:TBotFindClosestEnemy()
 			
 			local tab = player.GetHumans()
 			if #tab > 0 then
@@ -946,7 +951,7 @@ function BOT:CheckCurrentEnemyStatus()
 	if !IsValid( self.Enemy ) then self.Enemy							=	nil
 	elseif self.Enemy:IsPlayer() and !self.Enemy:Alive() then self.Enemy				=	nil -- Just incase the bot's enemy is set to a player even though the bot should only target NPCS and "hopefully" NEXTBOTS 
 	elseif !self.Enemy:Visible( self ) then self.Enemy						=	nil
-	elseif self.Enemy:IsNPC() and ( self.Enemy:GetNPCState() == NPC_STATE_DEAD or (self.Enemy:Disposition( self ) != D_HT and self.Enemy:Disposition( self.Owner ) != D_HT) ) then self.Enemy	=	nil
+	elseif self.Enemy:IsNPC() and ( self.Enemy:GetNPCState() == NPC_STATE_DEAD or self.Enemy:GetInternalVariable( "m_lifeState" ) != 0 or (self.Enemy:Disposition( self ) != D_HT and self.Enemy:Disposition( self.Owner ) != D_HT) ) then self.Enemy	=	nil
 	elseif GetConVar( "ai_ignoreplayers" ):GetInt() != 0 or GetConVar( "ai_disabled" ):GetInt() != 0 then self.Enemy	=	nil end
 	
 end
@@ -954,11 +959,16 @@ end
 -- This checks every enemy on the bot's Known Enemy List and checks to see if they are alive, visible, and valid
 function BOT:TBotCheckEnemyList()
 	
+	print( table.Count( self.EnemyList ) )
+	
 	for k, v in pairs( self.EnemyList ) do
 		
 		-- I don't think I have to use this
 		--local enemy = self.EnemyList[ k ][ "Enemy" ]
 		--local lastSeenTime = self.EnemyList[ k ][ "LastSeenTime" ]
+		
+		--print( k )
+		--print( v )
 		
 		if !IsValid( v.Enemy ) then
 			
@@ -970,7 +980,7 @@ function BOT:TBotCheckEnemyList()
 			self.EnemyList[ k ] = nil -- Just incase the bot's enemy is set to a player even though the bot should only target NPCS and "hopefully" NEXTBOTS
 			continue
 			
-		elseif v.Enemy:IsNPC() and ( v.Enemy:GetNPCState() == NPC_STATE_DEAD or (v.Enemy:Disposition( self ) != D_HT and v.Enemy:Disposition( self.Owner ) != D_HT) ) then 
+		elseif v.Enemy:IsNPC() and ( v.Enemy:GetNPCState() == NPC_STATE_DEAD or v.Enemy:GetInternalVariable( "m_lifeState" ) != 0 or (v.Enemy:Disposition( self ) != D_HT and v.Enemy:Disposition( self.Owner ) != D_HT) ) then 
 			
 			self.EnemyList[ k ] = nil
 			continue
@@ -980,41 +990,48 @@ function BOT:TBotCheckEnemyList()
 			self.EnemyList[ k ] = nil
 			continue
 			
-		elseif !v.Enemy:Visible() and v.LastSeenTime < CurTime() then 
+		elseif !v.Enemy:Visible( self ) and v.LastSeenTime < CurTime() then 
 			
 			self.EnemyList[ k ] = nil
 			continue
 		
+		elseif v.Enemy:Visible( self ) then 
+		
+			self.EnemyList[ k ][ "LastSeenTime" ] = CurTime() + 10.0 
+			
 		end
 		
-		if v.Enemy:Visible() then self.EnemyList[ k ][ "LastSeenTime" ] = CurTime() + 10.0 end
-	
+	end
 end
 
 -- Target any hostile NPCS that is visible to us.
 function BOT:TBotFindClosestEnemy()
-	local VisibleEnemies			=	self.EnemyList -- This is how many enemies the bot can see. Currently not used......yet
+	local VisibleEnemies		=	self.EnemyList -- This is how many enemies the bot can see. Currently not used......yet
 	local targetdist			=	10000 -- This will allow the bot to select the closest enemy to it.
 	local target				=	self.Enemy -- This is the closest enemy to the bot.
 	
+	if GetConVar( "ai_ignoreplayers" ):GetInt() != 0 or GetConVar( "ai_disabled" ):GetInt() != 0 then return end
+	
 	for k, v in ipairs( ents.GetAll() ) do
 		
-		if IsValid ( v ) and !VisibleEnemies[ v:GetCreationID() ] and v:IsNPC() and v:GetNPCState() != NPC_STATE_DEAD and (v:Disposition( self ) == D_HT or v:Disposition( self.Owner ) == D_HT) then -- The bot should attack any NPC that is hostile to them or their owner. D_HT means hostile/hate
+		if IsValid ( v ) and v:IsNPC() and v:GetNPCState() != NPC_STATE_DEAD and v:GetInternalVariable( "m_lifeState" ) == 0 and (v:Disposition( self ) == D_HT or v:Disposition( self.Owner ) == D_HT) then -- The bot should attack any NPC that is hostile to them or their owner. D_HT means hostile/hate
 			
-			if v:Visible( self ) then
+			if v:Visible( self ) or ( VisibleEnemies[ v:GetCreationID() ] and v:Visible( self ) ) then -- This will be split into two functions once I start working on Bot Senses and Memory update
+			
 				local enemydist = (v:GetPos() - self:GetPos()):Length()
-				VisibleEnemies[ v:GetCreationID() ]		=	{ Enemy = v, LastSeenTime = CurTime() + 10.0 } -- We grab the entity's Creation ID because the will never be the same as any other entity.
+				
+				if !VisibleEnemies[ v:GetCreationID() ] then VisibleEnemies[ v:GetCreationID() ]		=	{ Enemy = v, LastSeenTime = CurTime() + 10.0 } end -- We grab the entity's Creation ID because the will never be the same as any other entity.
+				
 				if enemydist < targetdist then 
 					target = v
 					targetdist = enemydist
 				end
 			end
-			
 		end
 		
 	end
 	
-	self.Enemy		=	target
+	self.Enemy			=	target
 	self.EnemyList		=	VisibleEnemies
 	
 end
@@ -1904,7 +1921,6 @@ function BOT:TBotUpdateMovement( cmd )
 	if !istable( self.Path ) or table.IsEmpty( self.Path ) or isbool( self.NavmeshNodes ) then
 		
 		local MovementAngle		=	( self.Goal - self:GetPos() ):GetNormalized():Angle()
-		local lerp = FrameTime() * math.random(4, 6)
 		
 		if self:OnGround() then
 			local SmartJump		=	util.TraceLine({
@@ -1942,14 +1958,13 @@ function BOT:TBotUpdateMovement( cmd )
 	if self.Path[ 1 ] then
 		
 		local MovementAngle		=	( self.Path[ 1 ][ "Pos" ] - self:GetPos() ):GetNormalized():Angle()
-		local lerp = FrameTime() * math.random(4, 6)
 		
 		if isvector( self.Path[ 1 ][ "Check" ] ) then
 			MovementAngle = ( self.Path[ 1 ][ "Check" ] - self:GetPos() ):GetNormalized():Angle()
 			
 			local CheckIn2D			=	Vector( self.Path[ 1 ][ "Check" ].x , self.Path[ 1 ][ "Check" ].y , self:GetPos().z )
 			
-			if IsVecCloseEnough( self:GetPos() , CheckIn2D , 24 ) and ( !self.Path[ 1 ][ "IsDropDown" ] or !self:ShouldDropDown( self:GetPos(), self.Path[ 1 ][ "Pos" ] )  ) then
+			if !self.Path[ 1 ][ "IsDropDown" ] and IsVecCloseEnough( self:GetPos() , CheckIn2D , 24 ) or IsVecCloseEnough( self:GetPos() , CheckIn2D , 8 ) then
 				
 				self.Path[ 1 ][ "Check" ] = nil
 				return
@@ -2509,4 +2524,15 @@ end
 function Lad:Node_Get_Type()
 	
 	return 2
+end
+
+
+-- This grabs every internal variable of the specified entity
+function Test( ply )
+	for k, v in pairs( ply:GetSaveTable( true ) ) do
+		
+		print( k )
+		print( v )
+		
+	end 
 end
