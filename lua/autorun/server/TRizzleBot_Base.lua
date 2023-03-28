@@ -1170,14 +1170,14 @@ function TRizzleBotRangeCheck( FirstNode , SecondNode , Ladder , Height )
 	
 	if isnumber( Height ) and Height > 32 then
 		
-		DefaultCost		=	DefaultCost * 3
+		DefaultCost		=	DefaultCost * 5
 		-- Jumping is slower than ground movement.
 		
 	end
 	
 	if isnumber( Height ) and -Height > 32 then
 	
-		DefaultCost		=	DefaultCost + ( math.abs( Height ) * 1.5 )
+		DefaultCost		=	DefaultCost + ( GetApproximateFallDamage( math.abs( Height ) ) * 1.5 )
 		-- Falling is risky and the bot might take fall damage.
 		
 	end
@@ -1185,14 +1185,14 @@ function TRizzleBotRangeCheck( FirstNode , SecondNode , Ladder , Height )
 	-- Crawling through a vent is very slow.
 	if SecondNode:HasAttributes( NAV_MESH_CROUCH ) then 
 		
-		DefaultCost	=	DefaultCost * 7
+		DefaultCost	=	DefaultCost * 8
 		
 	end
 	
 	-- The bot should avoid this area unless alternatives are too dangerous or too far.
 	if SecondNode:HasAttributes( NAV_MESH_AVOID ) then 
 		
-		DefaultCost	=	DefaultCost * 8
+		DefaultCost	=	DefaultCost * 20
 		
 	end
 	
@@ -1206,6 +1206,21 @@ function TRizzleBotRangeCheck( FirstNode , SecondNode , Ladder , Height )
 	return DefaultCost
 end
 
+-- Got this from CS:GO Source Code, made some changes so it works for Lua
+-- Returns approximately how much damage will will take from the given fall height
+function GetApproximateFallDamage( height )
+	-- CS:GO empirically discovered height values, this may return incorrect results for Gmod
+	local slope = 0.2178
+	local intercept = 26.0
+
+	local damage = slope * height - intercept
+
+	if damage < 0.0 then
+		return 0.0
+	end
+
+	return damage
+end
 
 function TRizzleBotRetracePath( StartNode , GoalNode )
 	
@@ -1683,6 +1698,7 @@ function BOT:ComputeNavmeshVisibility()
 				dir.y = 0 
 			end
 			
+			-- Should I use 75 instead?
 			connection.x = connection.x + ( 25.0 * dir.x )
 			connection.y = connection.y + ( 25.0 * dir.y )
 			
