@@ -448,7 +448,7 @@ hook.Add( "StartCommand" , "TRizzleBotAIHook" , function( bot , cmd )
 		
 			bot:ReloadWeapons( cmd )
 			local botWeapon = bot:GetActiveWeapon()
-			if math.random(2) == 1 and botWeapon:IsWeapon() and botWeapon:GetClass() != "weapon_medkit" and botWeapon:Clip1() < botWeapon:GetMaxClip1() then
+			if math.random(2) == 1 and !botWeapon:GetInternalVariable( "m_bInReload" ) and botWeapon:IsWeapon() and botWeapon:GetClass() != "weapon_medkit" and botWeapon:Clip1() < botWeapon:GetMaxClip1() then
 				buttons = buttons + IN_RELOAD
 			end
 		end
@@ -959,7 +959,7 @@ end
 -- This checks every enemy on the bot's Known Enemy List and checks to see if they are alive, visible, and valid
 function BOT:TBotCheckEnemyList()
 	
-	print( table.Count( self.EnemyList ) )
+	--print( table.Count( self.EnemyList ) )
 	
 	for k, v in pairs( self.EnemyList ) do
 		
@@ -1479,6 +1479,7 @@ function TRizzleBotRetracePathCheap( StartNode , GoalNode )
 				--print( ladder:GetTopLeftArea() )
 				--print( ladder:GetTopRightArea() )
 				--print( ladder:GetTopBehindArea() )
+				--print( ladder:GetBottomArea() )
 				if ladder:GetTopForwardArea() == Current or ladder:GetTopLeftArea() == Current or ladder:GetTopRightArea() == Current or ladder:GetTopBehindArea() == Current or ladder:GetBottomArea() == Current then
 					local currentIndex = #NewPath
 					NewPath[ currentIndex + 1 ] = { area = Current, how = Parent }
@@ -1495,6 +1496,8 @@ function TRizzleBotRetracePathCheap( StartNode , GoalNode )
 		end
 		
 	end
+	
+	NewPath[ #NewPath + 1 ] = { area = StartNode, how = Current:GetParentHow() }
 	
 	return NewPath
 end
@@ -1611,6 +1614,11 @@ end
 -- Creates waypoints using the nodes.
 function BOT:ComputeNavmeshVisibility()
 	
+	local NORTH = 0
+	local EAST = 1
+	local SOUTH = 2
+	local WEST = 3
+	
 	self.Path				=	{}
 	
 	local LastVisPos		=	self:GetPos()
@@ -1619,19 +1627,18 @@ function BOT:ComputeNavmeshVisibility()
 		-- I should also make sure that the nodes exist as this is called 0.03 seconds after the pathfind.
 		
 		local CurrentNode	=	v.area
-		local NextNode		=	self.NavmeshNodes[ k + 1 ].area
-		local Gap			=	false
+		local currentIndex	=	#self.Path
 		local Drop			=	false
-		local TargetCut		=	nil
 		
-		if !IsValid( NextNode ) then
+		if !self.NavmeshNodes[ k + 1 ] or !self.NavmeshNodes[ k + 1 ].area or !self.NavmeshNodes[ k + 1 ].how then
 			
-			Drop = self:ShouldDropDown( LastVisPos, self.Goal )
-			
-			self.Path[ #self.Path + 1 ]		=	{ Pos = self.Goal, IsLadder = false, IsDropDown = Drop }
+			self.Path[ #self.Path + 1 ]		=	{ Pos = self.Goal, IsLadder = false, IsDropDown = self:ShouldDropDown( LastVisPos, self.Goal ) }
 			
 			break
 		end
+		
+		local NextNode		=	self.NavmeshNodes[ k + 1 ].area
+		local NextHow		=	self.NavmeshNodes[ k + 1 ].how
 		
 		if NextNode:Node_Get_Type() == 2 then
 		
@@ -1655,57 +1662,44 @@ function BOT:ComputeNavmeshVisibility()
 			continue
 		end
 		
-		-- The next area ahead's closest point to us.
-		local CloseToVis		=	NextNode:GetClosestPointOnArea( LastVisPos )
+		local connection, area = Get_Blue_Connection( CurrentNode, NextNode )
 		
-		-- If we are visible then we shall put the waypoint there.
-		if SendBoxedLine( LastVisPos , CloseToVis ) == true then
+		if self:ShouldDropDown( LastVisPos, connection ) then
+		
+			local dir = vector_origin
+			Drop = true
 			
-			Drop = self:ShouldDropDown( LastVisPos, CloseToVis )
+			if NextHow == NORTH then 
+				dir.x = 0 
+				dir.y = -1
+			elseif NextHow == SOUTH then 
+				dir.x = 0 
+				dir.y = 1
+			elseif NextHow == EAST then 
+				dir.x = 1 
+				dir.y = 0
+			elseif NextHow == WEST then 
+				dir.x = -1 
+				dir.y = 0 
+			end
 			
-			LastVisPos						=	CloseToVis
-			self.Path[ #self.Path + 1 ]		=	{ Pos = CloseToVis, IsLadder = false, IsDropDown = Drop }
+			connection.x = connection.x + ( 25.0 * dir.x )
+			connection.y = connection.y + ( 25.0 * dir.y )
+			
+			self.Path[ currentIndex + 1 ]			=	{ Pos = connection, IsLadder = false, Check = area, IsDropDown = Drop }
+			
+			connection.z = NextNode:GetZ( LastVisPos )
+			
+			self.Path[ currentIndex + 2 ]			=	{ Pos = connection, IsLadder = false, IsDropDown = Drop }
+			
+			LastVisPos							=	connection
 			
 			continue
 		end
 		
-		-- By checking ahead we can make realistic navigation.
-		if IsValid( self.NavmeshNodes[ k + 2 ] ) and self.NavmeshNodes[ k + 2 ]:Node_Get_Type() == 1 then
-			
-			TargetCut		=	NextNode:GetClosestPointOnArea( self.NavmeshNodes[ k + 2 ]:GetCenter() )
-			
-		else
-			
-			TargetCut		=	self.Goal
-			
-		end
+		self.Path[ #self.Path + 1 ]			=	{ Pos = connection, IsLadder = false, Check = area, IsDropDown = Drop }
 		
-		-- If we are visible then we shall put the waypoint there.
-		if SendBoxedLine( LastVisPos , TargetCut ) == true then
-			
-			Drop = self:ShouldDropDown( LastVisPos, TargetCut )
-			
-			LastVisPos						=	TargetCut
-			self.Path[ #self.Path + 1 ]		=	{ Pos = TargetCut, IsLadder = false, IsDropDown = Drop }
-			
-			continue
-		end
-		
-		local area, connection = Get_Blue_Connection( CurrentNode, NextNode )
-		Drop = self:ShouldDropDown( LastVisPos, area )
-		
-		-- If we are visible then we shall put the waypoint there.
-		if SendBoxedLine( LastVisPos , area ) == true then
-			
-			LastVisPos						=	area
-			self.Path[ #self.Path + 1 ]		=	{ Pos = area, IsLadder = false, IsDropDown = Drop }
-			
-			continue
-		end
-		
-		self.Path[ #self.Path + 1 ]			=	{ Pos = area, IsLadder = false, Check = connection, IsDropDown = Drop }
-		
-		LastVisPos							=	area
+		LastVisPos							=	connection
 		
 	end
 	
@@ -1810,7 +1804,11 @@ function BOT:TBotNavigation()
 			local Waypoint2D		=	Vector( self.Path[ 1 ][ "Pos" ].x , self.Path[ 1 ][ "Pos" ].y , self:GetPos().z )
 			-- ALWAYS: Use 2D navigation, It helps by a large amount.
 			
-			if !self.Path[ 1 ][ "IsLadder" ] and !isvector( self.Path[ 1 ][ "Check" ] ) and IsVecCloseEnough( self:GetPos() , Waypoint2D , 24 ) then
+			if !self.Path[ 1 ][ "IsLadder" ] and !self.Path[ 1 ][ "IsDropDown" ] and !isvector( self.Path[ 1 ][ "Check" ] ) and IsVecCloseEnough( self:GetPos() , Waypoint2D , 24 ) then
+				
+				table.remove( self.Path , 1 )
+				
+			elseif !self.Path[ 1 ][ "IsLadder" ] and self.Path[ 1 ][ "IsDropDown" ] and !isvector( self.Path[ 1 ][ "Check" ] ) and !self:ShouldDropDown( self:GetPos(), self.Path[ 1 ][ "Pos" ] ) then
 				
 				table.remove( self.Path , 1 )
 				
@@ -1965,7 +1963,7 @@ function BOT:TBotUpdateMovement( cmd )
 			
 			local CheckIn2D			=	Vector( self.Path[ 1 ][ "Check" ].x , self.Path[ 1 ][ "Check" ].y , self:GetPos().z )
 			
-			if !self.Path[ 1 ][ "IsDropDown" ] and IsVecCloseEnough( self:GetPos() , CheckIn2D , 24 ) or IsVecCloseEnough( self:GetPos() , CheckIn2D , 8 ) then
+			if IsVecCloseEnough( self:GetPos() , CheckIn2D , 24 ) then
 				
 				self.Path[ 1 ][ "Check" ] = nil
 				return
@@ -2032,7 +2030,7 @@ function Get_Blue_Connection( CurrentArea , TargetArea )
 			
 			local NavPoint = Vector( CurrentArea:GetCenter().x , Vec , 0 )
 			
-			return TargetArea:GetClosestPointOnArea( NavPoint ), Vector( NavPoint.x , CurrentArea:GetCenter().y , NavPoint.z )
+			return TargetArea:GetClosestPointOnArea( NavPoint ), Vector( NavPoint.x , CurrentArea:GetCenter().y , CurrentArea:GetZ( NavPoint ) )
 		else
 			
 			local Vec	=	NumberMidPoint( TargetArea:GetCorner( NORTH ).y , TargetArea:GetCorner( EAST ).y )
@@ -2040,7 +2038,7 @@ function Get_Blue_Connection( CurrentArea , TargetArea )
 			local NavPoint = Vector( TargetArea:GetCenter().x , Vec , 0 )
 			
 			
-			return TargetArea:GetClosestPointOnArea( CurrentArea:GetClosestPointOnArea( NavPoint ) ), Vector( NavPoint.x , CurrentArea:GetCenter().y , NavPoint.z )
+			return TargetArea:GetClosestPointOnArea( CurrentArea:GetClosestPointOnArea( NavPoint ) ), Vector( NavPoint.x , CurrentArea:GetCenter().y , CurrentArea:GetZ( NavPoint ) )
 		end	
 		
 		return
@@ -2055,7 +2053,7 @@ function Get_Blue_Connection( CurrentArea , TargetArea )
 			local NavPoint = Vector( Vec , CurrentArea:GetCenter().y , 0 )
 			
 			
-			return TargetArea:GetClosestPointOnArea( NavPoint ), Vector( CurrentArea:GetCenter().x , NavPoint.y , NavPoint.z )
+			return TargetArea:GetClosestPointOnArea( NavPoint ), Vector( CurrentArea:GetCenter().x , NavPoint.y , CurrentArea:GetZ( NavPoint ) )
 		else
 			
 			local Vec	=	NumberMidPoint( TargetArea:GetCorner( NORTH ).x , TargetArea:GetCorner( WEST ).x )
@@ -2063,7 +2061,7 @@ function Get_Blue_Connection( CurrentArea , TargetArea )
 			local NavPoint = Vector( Vec , TargetArea:GetCenter().y , 0 )
 			
 			
-			return TargetArea:GetClosestPointOnArea( CurrentArea:GetClosestPointOnArea( NavPoint ) ), Vector( CurrentArea:GetCenter().x , NavPoint.y , NavPoint.z )
+			return TargetArea:GetClosestPointOnArea( CurrentArea:GetClosestPointOnArea( NavPoint ) ), Vector( CurrentArea:GetCenter().x , NavPoint.y , CurrentArea:GetZ( NavPoint ) )
 		end
 		
 	end
@@ -2510,7 +2508,7 @@ function Lad:Get_Closest_Point( pos )
 	
 	if TopArea < LowArea then
 		
-		return self:GetTop() - self:GetNormal() * 2.0 * 16, true
+		return self:GetTop() - self:GetNormal() * 16, true
 	end
 	
 	return self:GetBottom() + self:GetNormal() * 2.0 * 16, false
