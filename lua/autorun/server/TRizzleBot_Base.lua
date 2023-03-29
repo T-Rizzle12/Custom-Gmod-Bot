@@ -365,7 +365,7 @@ function BOT:TBotResetAI()
 	self.HoldCrouch			=	CurTime() -- This is how long the bot should hold its crouch button
 	self.PressUse			=	false -- Stop using
 	self.FullReload			=	false -- Stop reloading
-	self.FireWeaponInterval	=	CurTime() -- Limits how often the bot presses its attack button
+	self.FireWeaponInterval			=	CurTime() -- Limits how often the bot presses its attack button
 	self.Light				=	false -- Turn off the bot's flashlight
 	self.Goal				=	nil -- The vector goal we want to get to.
 	self.NavmeshNodes		=	{} -- The nodes given to us by the pathfinder
@@ -388,7 +388,7 @@ hook.Add( "StartCommand" , "TRizzleBotAIHook" , function( bot , cmd )
 	-- Better make sure they exist of course.
 	if IsValid( bot.Enemy ) then
 		
-		local trace = util.TraceLine( { start = bot:GetShootPos(), endpos = bot.Enemy:EyePos() - Vector( 0, 0, 0.50 ), filter = { self, bot }, mask = TRACE_MASK_SHOT } )
+		local trace = util.TraceLine( { start = bot:GetShootPos(), endpos = bot.Enemy:EyePos() - Vector( 0, 0, 0.50 ), filter = self, mask = TRACE_MASK_SHOT } )
 		
 		-- Turn and face our enemy!
 		if trace.Entity == bot.Enemy and !bot:IsActiveWeaponRecoilHigh() then
@@ -407,18 +407,18 @@ hook.Add( "StartCommand" , "TRizzleBotAIHook" , function( bot , cmd )
 		
 		local botWeapon = bot:GetActiveWeapon()
 		
-		if botWeapon:IsWeapon() and bot.FullReload and ( botWeapon:Clip1() >= botWeapon:GetMaxClip1() or bot:GetAmmoCount( botWeapon:GetPrimaryAmmoType() ) <= botWeapon:Clip1() or botWeapon:GetClass() != bot.Shotgun ) then bot.FullReload = false end -- Fully reloaded :)
+		if IsValid( botWeapon ) and botWeapon:IsWeapon() and bot.FullReload and ( botWeapon:Clip1() >= botWeapon:GetMaxClip1() or bot:GetAmmoCount( botWeapon:GetPrimaryAmmoType() ) <= botWeapon:Clip1() or botWeapon:GetClass() != bot.Shotgun ) then bot.FullReload = false end -- Fully reloaded :)
 		
-		if CurTime() > bot.FireWeaponInterval and botWeapon:IsWeapon() and !botWeapon:GetInternalVariable( "m_bInReload" ) and !bot.FullReload and botWeapon:GetClass() != "weapon_medkit" and ( bot:GetEyeTraceNoCursor().Entity == bot.Enemy or bot:IsCursorOnTarget() or (bot.Enemy:GetPos() - bot:GetPos()):Length() < bot.MeleeDist ) then
+		if IsValid( botWeapon ) and botWeapon:IsWeapon() and CurTime() > bot.FireWeaponInterval and !botWeapon:GetInternalVariable( "m_bInReload" ) and !bot.FullReload and botWeapon:GetClass() != "weapon_medkit" and ( bot:GetEyeTraceNoCursor().Entity == bot.Enemy or bot:IsCursorOnTarget() or (bot.Enemy:GetPos() - bot:GetPos()):Length() < bot.MeleeDist ) then
 			buttons = buttons + IN_ATTACK
 			bot.FireWeaponInterval = CurTime() + math.Rand( 0.3 , 0.15 )
 		end
 		
-		if math.random(2) == 1 and botWeapon:IsWeapon() and botWeapon:GetClass() == "weapon_medkit" and bot.CombatHealThreshold > bot:Health() then
+		if IsValid( botWeapon ) and botWeapon:IsWeapon() and math.random(2) == 1 and botWeapon:GetClass() == "weapon_medkit" and bot.CombatHealThreshold > bot:Health() then
 			buttons = buttons + IN_ATTACK2
 		end
 		
-		if math.random(2) == 1 and !botWeapon:GetInternalVariable( "m_bInReload" ) and botWeapon:IsWeapon() and botWeapon:Clip1() == 0 then
+		if IsValid( botWeapon ) and botWeapon:IsWeapon() and math.random(2) == 1 and !botWeapon:GetInternalVariable( "m_bInReload" ) and botWeapon:Clip1() == 0 then
 			if botWeapon:GetClass() == bot.Shotgun then bot.FullReload = true end
 			buttons = buttons + IN_RELOAD
 		end
@@ -448,7 +448,7 @@ hook.Add( "StartCommand" , "TRizzleBotAIHook" , function( bot , cmd )
 		
 			bot:ReloadWeapons( cmd )
 			local botWeapon = bot:GetActiveWeapon()
-			if math.random(2) == 1 and !botWeapon:GetInternalVariable( "m_bInReload" ) and botWeapon:IsWeapon() and botWeapon:GetClass() != "weapon_medkit" and botWeapon:Clip1() < botWeapon:GetMaxClip1() then
+			if IsValid( botWeapon ) and botWeapon:IsWeapon() and math.random(2) == 1 and !botWeapon:GetInternalVariable( "m_bInReload" ) and botWeapon:GetClass() != "weapon_medkit" and botWeapon:Clip1() < botWeapon:GetMaxClip1() then
 				buttons = buttons + IN_RELOAD
 			end
 		end
@@ -626,7 +626,7 @@ end
 -- This will check if the bot's cursor is close the enemy the bot is fighting
 function BOT:PointWithinCursor( targetpos )
 	
-	local trace = util.TraceLine( { start = self:WorldSpaceCenter(), endpos = targetpos, filter = self, mask = TRACE_MASK_SHOT } )
+	local trace = util.TraceLine( { start = self:GetShootPos(), endpos = targetpos, filter = self, mask = TRACE_MASK_SHOT } )
 	
 	if trace.Entity != self.Enemy then return false end
 	
@@ -735,7 +735,7 @@ function BOT:RestoreAmmo()
 	
 	-- This is kind of a cheat, but the bot will only slowly recover ammo when not in combat
 	local pistol		=	self:GetWeapon( self.Pistol )
-	local rifle			=	self:GetWeapon( self.Rifle )
+	local rifle		=	self:GetWeapon( self.Rifle )
 	local shotgun		=	self:GetWeapon( self.Shotgun )
 	local sniper		=	self:GetWeapon( self.Sniper )
 	local pistol_ammo	=	nil
@@ -829,13 +829,12 @@ hook.Add( "PlayerSpawn" , "TRizzleBotSpawnHook" , function( ply )
 	
 	if ply:IsBot() and ply.IsTRizzleBot then
 		
-		ply:TBotResetAI() -- For some reason running the a time for 0.0 seconds works, but if I don't use a timer nothing works at all
+		ply:TBotResetAI() -- For some reason running the a timer for 0.0 seconds works, but if I don't use a timer nothing works at all
 		timer.Simple( 0.0 , function()
 			
 			if IsValid( ply ) and ply:Alive() then
 				
 				ply:SetModel( ply.PlayerModel )
-				ply:SetupHands()
 				
 				if ply.SpawnWithWeapons then
 					
@@ -1177,7 +1176,7 @@ function TRizzleBotRangeCheck( FirstNode , SecondNode , Ladder , Height )
 	
 	if isnumber( Height ) and -Height > 32 then
 	
-		DefaultCost		=	DefaultCost + ( GetApproximateFallDamage( math.abs( Height ) ) * 1.5 )
+		DefaultCost		=	DefaultCost + ( GetApproximateFallDamage( math.abs( Height ) ) * 5 )
 		-- Falling is risky and the bot might take fall damage.
 		
 	end
@@ -1472,7 +1471,8 @@ function TRizzleBotRetracePathCheap( StartNode , GoalNode )
 	local GO_LADDER_DOWN = 5
 	
 	local Trys			=	0 -- Backup! Prevent crashing.
-	
+	-- I need to check if this works
+	--local NewPath	=	{ { area = GoalNode, how = GoalNode:GetParentHow() } }
 	local NewPath	=	{ GoalNode }
 	
 	local Current	=	GoalNode
