@@ -623,6 +623,35 @@ function BOT:IsActiveWeaponRecoilHigh()
 	return (angles.x < highRecoil)
 end
 
+-- For some reason IsAbleToSee doesn't work with player bots
+local function PointWithinViewAngle(pos, targetpos, lookdir, fov)
+	
+	pos = targetpos - pos
+	local diff = lookdir:Dot(pos)
+	
+	if diff < 0 then return false end
+	
+	local length = pos:LengthSqr()
+	return diff * diff > length * fov * fov
+end
+
+function BOT:IsAbleToSee(pos, fov)
+
+	if IsValid( pos ) and IsEntity( pos ) then
+		-- we must check eyepos and worldspacecenter
+		-- maybe in the future add more points
+
+		if PointWithinViewAngle(self:GetShootPos(), pos:WorldSpaceCenter(), self:GetAimVector(), fov) then
+			return true
+		end
+
+		return PointWithinViewAngle(self:GetShootPos(), pos:EyePos(), self:GetAimVector(), fov)
+	else
+		return PointWithinViewAngle(self:GetShootPos(), pos, self:GetAimVector(), fov)
+	end
+end
+
+
 -- This will check if the bot's cursor is close the enemy the bot is fighting
 function BOT:PointWithinCursor( targetpos )
 	
