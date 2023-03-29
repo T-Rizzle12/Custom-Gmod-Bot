@@ -355,21 +355,21 @@ concommand.Add( "TBotSetDefault" , TBotSetDefault , nil , "Set the specified bot
 
 function BOT:TBotResetAI()
 	
-	self.Enemy				=	nil -- Refresh our enemy.
+	self.Enemy			=	nil -- Refresh our enemy.
 	self.EnemyList			=	{} -- This is the list of enemies the bot knows about.
 	self.TimeInCombat		=	0 -- This is how long the bot has been in combat
 	self.LastCombatTime		=	0 -- This was how long ago the bot was in combat
-	self.Jump				=	false -- Stop jumping
+	self.Jump			=	false -- Stop jumping
 	self.NextJump			=	CurTime() -- This is the next time the bot is allowed to jump
-	self.Crouch				=	false -- Stop crouching
+	self.Crouch			=	false -- Stop crouching
 	self.HoldCrouch			=	CurTime() -- This is how long the bot should hold its crouch button
 	self.PressUse			=	false -- Stop using
 	self.FullReload			=	false -- Stop reloading
-	self.FireWeaponInterval			=	CurTime() -- Limits how often the bot presses its attack button
-	self.Light				=	false -- Turn off the bot's flashlight
-	self.Goal				=	nil -- The vector goal we want to get to.
+	self.FireWeaponInterval		=	CurTime() -- Limits how often the bot presses its attack button
+	self.Light			=	false -- Turn off the bot's flashlight
+	self.Goal			=	nil -- The vector goal we want to get to.
 	self.NavmeshNodes		=	{} -- The nodes given to us by the pathfinder
-	self.Path				=	nil -- The nodes converted into waypoints by our visiblilty checking.
+	self.Path			=	nil -- The nodes converted into waypoints by our visiblilty checking.
 	self.PathTime			=	CurTime() + 0.5 -- This will limit how often the path gets recreated
 	
 	self:TBotCreateThinking() -- Start our AI
