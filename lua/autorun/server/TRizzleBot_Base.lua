@@ -388,7 +388,7 @@ hook.Add( "StartCommand" , "TRizzleBotAIHook" , function( bot , cmd )
 	-- Better make sure they exist of course.
 	if IsValid( bot.Enemy ) then
 		
-		local trace = util.TraceLine( { start = bot:GetShootPos(), endpos = bot.Enemy:EyePos() - Vector( 0, 0, 0.50 ), filter = self, mask = MASK_SHOT } )
+		local trace = util.TraceLine( { start = bot:GetShootPos(), endpos = bot.Enemy:EyePos() - Vector( 0, 0, 0.50 ), filter = bot, mask = MASK_SHOT } )
 		
 		-- Turn and face our enemy!
 		if trace.Entity == bot.Enemy and !bot:IsActiveWeaponRecoilHigh() then
@@ -620,7 +620,7 @@ function BOT:IsActiveWeaponRecoilHigh()
 
 	local angles = self:GetViewPunchAngles()
 	local highRecoil = -1.5
-	return (angles.x < highRecoil)
+	return angles.x < highRecoil
 end
 
 -- For some reason IsAbleToSee doesn't work with player bots
@@ -1018,9 +1018,9 @@ hook.Add( "PlayerHurt" , "TRizzleBotPlayerHurt" , function( victim, attacker )
 
 	if !IsValid( attacker ) or !IsValid( victim ) or !victim.IsTRizzleBot or !victim:IsBot() or attacker:IsPlayer() then return end
 	
-	if attacker:IsNPC() and ( attacker:Disposition( victim ) == D_HT or attacker:Disposition( victim.Owner ) == D_HT) then
+	if attacker:IsNPC() and !victim.EnemyList[ attacker:GetCreationID() ] and ( attacker:Disposition( victim ) == D_HT or attacker:Disposition( victim.Owner ) == D_HT) then
 
-		if !victim.EnemyList[ attacker:GetCreationID() ] then victim.EnemyList[ attacker:GetCreationID() ]		=	{ Enemy = attacker, LastSeenTime = CurTime() + 10.0 } end
+		victim.EnemyList[ attacker:GetCreationID() ]		=	{ Enemy = attacker, LastSeenTime = CurTime() + 10.0 }
 	
 	end
 
@@ -1153,18 +1153,13 @@ function BOT:TBotFindClosestTeammate()
 
 	for k, v in ipairs( player.GetAll() ) do
 		
-		if IsValid ( v ) and v:Health() < self.HealThreshold then -- The bot will heal any teammate that needs healing.
-			
-			if v:Visible( self ) and v:Alive() then -- Make sure we can actually see them and they are alive.
-				local teammatedist = (v:GetPos() - self:GetPos()):Length()
-				if teammatedist < targetdist then 
-					target = v
-					targetdist = teammatedist
-				end
+		if IsValid ( v ) and v:Alive() and v:Health() < self.HealThreshold and v:Visible( self ) then -- The bot will heal any teammate that needs healing that we can actually see and are alive.
+			local teammatedist = (v:GetPos() - self:GetPos()):Length()
+			if teammatedist < targetdist then 
+				target = v
+				targetdist = teammatedist
 			end
-			
 		end
-		
 	end
 	
 	return target
@@ -1849,17 +1844,6 @@ function BOT:TBotNavigation()
 			
 			self.Path				=	{} -- Reset that.
 			
-			-- We will compute the path quickly if its far away rather than use my laggy pathfinder for now.
-			--[[if self.Goal:Distance( self:GetPos() ) > 6000 or true then
-				
-				self.NavmeshNodes			=	TRizzleBotPathfinderCheap( self.StandingOnNode , TargetArea )
-				
-			else
-				-- Find a path through the navmesh to our TargetArea
-				self.NavmeshNodes		=	TRizzleBotPathfinder( self.StandingOnNode , TargetArea )
-			
-			end]]
-			
 			-- Pathfollower is not only cheaper, but it can use ladders.
 			self.NavmeshNodes		=	TRizzleBotPathfinderCheap( self.StandingOnNode , TargetArea )
 			
@@ -1970,7 +1954,7 @@ end
 -- The navigation and navigation debugger for when a bot is stuck.
 function BOT:TBotCreateNavTimer()
 	
-	local index				=	self:EntIndex()
+	local index			=	self:EntIndex()
 	local LastBotPos		=	self:GetPos()
 	local Attempts			=	0
 	
