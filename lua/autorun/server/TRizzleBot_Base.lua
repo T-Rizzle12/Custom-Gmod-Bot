@@ -1011,9 +1011,15 @@ end)
 -- TODO: I need to fill out the rest of the needed information
 hook.Add( "EntityEmitSound" , "TRizzleBotEntityEmitSound" , function( soundTable )
 	
-	if soundTable.Entity:IsPlayer() then return end
+	for k, bot in ipairs( player.GetBots() ) do
+			
+		if !IsValid( bot ) or !bot.IsTRizzleBot or !IsValid( soundTable.Entity ) or soundTable.Entity:IsPlayer() or soundTable.Entity == bot then return end
 	
-	if soundTable.Entity:IsNPC() and ( (soundTable.Pos - :GetPos()):Length() * ( soundTable.SoundLevel / 100 ) ) < 1000 then
+		if soundTable.Entity:IsNPC() and ( (soundTable.Pos - bot:GetPos()):Length() * ( soundTable.SoundLevel / 100 ) ) < 1000 then
+				
+			if !bot.EnemyList[ soundTable.Entity:GetCreationID() ] then bot.EnemyList[ soundTable.Entity:GetCreationID() ]		=	{ Enemy = soundTable.Entity, LastSeenTime = CurTime() + 10.0 } end
+				
+		end
 		
 	end
 	return
