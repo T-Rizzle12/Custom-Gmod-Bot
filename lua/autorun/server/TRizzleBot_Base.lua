@@ -1008,9 +1008,14 @@ hook.Add( "PlayerHurt" , "TRizzleBotPlayerHurt" , function( victim, attacker )
 end)
 
 -- Makes the bot react to sounds made by enemies
-hook.Add( "EntityEmitSound" , "TRizzleBotEntityEmitSound" , function( table )
+-- TODO: I need to fill out the rest of the needed information
+hook.Add( "EntityEmitSound" , "TRizzleBotEntityEmitSound" , function( soundTable )
+	
+	if soundTable.Entity:IsPlayer() then return end
+	
+	if soundTable.Entity:IsNPC() and ( (soundTable.Pos - :GetPos()):Length() * ( soundTable.SoundLevel / 100 ) ) < 1000 then
 		
-
+	end
 	return
 end)
 
