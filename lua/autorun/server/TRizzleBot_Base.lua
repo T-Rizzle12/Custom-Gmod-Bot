@@ -997,7 +997,7 @@ end
 -- Makes the bot react to damage taken by enemies
 hook.Add( "PlayerHurt" , "TRizzleBotTakeDamage" , function( victim, attacker )
 
-	if !IsValid( attacker ) or !IsValid( victim ) or !victim.IsTRizzleBot or !victim:IsBot() or attacker:IsPlayer() then return false end
+	if !IsValid( attacker ) or !IsValid( victim ) or !victim.IsTRizzleBot or !victim:IsBot() or attacker:IsPlayer() then return end
 	
 	if attacker:IsNPC() and ( attacker:Disposition( victim ) == D_HT or attacker:Disposition( victim.Owner ) == D_HT) then
 
