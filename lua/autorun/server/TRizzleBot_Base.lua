@@ -995,7 +995,7 @@ function BOT:TBotCreateThinking()
 end
 
 -- Makes the bot react to damage taken by enemies
-hook.Add( "PlayerHurt" , "TRizzleBotTakeDamage" , function( victim, attacker )
+hook.Add( "PlayerHurt" , "TRizzleBotPlayerHurt" , function( victim, attacker )
 
 	if !IsValid( attacker ) or !IsValid( victim ) or !victim.IsTRizzleBot or !victim:IsBot() or attacker:IsPlayer() then return end
 	
@@ -1005,6 +1005,13 @@ hook.Add( "PlayerHurt" , "TRizzleBotTakeDamage" , function( victim, attacker )
 	
 	end
 
+end)
+
+-- Makes the bot react to sounds made by enemies
+hook.Add( "EntityEmitSound" , "TRizzleBotEntityEmitSound" , function( table )
+		
+
+	return
 end)
 
 -- Checks if its current enemy is still alive and still visible to the bot
