@@ -378,8 +378,8 @@ end
 
 
 hook.Add( "StartCommand" , "TRizzleBotAIHook" , function( bot , cmd )
-	if !IsValid( bot ) or !bot:IsBot() or !bot:Alive() or !bot.IsTRizzleBot then return end
-	-- Make sure we can control this bot and its not a player.
+	if !IsValid( bot ) or !bot:IsBot() or !bot:Alive() or !bot.IsTRizzleBot or FrameTime() < 0.00001 then return end
+	-- Make sure we can control this bot and its not a player. I also check the frame time to stop the bot from spaming user commands
 	
 	cmd:ClearButtons() -- Clear the bots buttons. Shooting, Running , jumping etc...
 	cmd:ClearMovement() -- For when the bot is moving around.
@@ -708,37 +708,48 @@ end
 function BOT:SelectBestWeapon( cmd )
 	
 	-- This will select the best weapon based on the bot's current distance from its enemy
+	local enemydist		=	(self.Enemy:GetPos() - self:GetPos()):Length() -- Only compute this once, there is no point in recomputing it multiple times as doing so is a waste of computer resources
+	local bestWeapon	=	nil
+	
 	if self:HasWeapon( "weapon_medkit" ) and self.CombatHealThreshold > self:Health() then
 		
 		-- The bot will heal themself if they get too injured during combat
-		cmd:SelectWeapon( self:GetWeapon( "weapon_medkit" ) )
+		bestWeapon = "weapon_medkit"
+	else
+		-- I use multiple if statements instead of elseifs
+		if self:HasWeapon( self.Sniper ) and self:GetWeapon( self.Sniper ):HasAmmo() then
+			
+			-- If an enemy is very far away, the bot should use its sniper
+			bestWeapon = self.Sniper
+		end
 		
-	elseif self:HasWeapon( self.Sniper ) and self:GetWeapon( self.Sniper ):HasAmmo() and ( (self.Enemy:GetPos() - self:GetPos()):Length() > self.PistolDist or !self:HasWeapon( self.Pistol ) or !self:GetWeapon( self.Pistol ):HasAmmo() ) then
+		if self:HasWeapon( self.Pistol ) and self:GetWeapon( self.Pistol ):HasAmmo() and enemydist > self.PistolDist then
+			
+			-- If an enemy is far the bot, the bot should use its pistol
+			bestWeapon = self.Pistol
+		end
 		
-		-- If an enemy is very far away the bot should use its sniper
-		cmd:SelectWeapon( self:GetWeapon( self.Sniper ) )
+		if self:HasWeapon( self.Rifle ) and self:GetWeapon( self.Rifle ):HasAmmo() and enemydist > self.RifleDist then
 		
-	elseif self:HasWeapon( self.Pistol ) and self:GetWeapon( self.Pistol ):HasAmmo() and ( (self.Enemy:GetPos() - self:GetPos()):Length() > self.RifleDist or !self:HasWeapon( self.Rifle ) or !self:GetWeapon( self.Rifle ):HasAmmo() )then
+			-- If an enemy gets too far but is still close, the bot should use its rifle
+			bestWeapon = self.Rifle
+		end
 		
-		-- If an enemy is far the bot, the bot should use its pistol
-		cmd:SelectWeapon( self:GetWeapon( self.Pistol ) )
+		if self:HasWeapon( self.Shotgun ) and self:GetWeapon( self.Shotgun ):HasAmmo() and enemydist > self.ShotgunDist then
+			
+			-- If an enemy gets close, the bot should use its shotgun
+			bestWeapon = self.Shotgun
+		end
 		
-	elseif self:HasWeapon( self.Rifle ) and self:GetWeapon( self.Rifle ):HasAmmo() and ( (self.Enemy:GetPos() - self:GetPos()):Length() > self.ShotgunDist or !self:HasWeapon( self.Shotgun ) or !self:GetWeapon( self.Shotgun ):HasAmmo() ) then
-		
-		-- If an enemy gets too far but is still close the bot should use its rifle
-		cmd:SelectWeapon( self:GetWeapon( self.Rifle ) )
-		
-	elseif self:HasWeapon( self.Shotgun ) and self:GetWeapon( self.Shotgun ):HasAmmo() and ( (self.Enemy:GetPos() - self:GetPos()):Length() > self.MeleeDist or !self:HasWeapon( self.Melee ) ) then
-		
-		-- If an enemy gets too far but is still close the bot should use its shotgun
-		cmd:SelectWeapon( self:GetWeapon( self.Shotgun ) )
-		
-	elseif self:HasWeapon( self.Melee ) then
-		
-		-- If an enemy gets too close the bot should use its melee
-		cmd:SelectWeapon( self:GetWeapon( self.Melee ) )
-		
+		if self:HasWeapon( self.Melee ) and enemydist > self.MeleeDist then
+
+			-- If an enemy gets too close, the bot should use its melee
+			bestWeapon = self.Melee
+		end
 	end
+	
+	cmd:SelectWeapon( self:GetWeapon( bestWeapon ) )
+	
 end
 
 function BOT:HealTeammates( cmd, healTarget )
@@ -747,13 +758,21 @@ function BOT:HealTeammates( cmd, healTarget )
 	local botWeapon = self:GetActiveWeapon()
 	if !botWeapon:IsWeapon() or botWeapon:GetClass() != "weapon_medkit" then cmd:SelectWeapon( self:GetWeapon( "weapon_medkit" ) ) end
 	
-	if math.random(2) == 1 and healTarget == self then return IN_ATTACK2 
-	elseif healTarget == self then return 0 end
+	if CurTime() > bot.FireWeaponInterval and healTarget == self then
 	
-	local lerp = FrameTime() * math.random(8, 10)
-	self:SetEyeAngles( LerpAngle(lerp, self:EyeAngles(), ( ( healTarget:GetShootPos() - Vector( 0, 0, 10 ) ) - self:GetShootPos() ):GetNormalized():Angle() ) )
+		bot.FireWeaponInterval = CurTime() + 1.0
+		return IN_ATTACK2
+		
+	else
 	
-	if math.random(2) == 1 and self:GetEyeTrace().Entity == healTarget then return IN_ATTACK end
+		self:AimAtPos( healTarget:WorldSpaceCenter() )
+		if CurTime() > bot.FireWeaponInterval and self:GetEyeTrace().Entity == healTarget then
+		
+			bot.FireWeaponInterval = CurTime() + 1.0
+			return IN_ATTACK
+			
+		end
+	end
 	
 	return 0 -- The bot has to spam click its mouse1 and mouse2 button inorder to heal so this is a backup to prevent this function from returning nil
 	
