@@ -1015,9 +1015,9 @@ hook.Add( "EntityEmitSound" , "TRizzleBotEntityEmitSound" , function( soundTable
 			
 		if !IsValid( bot ) or !bot.IsTRizzleBot or !IsValid( soundTable.Entity ) or soundTable.Entity:IsPlayer() or soundTable.Entity == bot then return end
 	
-		if soundTable.Entity:IsNPC() and ( (soundTable.Pos - bot:GetPos()):Length() * ( soundTable.SoundLevel / 100 ) ) < 1000 then
-				
-			if !bot.EnemyList[ soundTable.Entity:GetCreationID() ] then bot.EnemyList[ soundTable.Entity:GetCreationID() ]		=	{ Enemy = soundTable.Entity, LastSeenTime = CurTime() + 10.0 } end
+		if soundTable.Entity:IsNPC() and !bot.EnemyList[ soundTable.Entity:GetCreationID() ] and v:GetNPCState() != NPC_STATE_DEAD and v:GetInternalVariable( "m_lifeState" ) == 0 and (v:Disposition( self ) == D_HT or v:Disposition( self.Owner ) == D_HT) and (soundTable.Pos - bot:GetPos()):Length() < ( 1000 * ( soundTable.SoundLevel / 100 ) ) then
+			
+			bot.EnemyList[ soundTable.Entity:GetCreationID() ]		=	{ Enemy = soundTable.Entity, LastSeenTime = CurTime() + 10.0 }
 				
 		end
 		
