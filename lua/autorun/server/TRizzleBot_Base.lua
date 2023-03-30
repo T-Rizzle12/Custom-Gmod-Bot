@@ -388,7 +388,7 @@ hook.Add( "StartCommand" , "TRizzleBotAIHook" , function( bot , cmd )
 	-- Better make sure they exist of course.
 	if IsValid( bot.Enemy ) then
 		
-		local trace = util.TraceLine( { start = bot:GetShootPos(), endpos = bot.Enemy:EyePos() - Vector( 0, 0, 0.50 ), filter = self, mask = TRACE_MASK_SHOT } )
+		local trace = util.TraceLine( { start = bot:GetShootPos(), endpos = bot.Enemy:EyePos() - Vector( 0, 0, 0.50 ), filter = self, mask = MASK_SHOT } )
 		
 		-- Turn and face our enemy!
 		if trace.Entity == bot.Enemy and !bot:IsActiveWeaponRecoilHigh() then
@@ -624,7 +624,7 @@ function BOT:IsActiveWeaponRecoilHigh()
 end
 
 -- For some reason IsAbleToSee doesn't work with player bots
-local function PointWithinViewAngle(pos, targetpos, lookdir, fov)
+local function PointWithinViewAngle( pos, targetpos, lookdir, fov )
 	
 	pos = targetpos - pos
 	local diff = lookdir:Dot(pos)
@@ -635,27 +635,48 @@ local function PointWithinViewAngle(pos, targetpos, lookdir, fov)
 	return diff * diff > length * fov * fov
 end
 
-function BOT:IsAbleToSee(pos, fov)
+-- This checks if the entered position in the bot's LOS
+function BOT:IsAbleToSee( pos )
+
+	local fov = math.cos(0.5 * self:GetFOV() * math.pi / 180) -- I grab the bot's current FOV
 
 	if IsValid( pos ) and IsEntity( pos ) then
 		-- we must check eyepos and worldspacecenter
 		-- maybe in the future add more points
 
 		if PointWithinViewAngle(self:GetShootPos(), pos:WorldSpaceCenter(), self:GetAimVector(), fov) then
-			return true
+			local trace = util.TraceLine( { start = self:GetShootPos(), endpos = pos:WorldSpaceCenter(), filter = self, mask = MASK_VISIBLE_AND_NPCS } )
+			
+			if trace.Entity == pos then
+				return true
+			end
+		
+		elseif PointWithinViewAngle(self:GetShootPos(), pos:EyePos(), self:GetAimVector(), fov) then
+			local trace = util.TraceLine( { start = self:GetShootPos(), endpos = pos:EyePos(), filter = self, mask = MASK_VISIBLE_AND_NPCS } )
+			
+			if trace.Entity == pos then
+				return true
+			end
 		end
 
-		return PointWithinViewAngle(self:GetShootPos(), pos:EyePos(), self:GetAimVector(), fov)
 	else
-		return PointWithinViewAngle(self:GetShootPos(), pos, self:GetAimVector(), fov)
+		if PointWithinViewAngle(self:GetShootPos(), pos, self:GetAimVector(), fov) then 
+			local trace = util.TraceLine( { start = self:GetShootPos(), endpos = pos, filter = self, mask = MASK_VISIBLE_AND_NPCS } )
+		
+			if trace.Fraction <= 1.0 then
+				return 
+			end
+		end
 	end
+	
+	return false
 end
 
 
 -- This will check if the bot's cursor is close the enemy the bot is fighting
 function BOT:PointWithinCursor( targetpos )
 	
-	local trace = util.TraceLine( { start = self:GetShootPos(), endpos = targetpos, filter = self, mask = TRACE_MASK_SHOT } )
+	local trace = util.TraceLine( { start = self:GetShootPos(), endpos = targetpos, filter = self, mask = MASK_SHOT } )
 	
 	if trace.Entity != self.Enemy then return false end
 	
@@ -973,6 +994,19 @@ function BOT:TBotCreateThinking()
 	
 end
 
+-- Makes the bot react to damage taken by enemies
+hook.Add( "PlayerHurt" , "TRizzleBotTakeDamage" , function( victim, attacker )
+
+	if !IsValid( attacker ) or !IsValid( victim ) or !victim.IsTRizzleBot or !victim:IsBot() or attacker:IsPlayer() then return false end
+	
+	if attacker:IsNPC() and ( attacker:Disposition( victim ) == D_HT or attacker:Disposition( victim.Owner ) == D_HT) then
+
+		if !victim.EnemyList[ attacker:GetCreationID() ] then victim.EnemyList[ attacker:GetCreationID() ]		=	{ Enemy = attacker, LastSeenTime = CurTime() + 10.0 } end
+	
+	end
+
+end)
+
 -- Checks if its current enemy is still alive and still visible to the bot
 function BOT:CheckCurrentEnemyStatus()
 	
@@ -1044,9 +1078,8 @@ function BOT:TBotFindClosestEnemy()
 		
 		if IsValid ( v ) and v:IsNPC() and v:GetNPCState() != NPC_STATE_DEAD and v:GetInternalVariable( "m_lifeState" ) == 0 and (v:Disposition( self ) == D_HT or v:Disposition( self.Owner ) == D_HT) then -- The bot should attack any NPC that is hostile to them or their owner. D_HT means hostile/hate
 			
-			if v:Visible( self ) or ( VisibleEnemies[ v:GetCreationID() ] and v:Visible( self ) ) then -- This will be split into two functions once I start working on Bot Senses and Memory update
-			
-				local enemydist = (v:GetPos() - self:GetPos()):Length()
+			local enemydist = (v:GetPos() - self:GetPos()):Length()
+			if self:IsAbleToSee( v ) then
 				
 				if !VisibleEnemies[ v:GetCreationID() ] then VisibleEnemies[ v:GetCreationID() ]		=	{ Enemy = v, LastSeenTime = CurTime() + 10.0 } end -- We grab the entity's Creation ID because the will never be the same as any other entity.
 				
@@ -1054,6 +1087,14 @@ function BOT:TBotFindClosestEnemy()
 					target = v
 					targetdist = enemydist
 				end
+				
+			elseif VisibleEnemies[ v:GetCreationID() ] and v:Visible( self ) then
+				
+				if ( !IsValid( target ) or enemydist < 200 ) and enemydist < targetdist then 
+					target = v
+					targetdist = enemydist
+				end
+			
 			end
 		end
 		
