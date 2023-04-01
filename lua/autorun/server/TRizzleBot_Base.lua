@@ -676,6 +676,15 @@ function BOT:IsAbleToSee( pos )
 	return false
 end
 
+-- Got this from CS:GO Source Code, made some changes so it works for Lua
+function IsHiddenByFog( range )
+
+	if GetFogObscuredRatio( range ) >= 1.0 then
+		return true
+	end
+
+	return false
+end
 
 -- This will check if the bot's cursor is close the enemy the bot is fighting
 function BOT:PointWithinCursor( targetpos )
