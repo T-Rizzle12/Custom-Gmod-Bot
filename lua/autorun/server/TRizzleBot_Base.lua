@@ -5,6 +5,7 @@ local Lad		=	FindMetaTable( "CNavLadder" )
 local Open_List		=	{}
 local Node_Data		=	{}
 util.AddNetworkString( "TRizzleBotFlashlight" )
+util.AddNetworkString( "TRizzleBotFogCheck" )
 
 function TBotCreate( ply , cmd , args ) -- This code defines stats of the bot when it is created.  
 	if !args[ 1 ] then error( "[WARNING] Please give a name for the bot!" ) end 
