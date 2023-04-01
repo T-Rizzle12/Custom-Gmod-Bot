@@ -355,22 +355,23 @@ concommand.Add( "TBotSetDefault" , TBotSetDefault , nil , "Set the specified bot
 
 function BOT:TBotResetAI()
 	
-	self.Enemy			=	nil -- Refresh our enemy.
-	self.EnemyList			=	{} -- This is the list of enemies the bot knows about.
-	self.TimeInCombat		=	0 -- This is how long the bot has been in combat
-	self.LastCombatTime		=	0 -- This was how long ago the bot was in combat
-	self.Jump			=	false -- Stop jumping
-	self.NextJump			=	CurTime() -- This is the next time the bot is allowed to jump
-	self.Crouch			=	false -- Stop crouching
-	self.HoldCrouch			=	CurTime() -- This is how long the bot should hold its crouch button
-	self.PressUse			=	false -- Stop using
-	self.FullReload			=	false -- Stop reloading
+	self.Enemy					=	nil -- Refresh our enemy.
+	self.EnemyList				=	{} -- This is the list of enemies the bot knows about.
+	self.TimeInCombat			=	0 -- This is how long the bot has been in combat
+	self.LastCombatTime			=	0 -- This was how long ago the bot was in combat
+	self.Jump					=	false -- Stop jumping
+	self.NextJump				=	CurTime() -- This is the next time the bot is allowed to jump
+	self.Crouch					=	false -- Stop crouching
+	self.HoldCrouch				=	CurTime() -- This is how long the bot should hold its crouch button
+	self.PressUse				=	false -- Stop using
+	self.FullReload				=	false -- Stop reloading
 	self.FireWeaponInterval		=	CurTime() -- Limits how often the bot presses its attack button
-	self.Light			=	false -- Turn off the bot's flashlight
-	self.Goal			=	nil -- The vector goal we want to get to.
-	self.NavmeshNodes		=	{} -- The nodes given to us by the pathfinder
-	self.Path			=	nil -- The nodes converted into waypoints by our visiblilty checking.
-	self.PathTime			=	CurTime() + 0.5 -- This will limit how often the path gets recreated
+	self.ReloadInterval			=	CurTime() -- Limits how often the bot can press its reload button
+	self.Light					=	false -- Turn off the bot's flashlight
+	self.Goal					=	nil -- The vector goal we want to get to.
+	self.NavmeshNodes			=	{} -- The nodes given to us by the pathfinder
+	self.Path					=	nil -- The nodes converted into waypoints by our visiblilty checking.
+	self.PathTime				=	CurTime() + 0.5 -- This will limit how often the path gets recreated
 	
 	self:TBotCreateThinking() -- Start our AI
 	
@@ -411,16 +412,18 @@ hook.Add( "StartCommand" , "TRizzleBotAIHook" , function( bot , cmd )
 		
 		if IsValid( botWeapon ) and botWeapon:IsWeapon() and CurTime() > bot.FireWeaponInterval and !botWeapon:GetInternalVariable( "m_bInReload" ) and !bot.FullReload and botWeapon:GetClass() != "weapon_medkit" and ( bot:GetEyeTraceNoCursor().Entity == bot.Enemy or bot:IsCursorOnTarget() or (bot.Enemy:GetPos() - bot:GetPos()):Length() < bot.MeleeDist ) then
 			buttons = buttons + IN_ATTACK
-			bot.FireWeaponInterval = CurTime() + math.Rand( 0.3 , 0.15 )
+			bot.FireWeaponInterval = CurTime() + math.Rand( 0.15 , 0.4 )
 		end
 		
-		if IsValid( botWeapon ) and botWeapon:IsWeapon() and math.random(2) == 1 and botWeapon:GetClass() == "weapon_medkit" and bot.CombatHealThreshold > bot:Health() then
+		if IsValid( botWeapon ) and botWeapon:IsWeapon() and CurTime() > bot.FireWeaponInterval and botWeapon:GetClass() == "weapon_medkit" and bot.CombatHealThreshold > bot:Health() then
 			buttons = buttons + IN_ATTACK2
+			bot.FireWeaponInterval = CurTime() + 1.0
 		end
 		
-		if IsValid( botWeapon ) and botWeapon:IsWeapon() and math.random(2) == 1 and !botWeapon:GetInternalVariable( "m_bInReload" ) and botWeapon:Clip1() == 0 then
+		if IsValid( botWeapon ) and botWeapon:IsWeapon() and CurTime() > bot.ReloadInterval and !botWeapon:GetInternalVariable( "m_bInReload" ) and botWeapon:Clip1() == 0 then
 			if botWeapon:GetClass() == bot.Shotgun then bot.FullReload = true end
 			buttons = buttons + IN_RELOAD
+			bot.ReloadInterval = CurTime() + 1.0
 		end
 		
 		cmd:SetButtons( bot:HandleButtons( buttons ) )
@@ -448,8 +451,9 @@ hook.Add( "StartCommand" , "TRizzleBotAIHook" , function( bot , cmd )
 		
 			bot:ReloadWeapons( cmd )
 			local botWeapon = bot:GetActiveWeapon()
-			if IsValid( botWeapon ) and botWeapon:IsWeapon() and math.random(2) == 1 and !botWeapon:GetInternalVariable( "m_bInReload" ) and botWeapon:GetClass() != "weapon_medkit" and botWeapon:Clip1() < botWeapon:GetMaxClip1() then
+			if IsValid( botWeapon ) and botWeapon:IsWeapon() and CurTime() > bot.ReloadInterval and !botWeapon:GetInternalVariable( "m_bInReload" ) and botWeapon:GetClass() != "weapon_medkit" and botWeapon:Clip1() < botWeapon:GetMaxClip1() then
 				buttons = buttons + IN_RELOAD
+				bot.ReloadInterval = CurTime() + 1.0
 			end
 		end
 			
@@ -723,25 +727,25 @@ function BOT:SelectBestWeapon( cmd )
 			bestWeapon = self.Sniper
 		end
 		
-		if self:HasWeapon( self.Pistol ) and self:GetWeapon( self.Pistol ):HasAmmo() and enemydist > self.PistolDist then
+		if self:HasWeapon( self.Pistol ) and self:GetWeapon( self.Pistol ):HasAmmo() and enemydist < self.PistolDist then
 			
 			-- If an enemy is far the bot, the bot should use its pistol
 			bestWeapon = self.Pistol
 		end
 		
-		if self:HasWeapon( self.Rifle ) and self:GetWeapon( self.Rifle ):HasAmmo() and enemydist > self.RifleDist then
+		if self:HasWeapon( self.Rifle ) and self:GetWeapon( self.Rifle ):HasAmmo() and enemydist < self.RifleDist then
 		
 			-- If an enemy gets too far but is still close, the bot should use its rifle
 			bestWeapon = self.Rifle
 		end
 		
-		if self:HasWeapon( self.Shotgun ) and self:GetWeapon( self.Shotgun ):HasAmmo() and enemydist > self.ShotgunDist then
+		if self:HasWeapon( self.Shotgun ) and self:GetWeapon( self.Shotgun ):HasAmmo() and enemydist < self.ShotgunDist then
 			
 			-- If an enemy gets close, the bot should use its shotgun
 			bestWeapon = self.Shotgun
 		end
 		
-		if self:HasWeapon( self.Melee ) and enemydist > self.MeleeDist then
+		if self:HasWeapon( self.Melee ) and enemydist < self.MeleeDist then
 
 			-- If an enemy gets too close, the bot should use its melee
 			bestWeapon = self.Melee
@@ -758,17 +762,17 @@ function BOT:HealTeammates( cmd, healTarget )
 	local botWeapon = self:GetActiveWeapon()
 	if !botWeapon:IsWeapon() or botWeapon:GetClass() != "weapon_medkit" then cmd:SelectWeapon( self:GetWeapon( "weapon_medkit" ) ) end
 	
-	if CurTime() > bot.FireWeaponInterval and healTarget == self then
+	if CurTime() > self.FireWeaponInterval and healTarget == self then
 	
-		bot.FireWeaponInterval = CurTime() + 1.0
+		self.FireWeaponInterval = CurTime() + 1.0
 		return IN_ATTACK2
 		
-	else
+	elseif healTarget != self then
 	
 		self:AimAtPos( healTarget:WorldSpaceCenter() )
-		if CurTime() > bot.FireWeaponInterval and self:GetEyeTrace().Entity == healTarget then
+		if CurTime() > self.FireWeaponInterval and self:GetEyeTrace().Entity == healTarget then
 		
-			bot.FireWeaponInterval = CurTime() + 1.0
+			self.FireWeaponInterval = CurTime() + 1.0
 			return IN_ATTACK
 			
 		end
@@ -1030,13 +1034,13 @@ end)
 hook.Add( "EntityEmitSound" , "TRizzleBotEntityEmitSound" , function( soundTable )
 	
 	for k, bot in ipairs( player.GetBots() ) do
-			
+		
 		if !IsValid( bot ) or !bot.IsTRizzleBot or !IsValid( soundTable.Entity ) or soundTable.Entity:IsPlayer() or soundTable.Entity == bot then return end
 	
-		if soundTable.Entity:IsNPC() and !bot.EnemyList[ soundTable.Entity:GetCreationID() ] and soundTable.Entity:GetNPCState() != NPC_STATE_DEAD and soundTable.Entity:GetInternalVariable( "m_lifeState" ) == 0 and (soundTable.Entity:Disposition( bot ) == D_HT or soundTable.Entity:Disposition( bot.Owner ) == D_HT) and (soundTable.Pos - bot:GetPos()):Length() < ( 1000 * ( soundTable.SoundLevel / 100 ) ) then
+		if soundTable.Entity:IsNPC() and !bot.EnemyList[ soundTable.Entity:GetCreationID() ] and soundTable.Entity:GetNPCState() != NPC_STATE_DEAD and soundTable.Entity:GetInternalVariable( "m_lifeState" ) == 0 and (soundTable.Entity:Disposition( bot ) == D_HT or soundTable.Entity:Disposition( bot.Owner ) == D_HT) and (soundTable.Entity:GetPos() - bot:GetPos()):Length() < ( 1000 * ( soundTable.SoundLevel / 100 ) ) then
 			
 			bot.EnemyList[ soundTable.Entity:GetCreationID() ]		=	{ Enemy = soundTable.Entity, LastSeenTime = CurTime() + 10.0 }
-				
+			
 		end
 		
 	end
