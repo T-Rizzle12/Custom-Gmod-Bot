@@ -2,6 +2,10 @@ local BOT		=	FindMetaTable( "Player" )
 local Ent		=	FindMetaTable( "Entity" )
 local Zone		=	FindMetaTable( "CNavArea" )
 local Lad		=	FindMetaTable( "CNavLadder" )
+local LOW_PRIORITY	=	0
+local MEDIUM_PRIORITY	=	1
+local HIGH_PRIORITY	=	2
+local MAXIMUM_PRIORITY	=	3
 local Open_List		=	{}
 local Node_Data		=	{}
 util.AddNetworkString( "TRizzleBotFlashlight" )
@@ -369,6 +373,9 @@ function BOT:TBotResetAI()
 	self.FireWeaponInterval		=	CurTime() -- Limits how often the bot presses its attack button
 	self.ReloadInterval			=	CurTime() -- Limits how often the bot can press its reload button
 	self.Light					=	false -- Turn off the bot's flashlight
+	self.LookTarget					=	false -- This is the position the bot is currently trying to look at
+	self.LookTargetTime				=	CurTime() -- This is how long the bot will look at the position the bot is currently trying to look at
+	self.LookTargetPriority				=	LOW_PRIORITY -- This is how important the position the bot is currently trying to look at is
 	self.Goal					=	nil -- The vector goal we want to get to.
 	self.NavmeshNodes			=	{} -- The nodes given to us by the pathfinder
 	self.Path					=	nil -- The nodes converted into waypoints by our visiblilty checking.
@@ -390,7 +397,7 @@ hook.Add( "StartCommand" , "TRizzleBotAIHook" , function( bot , cmd )
 	-- Better make sure they exist of course.
 	if IsValid( bot.Enemy ) then
 		
-		local trace = util.TraceLine( { start = bot:GetShootPos(), endpos = bot.Enemy:EyePos() - Vector( 0, 0, 0.50 ), filter = bot, mask = MASK_SHOT } )
+		local trace = util.TraceLine( { start = bot:GetShootPos(), endpos = bot.Enemy:EyePos(), filter = self, mask = MASK_SHOT } )
 		
 		-- Turn and face our enemy!
 		if trace.Entity == bot.Enemy and !bot:IsActiveWeaponRecoilHigh() then
