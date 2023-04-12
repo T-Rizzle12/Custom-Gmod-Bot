@@ -1061,7 +1061,7 @@ function BOT:TBotCreateThinking()
 	end)
 	
 	-- This is the bot's update function. This will run less often since it has the most expensive functions
-	timer.Create( "trizzle_bot_update" .. index , ( timer_time + 2.0 ) , 0 , function()
+	timer.Create( "trizzle_bot_update" .. index , timer_time + 2.0 , 0 , function()
 		
 		if IsValid( self ) and self:Alive() then
 			
