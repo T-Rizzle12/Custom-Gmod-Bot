@@ -365,6 +365,7 @@ function BOT:TBotResetAI()
 	self.TimeInCombat			=	0 -- This is how long the bot has been in combat
 	self.LastCombatTime			=	0 -- This was how long ago the bot was in combat
 	self.BestWeapon				=	nil -- This is the weapon the bot currently wants to have out.
+	self.IsTRizzleBotBlind			=	false -- Is the bot blind.
 	self.Jump					=	false -- Stop jumping
 	self.NextJump				=	CurTime() -- This is the next time the bot is allowed to jump
 	self.Crouch					=	false -- Stop crouching
@@ -640,8 +641,8 @@ end
 function BOT:AimAtPos( Pos, Time, Priority )
 	if !isvector( Pos ) or Time < CurTime() or ( self.LookTargetPriority > Priority and CurTime() < self.LookTargetTime ) then return end
 	
-	self.LookTarget				=	Pos
-	self.LookTargetTime			=	Time
+	self.LookTarget			=	Pos
+	self.LookTargetTime		=	Time
 	self.LookTargetPriority		=	Priority
 	
 end
@@ -668,6 +669,7 @@ end
 
 -- This checks if the entered position in the bot's LOS
 function BOT:IsAbleToSee( pos )
+	if self.IsTRizzleBotBlind then return false end
 
 	local fov = math.cos(0.5 * self:GetFOV() * math.pi / 180) -- I grab the bot's current FOV
 
@@ -695,12 +697,25 @@ function BOT:IsAbleToSee( pos )
 			local trace = util.TraceLine( { start = self:GetShootPos(), endpos = pos, filter = self, mask = MASK_VISIBLE_AND_NPCS } )
 		
 			if trace.Fraction <= 1.0 then
-				return 
+				return true
 			end
 		end
 	end
 	
 	return false
+end
+
+-- Blinds the bot for a specified amount of time
+function BOT:TBotBlind( time )
+	if !IsValid( self ) or !isnumber( time ) or time < 0 then return end
+	
+	self.IsTRizzleBotBlind = true
+	timer.Simple( time , function()
+		
+		if IsValid( self ) and self:Alive() then self.IsTRizzleBotBlind = false end
+			
+	end)
+	
 end
 
 -- Got this from CS:GO Source Code, made some changes so it works for Lua
@@ -1169,12 +1184,12 @@ function BOT:TBotCheckEnemyList()
 			self.EnemyList[ k ] = nil
 			continue
 			
-		elseif !v.Enemy:Visible( self ) and v.LastSeenTime < CurTime() then 
+		elseif ( !v.Enemy:Visible( self ) or self.IsTRizzleBotBlind ) and v.LastSeenTime < CurTime() then 
 			
 			self.EnemyList[ k ] = nil
 			continue
 		
-		elseif v.Enemy:Visible( self ) then 
+		elseif !self.IsTRizzleBotBlind and v.Enemy:Visible( self ) then 
 		
 			self.EnemyList[ k ][ "LastSeenTime" ] = CurTime() + 10.0 
 			
