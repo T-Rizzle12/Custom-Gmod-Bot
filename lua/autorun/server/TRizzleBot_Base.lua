@@ -2,9 +2,9 @@ local BOT		=	FindMetaTable( "Player" )
 local Ent		=	FindMetaTable( "Entity" )
 local Zone		=	FindMetaTable( "CNavArea" )
 local Lad		=	FindMetaTable( "CNavLadder" )
-local LOW_PRIORITY		=	0
+local LOW_PRIORITY	=	0
 local MEDIUM_PRIORITY	=	1
-local HIGH_PRIORITY		=	2
+local HIGH_PRIORITY	=	2
 local MAXIMUM_PRIORITY	=	3
 local Open_List		=	{}
 local Node_Data		=	{}
@@ -361,6 +361,7 @@ function BOT:TBotResetAI()
 	
 	self.Enemy					=	nil -- Refresh our enemy.
 	self.EnemyList				=	{} -- This is the list of enemies the bot knows about.
+	self.AimForHead				=	false -- Should the bot aim for the head?
 	self.TimeInCombat			=	0 -- This is how long the bot has been in combat
 	self.LastCombatTime			=	0 -- This was how long ago the bot was in combat
 	self.BestWeapon				=	nil -- This is the weapon the bot currently wants to have out.
@@ -397,10 +398,8 @@ hook.Add( "StartCommand" , "TRizzleBotAIHook" , function( bot , cmd )
 	-- Better make sure they exist of course.
 	if IsValid( bot.Enemy ) then
 		
-		local trace = util.TraceLine( { start = bot:GetShootPos(), endpos = bot.Enemy:EyePos(), filter = self, mask = MASK_SHOT } )
-		
 		-- Turn and face our enemy!
-		if trace.Entity == bot.Enemy and !bot:IsActiveWeaponRecoilHigh() then
+		if bot.AimForHead and !bot:IsActiveWeaponRecoilHigh() then
 		
 			-- Can we aim the enemy's head?
 			bot:AimAtPos( bot.Enemy:EyePos(), CurTime() + 0.1, HIGH_PRIORITY )
@@ -425,7 +424,7 @@ hook.Add( "StartCommand" , "TRizzleBotAIHook" , function( bot , cmd )
 		
 		if IsValid( botWeapon ) and botWeapon:IsWeapon() and CurTime() > bot.FireWeaponInterval and botWeapon:GetClass() == "weapon_medkit" and bot.CombatHealThreshold > bot:Health() then
 			buttons = buttons + IN_ATTACK2
-			bot.FireWeaponInterval = CurTime() + 1.0
+			bot.FireWeaponInterval = CurTime() + 0.5
 		end
 		
 		if IsValid( botWeapon ) and botWeapon:IsWeapon() and CurTime() > bot.ReloadInterval and !botWeapon:GetInternalVariable( "m_bInReload" ) and botWeapon:Clip1() == 0 then
@@ -635,17 +634,11 @@ function BOT:UpdateAim()
 	angles = angles - self:GetViewPunchAngles()
 
 	self:SetEyeAngles( angles )
-	if CurTime() > self.LookTargetTime then 
-		
-		self.LookTarget				=	false 
-		self.LookTargetPriority		=	LOW_PRIORITY
-	
-	end
 
 end
 
 function BOT:AimAtPos( Pos, Time, Priority )
-	if !isvector( Pos ) or Time < CurTime() or self.LookTargetPriority > Priority then return end
+	if !isvector( Pos ) or Time < CurTime() or ( self.LookTargetPriority > Priority and CurTime() < self.LookTargetTime ) then return end
 	
 	self.LookTarget				=	Pos
 	self.LookTargetTime			=	Time
@@ -755,8 +748,8 @@ end
 function BOT:SelectBestWeapon()
 	
 	-- This will select the best weapon based on the bot's current distance from its enemy
-	local enemydistsqr		=	(self.Enemy:GetPos() - self:GetPos()):LengthSqr() -- Only compute this once, there is no point in recomputing it multiple times as doing so is a waste of computer resources
-	local bestWeapon	=	nil
+	local enemydistsqr	=	(self.Enemy:GetPos() - self:GetPos()):LengthSqr() -- Only compute this once, there is no point in recomputing it multiple times as doing so is a waste of computer resources
+	local bestWeapon
 	
 	if self:HasWeapon( "weapon_medkit" ) and self.CombatHealThreshold > self:Health() then
 		
@@ -803,7 +796,7 @@ function BOT:HealTeammates( cmd, healTarget )
 
 	-- This is where the bot will heal themself, their owner, and their teammates when not in combat
 	local botWeapon = self:GetActiveWeapon()
-	if !botWeapon:IsWeapon() or botWeapon:GetClass() != "weapon_medkit" then cmd:SelectWeapon( self:GetWeapon( "weapon_medkit" ) ) end
+	if IsValid( botWeapon ) and !botWeapon:IsWeapon() or botWeapon:GetClass() != "weapon_medkit" then cmd:SelectWeapon( self:GetWeapon( "weapon_medkit" ) ) end
 	
 	if CurTime() > self.FireWeaponInterval and healTarget == self then
 	
@@ -851,7 +844,7 @@ function BOT:RestoreAmmo()
 	
 	-- This is kind of a cheat, but the bot will only slowly recover ammo when not in combat
 	local pistol		=	self:GetWeapon( self.Pistol )
-	local rifle			=	self:GetWeapon( self.Rifle )
+	local rifle		=	self:GetWeapon( self.Rifle )
 	local shotgun		=	self:GetWeapon( self.Shotgun )
 	local sniper		=	self:GetWeapon( self.Sniper )
 	local pistol_ammo
@@ -1002,14 +995,14 @@ end)
 -- The main AI is here.
 function BOT:TBotCreateThinking()
 	
-	local index			=	self:EntIndex()
+	local index		=	self:EntIndex()
 	local timer_time	=	math.Rand( 0.08 , 0.15 )
 	
 	-- I used math.Rand as a personal preference, It just prevents all the timers being ran at the same time
 	-- as other bots timers.
 	timer.Create( "trizzle_bot_upkeep" .. index , timer_time , 0 , function()
 		
-		if IsValid( self ) and self:Alive() then
+		if IsValid( self ) and self:Alive() and self.IsTRizzleBot then
 			
 			-- A quick condition statement to check if our enemy is no longer a threat.
 			self:CheckCurrentEnemyStatus()
@@ -1020,8 +1013,20 @@ function BOT:TBotCreateThinking()
 				self:ReloadWeapons()
 				self:RestoreAmmo() 
 				
-			elseif IsValid( self.Enemy ) and self:IsInCombat() then
+			elseif IsValid( self.Enemy ) then
 			
+				local trace = util.TraceLine( { start = self:GetShootPos(), endpos = self.Enemy:EyePos(), filter = self, mask = MASK_SHOT } )
+					
+				if trace.Entity == self.Enemy then
+					
+					self.AimForHead = true
+						
+				else
+						
+					self.AimForHead = false
+						
+				end
+					
 				self:SelectBestWeapon()
 			
 			end
@@ -1062,7 +1067,7 @@ function BOT:TBotCreateThinking()
 	-- This is the bot's update function. This will run less often since it has the most expensive functions
 	timer.Create( "trizzle_bot_update" .. index , timer_time + 2.0 , 0 , function()
 		
-		if IsValid( self ) and self:Alive() then
+		if IsValid( self ) and self:Alive() and self.IsTRizzleBot then
 			
 			-- Checks the entire enemy list and checks if they are alive, visible, and valid.
 			self:TBotCheckEnemyList()
