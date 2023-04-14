@@ -761,7 +761,7 @@ function BOT:GetFogTrigger()
 
 	for k, fogTrigger in ipairs( ents.GetAll() ) do
 	
-		if IsValid( fogTrigger ) then -- I need to find the classname of the fog trigger
+		if IsValid( fogTrigger ) and fogTrigger:GetClass() == "trigger_fog" then
 		
 			local dist = WorldSpaceCenter():DistToSqr( fogTrigger:WorldSpaceCenter() )
 			if dist < bestDist then
