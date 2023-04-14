@@ -731,21 +731,24 @@ end
 
 -- Got this from CS:GO Source Code, made some changes so it works for Lua
 -- This returns a number based on how obscured a position is, 0.0 not obscured and 1.0 completely obscured
-function BOT:GetFogObscuredRatio( range ) then
+function BOT:GetFogObscuredRatio( range )
 
 	local fog = self:GetFogParams()
 
-	if !fog.enable
+	if !fog.enable then
 		return 0.0
+	end
 
-	if range <= fog.start
+	if range <= fog.start then
 		return 0.0
+	end
 
-	if range >= fog.end
+	if range >= fog.end then
 		return 1.0
+	end
 
 	local ratio = (range - fog.start) / (fog.end - fog.start)
-	ratio = math.Min( ratio, fog.maxdensity )
+	ratio = math.min( ratio, fog.maxdensity )
 	return ratio
 end
 
