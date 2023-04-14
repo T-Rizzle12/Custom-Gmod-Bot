@@ -752,6 +752,33 @@ function BOT:GetFogObscuredRatio( range )
 	return ratio
 end
 
+-- Got this from CS:GO Source Code, made some changes so it works for Lua
+-- Tracks the last trigger_fog touched by this bot
+function BOT:GetFogTrigger()
+
+	local bestDist = 100000 * 100000
+	local bestTrigger = nil
+
+	for k, fogTrigger in ipairs( ents.GetAll() ) do
+	
+		if IsValid( fogTrigger ) then -- I need to find the classname of the fog trigger
+		
+			local dist = WorldSpaceCenter():DistToSqr( fogTrigger:WorldSpaceCenter() )
+			if dist < bestDist then
+				bestDist = dist
+				bestTrigger = fogTrigger
+			end
+		end
+	end
+
+	if IsValid( bestTrigger ) then
+	
+		return bestTrigger
+	end
+
+	return nil
+end
+
 -- This will check if the bot's cursor is close the enemy the bot is fighting
 function BOT:PointWithinCursor( targetpos )
 	
