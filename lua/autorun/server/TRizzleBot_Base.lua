@@ -976,28 +976,29 @@ hook.Add( "PlayerSpawn" , "TRizzleBotSpawnHook" , function( ply )
 				
 				ply:SetModel( ply.PlayerModel )
 				
-				timer.Simple( 0.3 , function()
+			end
+			
+		end)
+		
+		timer.Simple( 0.3 , function()
+		
+			if IsValid( ply ) and ply:Alive() then
+				
+				if ply.SpawnWithWeapons then
 					
-					if IsValid( ply ) and ply:Alive() then
-						
-						if ply.SpawnWithWeapons then
-						
-							if !ply:HasWeapon( ply.Pistol ) then ply:Give( ply.Pistol ) end
-							if !ply:HasWeapon( ply.Shotgun ) then ply:Give( ply.Shotgun ) end
-							if !ply:HasWeapon( ply.Rifle ) then ply:Give( ply.Rifle ) end
-							if !ply:HasWeapon( ply.Sniper ) then ply:Give( ply.Sniper ) end
-							if !ply:HasWeapon( ply.Melee ) then ply:Give( ply.Melee ) end
-							if !ply:HasWeapon( "weapon_medkit" ) then ply:Give( "weapon_medkit" ) end
-							
-						end
-						
-						-- For some reason the bot's run and walk speed is slower than the default
-						ply:SetRunSpeed( 600 )
-						ply:SetWalkSpeed( 400 )
-						
-					end
+					if !ply:HasWeapon( ply.Pistol ) then ply:Give( ply.Pistol ) end
+					if !ply:HasWeapon( ply.Shotgun ) then ply:Give( ply.Shotgun ) end
+					if !ply:HasWeapon( ply.Rifle ) then ply:Give( ply.Rifle ) end
+					if !ply:HasWeapon( ply.Sniper ) then ply:Give( ply.Sniper ) end
+					if !ply:HasWeapon( ply.Melee ) then ply:Give( ply.Melee ) end
+					if !ply:HasWeapon( "weapon_medkit" ) then ply:Give( "weapon_medkit" ) end
 					
-				end)
+				end
+				
+				-- For some reason the bot's run and walk speed is slower than the default
+				--ply:SetRunSpeed( 600 )
+				--ply:SetWalkSpeed( 400 )
+				hook.Run( "SetPlayerSpeed", ply, 400, 600 )
 				
 			end
 			
