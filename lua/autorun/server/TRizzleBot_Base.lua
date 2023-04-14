@@ -739,15 +739,15 @@ function BOT:GetFogObscuredRatio( range )
 		return 0.0
 	end
 
-	if range <= fog.start then
+	if range <= fog.startdist then
 		return 0.0
 	end
 
-	if range >= fog.end then
+	if range >= fog.enddist then
 		return 1.0
 	end
 
-	local ratio = (range - fog.start) / (fog.end - fog.start)
+	local ratio = (range - fog.startdist) / (fog.enddist - fog.startdist)
 	ratio = math.min( ratio, fog.maxdensity )
 	return ratio
 end
