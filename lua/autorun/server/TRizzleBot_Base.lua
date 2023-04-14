@@ -734,22 +734,60 @@ end
 function BOT:GetFogObscuredRatio( range )
 
 	local fog = self:GetFogParams()
+	
+	if !IsValid( fog ) then 
+		return 0.0
+	end
+	
+	local enable = fog:GetInternalVariable( "enable" )
+	local startDist = fog:GetInternalVariable( "start" )
+	local endDist = fog:GetInternalVariable( "end" )
+	local maxdensity = fog:GetInternalVariable( "maxdensity" )
 
-	if !fog.enable then
+	if !enable then
 		return 0.0
 	end
 
-	if range <= fog.startdist then
+	if range <= startDist then
 		return 0.0
 	end
 
-	if range >= fog.enddist then
+	if range >= endDist then
 		return 1.0
 	end
 
-	local ratio = (range - fog.startdist) / (fog.enddist - fog.startdist)
-	ratio = math.min( ratio, fog.maxdensity )
+	local ratio = (range - startDist) / (endDist - startDist)
+	ratio = math.min( ratio, maxdensity )
 	return ratio
+end
+
+function BOT:GetFogParams()
+
+	local targetFog = nil
+	if self:GetFogTrigger() then
+	
+		local trigger = self:GetFogTrigger()
+		if IsValid( trigger ) then
+		
+			targetFog = trigger:GetFog()
+		end
+	end
+
+	if !IsValid( targetFog ) and FogSystem():GetMasterFogController() then
+	
+		targetFog = FogSystem():GetMasterFogController():GetInternalVariable( "m_fog" )
+	end
+
+	if IsValid( targetFog ) then
+	
+		return targetFog
+	
+	else
+		
+		return nil
+		
+	end
+
 end
 
 -- Got this from CS:GO Source Code, made some changes so it works for Lua
