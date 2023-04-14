@@ -719,13 +719,34 @@ function BOT:TBotBlind( time )
 end
 
 -- Got this from CS:GO Source Code, made some changes so it works for Lua
-function IsHiddenByFog( range )
+-- Checks if the bot can see the set range without the fog obscuring it
+function BOT:IsHiddenByFog( range )
 
-	if GetFogObscuredRatio( range ) >= 1.0 then
+	if self:GetFogObscuredRatio( range ) >= 1.0 then
 		return true
 	end
 
 	return false
+end
+
+-- Got this from CS:GO Source Code, made some changes so it works for Lua
+-- This returns a number based on how obscured a position is, 0.0 not obscured and 1.0 completely obscured
+function BOT:GetFogObscuredRatio( range ) then
+
+	local fog = self:GetFogParams()
+
+	if !fog.enable
+		return 0.0
+
+	if range <= fog.start
+		return 0.0
+
+	if range >= fog.end
+		return 1.0
+
+	local ratio = (range - fog.start) / (fog.end - fog.start)
+	ratio = math.Min( ratio, fog.maxdensity )
+	return ratio
 end
 
 -- This will check if the bot's cursor is close the enemy the bot is fighting
