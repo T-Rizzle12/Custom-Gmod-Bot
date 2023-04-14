@@ -761,21 +761,34 @@ function BOT:GetFogObscuredRatio( range )
 	return ratio
 end
 
+-- Finds and returns the master fog controller
+function GetMasterFogController()
+	
+	for k, fogController in ipairs( ents.GetAll() ) do
+		
+		-- I check 1 in its flags since it means Master Controller
+		if IsValid( fogController ) and fogController:GetClass() == "env_fog_controller" and fogController:IsFlagSet( 1 ) then return fogController end
+		
+	end
+	
+	return nil
+	
+end
+
+-- Finds the fog entity that is currently affecting a bot
 function BOT:GetFogParams()
 
 	local targetFog = nil
-	if self:GetFogTrigger() then
+	local trigger = self:GetFogTrigger()
 	
-		local trigger = self:GetFogTrigger()
-		if IsValid( trigger ) then
+	if IsValid( trigger ) then
 		
-			targetFog = trigger:GetFog()
-		end
+		targetFog = trigger:GetInternalVariable( "m_fog" )
 	end
-
-	if !IsValid( targetFog ) and FogSystem():GetMasterFogController() then
 	
-		targetFog = FogSystem():GetMasterFogController():GetInternalVariable( "m_fog" )
+	if !IsValid( targetFog ) and IsValid( GetMasterFogController() ) then
+	
+		targetFog = GetMasterFogController():GetInternalVariable( "m_fog" )
 	end
 
 	if IsValid( targetFog ) then
@@ -801,20 +814,15 @@ function BOT:GetFogTrigger()
 	
 		if IsValid( fogTrigger ) and fogTrigger:GetClass() == "trigger_fog" then
 		
-			local dist = WorldSpaceCenter():DistToSqr( fogTrigger:WorldSpaceCenter() )
+			local dist = self:WorldSpaceCenter():DistToSqr( fogTrigger:WorldSpaceCenter() )
 			if dist < bestDist then
 				bestDist = dist
 				bestTrigger = fogTrigger
 			end
 		end
 	end
-
-	if IsValid( bestTrigger ) then
 	
-		return bestTrigger
-	end
-
-	return nil
+	return bestTrigger
 end
 
 -- This will check if the bot's cursor is close the enemy the bot is fighting
