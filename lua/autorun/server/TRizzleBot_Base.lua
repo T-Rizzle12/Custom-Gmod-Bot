@@ -451,7 +451,7 @@ function BOT:ResetCommand( cmd )
 	if self.HoldWalk > CurTime() then buttons = bit.bor( buttons, IN_WALK ) end
 	if self.HoldJump > CurTime() then buttons = bit.bor( buttons, IN_JUMP ) end
 	if self.HoldCrouch > CurTime() then buttons = bit.bor( buttons, IN_DUCK ) end
-	if self.HoldUse > CurTime()	then buttons = bit.bor( buttons, IN_USE ) end
+	if self.HoldUse > CurTime() then buttons = bit.bor( buttons, IN_USE ) end
 	
 	self.buttonFlags = buttons
 	self.ShouldReset = false
@@ -1079,7 +1079,10 @@ end)
 -- This is for certain functions that effect every bot with one call.
 hook.Add( "Think" , "TRizzleBotThink" , function()
 	
-	BotUpdateInterval = ( BotUpdateSkipCount + 1 ) * FrameTime()
+	--BotUpdateInterval = ( BotUpdateSkipCount + 1 ) * FrameTime()
+	-- It appears that multiplying FrameTime() with BotUpdateSkipCount causes the update function to never be true.
+	-- Check: Is it because the think hook runs every processed frame.
+	BotUpdateInterval = ( BotUpdateSkipCount + 1 )
 	
 	timer.Simple( 0.15 , function()
 		local tab = player.GetHumans()
