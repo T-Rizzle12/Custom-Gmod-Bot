@@ -6,7 +6,8 @@ local LOW_PRIORITY		=	0
 local MEDIUM_PRIORITY	=	1
 local HIGH_PRIORITY		=	2
 local MAXIMUM_PRIORITY	=	3
-local frameTimer		=	CurTime()
+local BotUpdateSkipCount		=	2 -- This is how many upkeep events must be skipped before another update event can be run
+local BotUpdateInterval		=	0
 local Open_List			=	{}
 local Node_Data			=	{}
 util.AddNetworkString( "TRizzleBotFlashlight" )
@@ -1080,7 +1081,7 @@ end)
 -- This is for certain functions that effect every bot with one call.
 hook.Add( "Think" , "TRizzleBotThink" , function()
 	
-	frameTimer = CurTime() - frameTimer
+	BotUpdateInterval = ( BotUpdateSkipCount + 1 ) * FrameTime()
 	
 	timer.Simple( 0.15 , function()
 		local tab = player.GetHumans()
@@ -1099,7 +1100,7 @@ hook.Add( "Think" , "TRizzleBotThink" , function()
 			
 			bot:UpdateAim()
 			
-			if ( ( engine:TickCount() + bot:EntIndex() ) % ( 3 * frameTimer ) ) == 0 then
+			if ( ( engine:TickCount() + bot:EntIndex() ) % BotUpdateInterval ) == 0 then
 			
 				bot.ShouldReset = true -- Clear all movement and buttons
 			
