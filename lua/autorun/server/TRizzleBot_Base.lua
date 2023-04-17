@@ -1,12 +1,12 @@
-local BOT				=	FindMetaTable( "Player" )
-local Ent				=	FindMetaTable( "Entity" )
-local Zone				=	FindMetaTable( "CNavArea" )
-local Lad				=	FindMetaTable( "CNavLadder" )
+local BOT			=	FindMetaTable( "Player" )
+local Ent			=	FindMetaTable( "Entity" )
+local Zone			=	FindMetaTable( "CNavArea" )
+local Lad			=	FindMetaTable( "CNavLadder" )
 local LOW_PRIORITY		=	0
-local MEDIUM_PRIORITY	=	1
+local MEDIUM_PRIORITY		=	1
 local HIGH_PRIORITY		=	2
-local MAXIMUM_PRIORITY	=	3
-local BotUpdateSkipCount		=	2 -- This is how many upkeep events must be skipped before another update event can be run
+local MAXIMUM_PRIORITY		=	3
+local BotUpdateSkipCount	=	2 -- This is how many upkeep events must be skipped before another update event can be run
 local BotUpdateInterval		=	0
 local Open_List			=	{}
 local Node_Data			=	{}
@@ -362,15 +362,15 @@ concommand.Add( "TBotSetDefault" , TBotSetDefault , nil , "Set the specified bot
 function BOT:TBotResetAI()
 	
 	self.buttonFlags			=	0 -- These are the buttons the bot is going to press
-	self.Enemy					=	nil -- Refresh our enemy.
+	self.Enemy				=	nil -- Refresh our enemy.
 	self.EnemyList				=	{} -- This is the list of enemies the bot knows about.
 	self.AimForHead				=	false -- Should the bot aim for the head?
 	self.TimeInCombat			=	0 -- This is how long the bot has been in combat
 	self.LastCombatTime			=	0 -- This was how long ago the bot was in combat
 	self.BestWeapon				=	nil -- This is the weapon the bot currently wants to have out.
-	self.MinEquipInterval		=	0 -- throttle how often equipping is allowed.
+	self.MinEquipInterval			=	0 -- throttle how often equipping is allowed.
 	self.HealTarget				=	nil -- This is the player the bot is trying to heal
-	self.IsTRizzleBotBlind		=	false -- Is the bot blind.
+	self.IsTRizzleBotBlind			=	false -- Is the bot blind.
 	self.NextJump				=	0 -- This is the next time the bot is allowed to jump
 	self.HoldAttack				=	0 -- This is how long the bot should hold its attack button
 	self.HoldAttack2			=	0 -- This is how long the bot should hold its attack2 button
@@ -383,15 +383,15 @@ function BOT:TBotResetAI()
 	self.HoldUse				=	0 -- This is how long the bot should hold its use button
 	self.ShouldReset			=	false -- This tells the bot to clear all buttons and movement
 	self.FullReload				=	false -- Stop reloading
-	self.FireWeaponInterval		=	0 -- Limits how often the bot presses its attack button
+	self.FireWeaponInterval			=	0 -- Limits how often the bot presses its attack button
 	self.ReloadInterval			=	0 -- Limits how often the bot can press its reload button
-	self.Light					=	false -- Turn off the bot's flashlight
+	self.Light				=	false -- Turn off the bot's flashlight
 	self.LookTarget				=	false -- This is the position the bot is currently trying to look at
 	self.LookTargetTime			=	0 -- This is how long the bot will look at the position the bot is currently trying to look at
-	self.LookTargetPriority		=	LOW_PRIORITY -- This is how important the position the bot is currently trying to look at is
-	self.Goal					=	nil -- The vector goal we want to get to.
+	self.LookTargetPriority			=	LOW_PRIORITY -- This is how important the position the bot is currently trying to look at is
+	self.Goal				=	nil -- The vector goal we want to get to.
 	self.NavmeshNodes			=	{} -- The nodes given to us by the pathfinder
-	self.Path					=	nil -- The nodes converted into waypoints by our visiblilty checking.
+	self.Path				=	nil -- The nodes converted into waypoints by our visiblilty checking.
 	self.PathTime				=	CurTime() + 0.5 -- This will limit how often the path gets recreated
 	
 	--self:TBotCreateThinking() -- Start our AI
@@ -460,44 +460,42 @@ end
 
 function BOT:HandleButtons()
 
-	local Close			=	navmesh.GetNearestNavArea( self:GetPos() )
+	local closeArea		=	navmesh.GetNearestNavArea( self:GetPos() )
 	local CanRun		=	true
-	local CanJump		=	true
 	local ShouldJump	=	false
 	local ShouldCrouch	=	false
 	local ShouldRun		=	false
 	local ShouldWalk	=	false
 	
-	if IsValid ( Close ) then -- If there is no nav_mesh this will not run to prevent the addon from spamming errors
+	if IsValid ( closeArea ) then -- If there is no nav_mesh this will not run to prevent the addon from spamming errors
 		
-		if self:IsOnGround() and Close:HasAttributes( NAV_MESH_JUMP ) then
+		if self:IsOnGround() and closeArea:HasAttributes( NAV_MESH_JUMP ) then
 			
 			ShouldJump		=	true
 			
 		end
 		
-		if Close:HasAttributes( NAV_MESH_CROUCH ) then
+		if closeArea:HasAttributes( NAV_MESH_CROUCH ) then
 			
 			ShouldCrouch	=	true
 			
 		end
 		
-		if Close:HasAttributes( NAV_MESH_RUN ) then
+		if closeArea:HasAttributes( NAV_MESH_RUN ) then
 			
 			ShouldRun		=	true
 			ShouldWalk		=	false
 			
 		end
 		
-		if Close:HasAttributes( NAV_MESH_WALK ) then
+		if closeArea:HasAttributes( NAV_MESH_WALK ) then
 			
-			ShouldRun		=	false
 			CanRun			=	false
 			ShouldWalk		=	true
 			
 		end
 		
-		if Close:HasAttributes( NAV_MESH_STAIRS ) then -- The bot shouldn't jump while on stairs
+		if closeArea:HasAttributes( NAV_MESH_STAIRS ) then -- The bot shouldn't jump while on stairs
 		
 			ShouldJump		=	false
 		
@@ -521,7 +519,7 @@ function BOT:HandleButtons()
 	
 	if ( ShouldCrouch and !ShouldJump ) or ( !self:IsOnGround() and self:WaterLevel() < 2 ) then 
 	
-		self:PressCrouch()
+		self:PressCrouch( 0.3 )
 		
 	end
 	
@@ -690,8 +688,8 @@ end
 function BOT:AimAtPos( Pos, Time, Priority )
 	if !isvector( Pos ) or Time < CurTime() or ( self.LookTargetPriority > Priority and CurTime() < self.LookTargetTime ) then return end
 	
-	self.LookTarget				=	Pos
-	self.LookTargetTime			=	Time
+	self.LookTarget			=	Pos
+	self.LookTargetTime		=	Time
 	self.LookTargetPriority		=	Priority
 	
 end
