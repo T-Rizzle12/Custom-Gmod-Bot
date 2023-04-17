@@ -361,38 +361,38 @@ concommand.Add( "TBotSetDefault" , TBotSetDefault , nil , "Set the specified bot
 
 function BOT:TBotResetAI()
 	
-	self.buttonFlags			=	0 -- These are the buttons the bot is going to press
-	self.Enemy				=	nil -- Refresh our enemy.
+	self.buttonFlags			=	0 -- These are the buttons the bot is going to press.
+	self.Enemy				=	nil -- This is the bot's current enemy.
 	self.EnemyList				=	{} -- This is the list of enemies the bot knows about.
 	self.AimForHead				=	false -- Should the bot aim for the head?
-	self.TimeInCombat			=	0 -- This is how long the bot has been in combat
-	self.LastCombatTime			=	0 -- This was how long ago the bot was in combat
-	self.BestWeapon				=	nil -- This is the weapon the bot currently wants to have out.
-	self.MinEquipInterval			=	0 -- throttle how often equipping is allowed.
-	self.HealTarget				=	nil -- This is the player the bot is trying to heal
-	self.IsTRizzleBotBlind			=	false -- Is the bot blind.
-	self.NextJump				=	0 -- This is the next time the bot is allowed to jump
-	self.HoldAttack				=	0 -- This is how long the bot should hold its attack button
-	self.HoldAttack2			=	0 -- This is how long the bot should hold its attack2 button
-	self.HoldReload				=	0 -- This is how long the bot should hold its reload button
-	self.HoldForward			=	0 -- This is how long the bot should hold its forward button
-	self.HoldRun				=	0 -- This is how long the bot should hold its run button
-	self.HoldWalk				=	0 -- This is how long the bot should hold its walk button
-	self.HoldJump				=	0 -- This is how long the bot should hold its jump button
-	self.HoldCrouch				=	0 -- This is how long the bot should hold its crouch button
-	self.HoldUse				=	0 -- This is how long the bot should hold its use button
-	self.ShouldReset			=	false -- This tells the bot to clear all buttons and movement
-	self.FullReload				=	false -- Stop reloading
-	self.FireWeaponInterval			=	0 -- Limits how often the bot presses its attack button
-	self.ReloadInterval			=	0 -- Limits how often the bot can press its reload button
-	self.Light				=	false -- Turn off the bot's flashlight
-	self.LookTarget				=	false -- This is the position the bot is currently trying to look at
-	self.LookTargetTime			=	0 -- This is how long the bot will look at the position the bot is currently trying to look at
-	self.LookTargetPriority			=	LOW_PRIORITY -- This is how important the position the bot is currently trying to look at is
+	self.TimeInCombat			=	0 -- This is how long the bot has been in combat.
+	self.LastCombatTime			=	0 -- This is the last time the bot was in combat.
+	self.BestWeapon				=	nil -- This is the weapon the bot currently wants to equip.
+	self.MinEquipInterval			=	0 -- Throttles how often equipping is allowed.
+	self.HealTarget				=	nil -- This is the player the bot is trying to heal.
+	self.IsTRizzleBotBlind			=	false -- Is the bot blind?
+	self.NextJump				=	0 -- This is the next time the bot is allowed to jump.
+	self.HoldAttack				=	0 -- This is how long the bot should hold its attack button.
+	self.HoldAttack2			=	0 -- This is how long the bot should hold its attack2 button.
+	self.HoldReload				=	0 -- This is how long the bot should hold its reload button.
+	self.HoldForward			=	0 -- This is how long the bot should hold its forward button.
+	self.HoldRun				=	0 -- This is how long the bot should hold its run button.
+	self.HoldWalk				=	0 -- This is how long the bot should hold its walk button.
+	self.HoldJump				=	0 -- This is how long the bot should hold its jump button.
+	self.HoldCrouch				=	0 -- This is how long the bot should hold its crouch button.
+	self.HoldUse				=	0 -- This is how long the bot should hold its use button.
+	self.ShouldReset			=	false -- This tells the bot to clear all buttons and movement.
+	self.FullReload				=	false -- This tells the bot not to press its attack button until its current weapon is fully reloaded.
+	self.FireWeaponInterval			=	0 -- Limits how often the bot presses its attack button.
+	self.ReloadInterval			=	0 -- Limits how often the bot can press its reload button.
+	self.Light				=	false -- Tells the bot if it should have its flashlight on or off.
+	self.LookTarget				=	false -- This is the position the bot is currently trying to look at.
+	self.LookTargetTime			=	0 -- This is how long the bot will look at the position the bot is currently trying to look at.
+	self.LookTargetPriority			=	LOW_PRIORITY -- This is how important the position the bot is currently trying to look at is.
 	self.Goal				=	nil -- The vector goal we want to get to.
-	self.NavmeshNodes			=	{} -- The nodes given to us by the pathfinder
+	self.NavmeshNodes			=	{} -- The nodes given to us by the pathfinder.
 	self.Path				=	nil -- The nodes converted into waypoints by our visiblilty checking.
-	self.PathTime				=	CurTime() + 0.5 -- This will limit how often the path gets recreated
+	self.PathTime				=	CurTime() + 0.5 -- This will limit how often the path gets recreated.
 	
 	--self:TBotCreateThinking() -- Start our AI
 	
@@ -674,7 +674,7 @@ function BOT:UpdateAim()
 	local currentAngles = self:EyeAngles() + self:GetViewPunchAngles()
 	local targetPos = ( self.LookTarget - self:GetShootPos() ):GetNormalized()
 	
-	local lerp = FrameTime() * math.random(10, 20)
+	local lerp = FrameTime() * math.random(10, 20) -- Should this be a lower number?
 	
 	local angles = LerpAngle( lerp, currentAngles, targetPos:Angle() )
 	
@@ -755,7 +755,7 @@ end
 
 -- Blinds the bot for a specified amount of time
 function BOT:TBotBlind( time )
-	if !IsValid( self ) or !isnumber( time ) or time < 0 then return end
+	if !IsValid( self ) or !self.IsTRizzleBot or !isnumber( time ) or time < 0 then return end
 	
 	self.IsTRizzleBotBlind = true
 	timer.Simple( time , function()
