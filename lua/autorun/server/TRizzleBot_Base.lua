@@ -709,7 +709,7 @@ function BOT:PointWithinViewAngle( pos, targetpos, lookdir, fov )
 	local diff = lookdir:Dot(pos)
 	
 	if diff < 0 then return false end
-	if self:IsHiddenByFog( pos:Distance( targetpos ) ) then return false end
+	if self:IsHiddenByFog( pos:Length() ) then return false end
 	
 	local length = pos:LengthSqr()
 	return diff * diff > length * fov * fov
