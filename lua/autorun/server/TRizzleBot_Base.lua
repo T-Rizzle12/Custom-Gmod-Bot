@@ -669,7 +669,7 @@ function BOT:IsInCombat()
 end
 
 function BOT:UpdateAim()
-	if !isvector( self.LookTarget ) then return end
+	if !isvector( self.LookTarget ) or self.LookTargetTime < CurTime() then return end
 
 	local currentAngles = self:EyeAngles() + self:GetViewPunchAngles()
 	local targetPos = ( self.LookTarget - self:GetShootPos() ):GetNormalized()
@@ -1079,10 +1079,7 @@ end)
 -- This is for certain functions that effect every bot with one call.
 hook.Add( "Think" , "TRizzleBotThink" , function()
 	
-	--BotUpdateInterval = ( BotUpdateSkipCount + 1 ) * FrameTime()
-	-- It appears that multiplying FrameTime() with BotUpdateSkipCount causes the update function to never be true.
-	-- Check: Is it because the think hook runs every processed frame.
-	BotUpdateInterval = ( BotUpdateSkipCount + 1 )
+	BotUpdateInterval = ( BotUpdateSkipCount + 1 ) * FrameTime()
 	
 	timer.Simple( 0.15 , function()
 		local tab = player.GetHumans()
@@ -1101,7 +1098,7 @@ hook.Add( "Think" , "TRizzleBotThink" , function()
 			
 			bot:UpdateAim()
 			
-			if ( ( engine:TickCount() + bot:EntIndex() ) % BotUpdateInterval ) == 0 then
+			if ( ( engine:TickCount() + bot:EntIndex() ) % BotUpdateSkipCount ) == 0 then
 			
 				bot.ShouldReset = true -- Clear all movement and buttons
 			
@@ -1181,7 +1178,7 @@ hook.Add( "Think" , "TRizzleBotThink" , function()
 					
 					if IsValid( botWeapon ) and botWeapon:IsWeapon() and bot.FullReload and ( botWeapon:Clip1() >= botWeapon:GetMaxClip1() or bot:GetAmmoCount( botWeapon:GetPrimaryAmmoType() ) <= botWeapon:Clip1() or botWeapon:GetClass() != bot.Shotgun ) then bot.FullReload = false end -- Fully reloaded :)
 					
-					if IsValid( botWeapon ) and botWeapon:IsWeapon() and CurTime() > bot.FireWeaponInterval and !botWeapon:GetInternalVariable( "m_bInReload" ) and !bot.FullReload and botWeapon:GetClass() != "weapon_medkit" and ( bot:GetEyeTraceNoCursor().Entity == bot.Enemy or bot:IsCursorOnTarget() or (bot.Enemy:GetPos() - bot:GetPos()):LengthSqr() < bot.MeleeDist * bot.MeleeDist ) then
+					if IsValid( botWeapon ) and botWeapon:IsWeapon() and CurTime() > bot.FireWeaponInterval and !botWeapon:GetInternalVariable( "m_bInReload" ) and !bot.FullReload and botWeapon:GetClass() != "weapon_medkit" and ( bot:GetEyeTraceNoCursor().Entity == bot.Enemy or bot:IsCursorOnTarget() ) then
 						bot:PressPrimaryAttack()
 						bot.FireWeaponInterval = CurTime() + math.Rand( 0.15 , 0.4 )
 					end
@@ -1217,12 +1214,12 @@ hook.Add( "Think" , "TRizzleBotThink" , function()
 				
 				if bot.SpawnWithWeapons then
 					
-					if !bot:HasWeapon( bot.Pistol ) then bot:Give( bot.Pistol ) end
-					if !bot:HasWeapon( bot.Shotgun ) then bot:Give( bot.Shotgun ) end
-					if !bot:HasWeapon( bot.Rifle ) then bot:Give( bot.Rifle ) end
-					if !bot:HasWeapon( bot.Sniper ) then bot:Give( bot.Sniper ) end
-					if !bot:HasWeapon( bot.Melee ) then bot:Give( bot.Melee ) end
-					if !bot:HasWeapon( "weapon_medkit" ) then bot:Give( "weapon_medkit" ) end
+					if !bot:HasWeapon( bot.Pistol ) then bot:Give( bot.Pistol )
+					elseif !bot:HasWeapon( bot.Shotgun ) then bot:Give( bot.Shotgun )
+					elseif !bot:HasWeapon( bot.Rifle ) then bot:Give( bot.Rifle )
+					elseif !bot:HasWeapon( bot.Sniper ) then bot:Give( bot.Sniper )
+					elseif !bot:HasWeapon( bot.Melee ) then bot:Give( bot.Melee )
+					elseif !bot:HasWeapon( "weapon_medkit" ) then bot:Give( "weapon_medkit" ) end
 					
 				end
 				
@@ -1291,7 +1288,8 @@ hook.Add( "PlayerSpawn" , "TRizzleBotSpawnHook" , function( ply )
 end)
 
 -- The main AI is here.
-function BOT:TBotCreateThinking()
+-- Deprecated: I have a newer think function, that is more responsive and optimized
+--[[function BOT:TBotCreateThinking()
 	
 	local index		=	self:EntIndex()
 	local timer_time	=	math.Rand( 0.08 , 0.15 )
@@ -1444,7 +1442,7 @@ function BOT:TBotCreateThinking()
 		
 	end)
 	
-end
+end]]
 
 -- Makes the bot react to damage taken by enemies
 hook.Add( "PlayerHurt" , "TRizzleBotPlayerHurt" , function( victim, attacker )
@@ -2355,7 +2353,7 @@ function BOT:TBotNavigation()
 			elseif self.Path[ 1 ][ "IsLadder" ] and self.Path[ 1 ][ "LadderUp" ] and ( self:GetPos().z >= self.Path[ 1 ][ "Pos" ].z or IsVecCloseEnough( self:GetPos() , Waypoint2D , 8 ) ) then
 				
 				if self.Path[ 2 ] and !self.Path[ 2 ][ "IsLadder" ] then
-					self.Jump = true
+					self:PressJump()
 					self.NextJump =	CurTime()
 				end
 				
@@ -2364,7 +2362,7 @@ function BOT:TBotNavigation()
 			elseif self.Path[ 1 ][ "IsLadder" ] and !self.Path[ 1 ][ "LadderUp" ] and self:GetPos().z <= self.Path[ 1 ][ "Pos" ].z and IsVecCloseEnough( self:GetPos() , Waypoint2D , 8 ) then
 			
 				if self.Path[ 2 ] and !self.Path[ 2 ][ "IsLadder" ] then
-					self.Jump = true
+					self:PressJump()
 					self.NextJump = CurTime()
 				end
 				
@@ -2477,7 +2475,7 @@ function BOT:TBotUpdateMovement( cmd )
 			-- This tells the bot to jump if it detects a gap in the ground
 			if !SmartJump.Hit then
 				
-				self.Jump	=	true
+				self:PressJump()
 
 			end
 		end
@@ -2533,7 +2531,7 @@ function BOT:TBotUpdateMovement( cmd )
 			-- This tells the bot to jump if it detects a gap in the ground
 			if !SmartJump.Hit then
 				
-				self.Jump	=	true
+				self:PressJump()
 
 			end
 		end
