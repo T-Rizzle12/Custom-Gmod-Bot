@@ -2739,6 +2739,7 @@ end
 
 -- This checks if we should drop down to reach the next node
 function BOT:ShouldDropDown( curentArea, nextArea )
+	if !IsValid( curentArea ) or !IsValid( nextArea ) then return false end
 	
 	return curentArea.z - nextArea.z > self:GetStepSize()
 	
@@ -2746,6 +2747,7 @@ end
 
 -- This checks if we should jump to reach the next node
 function BOT:ShouldJump( curentArea, nextArea )
+	if !IsValid( curentArea ) or !IsValid( nextArea ) then return false end
 	
 	return nextArea.z - curentArea.z > self:GetStepSize()
 	
