@@ -8,8 +8,6 @@ local HIGH_PRIORITY		=	2
 local MAXIMUM_PRIORITY		=	3
 local BotUpdateSkipCount	=	2 -- This is how many upkeep events must be skipped before another update event can be run
 local BotUpdateInterval		=	0
-local Open_List			=	{}
-local Node_Data			=	{}
 util.AddNetworkString( "TRizzleBotFlashlight" )
 
 function TBotCreate( ply , cmd , args ) -- This code defines stats of the bot when it is created.  
@@ -539,8 +537,6 @@ function BOT:HandleButtons()
 	
 	if self.ShouldUse and IsValid( door ) and door:IsDoor() and (door:GetPos() - self:GetPos()):LengthSqr() < 6400 then 
 	
-		-- if door:IsDoor() then door:Use(self, self, USE_ON, 0.0) end
-		-- else door:Use(self, self, USE_TOGGLE, 0.0) end -- I might add a way for the bot to push buttons the player tells them to
 		self:PressUse()
 		
 		self.ShouldUse = false 
@@ -755,7 +751,7 @@ end
 
 -- Blinds the bot for a specified amount of time
 function BOT:TBotBlind( time )
-	if !IsValid( self ) or !self.IsTRizzleBot or !isnumber( time ) or time < 0 then return end
+	if !IsValid( self ) or !self:Alive() or !self.IsTRizzleBot or !isnumber( time ) or time < 0 then return end
 	
 	self.IsTRizzleBotBlind = true
 	timer.Simple( time , function()
@@ -1536,7 +1532,7 @@ end
 
 -- Target any hostile NPCS that is visible to us.
 function BOT:TBotFindClosestEnemy()
-	local VisibleEnemies		=	self.EnemyList -- This is how many enemies the bot can see. Currently not used......yet
+	local VisibleEnemies			=	self.EnemyList -- This is how many enemies the bot can see. Currently not used......yet
 	local targetdistsqr			=	100000000 -- This will allow the bot to select the closest enemy to it.
 	local target				=	self.Enemy -- This is the closest enemy to the bot.
 	
@@ -1621,80 +1617,10 @@ function BOT:FindNearbySeat()
 	
 end
 
-function TRizzleBotPathfinder( StartNode , GoalNode )
-	if !IsValid( StartNode ) or !IsValid( GoalNode ) then return false end
-	if ( StartNode == GoalNode ) then return true end
-	
-	Prepare_Path_Find()
-	
-	StartNode:Node_Add_To_Open_List()
-	
-	local Attempts		=	0 
-	-- Backup Varaible! In case something goes wrong, The game will not get into an infinite loop.
-	
-	while( !table.IsEmpty( Open_List ) and Attempts < 5000 ) do
-		Attempts		=	Attempts + 1
-		
-		local Current 	=	Get_Best_Node() -- Get the lowest FCost
-		
-		if ( Current == GoalNode ) then
-			-- We found a path! Now lets retrace it.
-			
-			return TRizzleBotRetracePath( StartNode, GoalNode ) -- Retrace the path and return the table of nodes.
-		end
-		
-		for k, neighbor in ipairs( Current:Get_Connected_Areas() ) do
-			local Height = 0
-			
-			if neighbor:Node_Get_Type() == 1 and Current:Node_Get_Type() == 1 then
-				Height			=	Current:ComputeAdjacentConnectionHeightChange( neighbor )
-				
-				if !Current:IsUnderwater() and !neighbor:IsUnderwater() and -Height < 200 and Height > 64 then
-					-- We can't jump that high.
-					
-					continue
-				end
-			end
-			
-			-- G + H = F
-			local NewCostSoFar		=	Current:Get_G_Cost() + TRizzleBotRangeCheck( Current , neighbor , Height )
-			
-			if neighbor:Node_Is_Open() or neighbor:Node_Is_Closed() and neighbor:Get_G_Cost() <= NewCostSoFar then
-				
-				continue
-				
-			else
-				neighbor:Set_G_Cost( NewCostSoFar )
-				neighbor:Set_F_Cost( NewCostSoFar + TRizzleBotRangeCheck( neighbor , GoalNode ) )
-				
-				if neighbor:Node_Is_Closed() then
-					
-					neighbor:Node_Remove_From_Closed_List()
-					
-				end
-				
-				neighbor:Node_Add_To_Open_List()
-				
-				-- Parenting of the nodes so we can trace the parents back later.
-				neighbor:Set_Parent_Node( Current )
-			end
-			
-		end
-		
-	end
-	
-	return false
-end
-
-
-
 function TRizzleBotRangeCheck( FirstNode , SecondNode , Ladder , Height )
 	-- Some helper errors.
-	if !IsValid( FirstNode ) then error( "Bad argument #1 CNavArea or CNavLadder expected got " .. type( FirstNode ) ) end
-	if !IsValid( FirstNode ) then error( "Bad argument #2 CNavArea or CNavLadder expected got " .. type( SecondNode ) ) end
-	
-	if FirstNode:Node_Get_Type() == 2 then return FirstNode:GetLength()
-	elseif SecondNode:Node_Get_Type() == 2 then return SecondNode:GetLength() end
+	if !IsValid( FirstNode ) then error( "Bad argument #1 CNavArea expected got " .. type( FirstNode ) ) end
+	if !IsValid( FirstNode ) then error( "Bad argument #2 CNavArea expected got " .. type( SecondNode ) ) end
 	
 	if Ladder then return Ladder:GetLength() end
 	
@@ -1752,28 +1678,6 @@ function GetApproximateFallDamage( height )
 	end
 
 	return damage
-end
-
-function TRizzleBotRetracePath( StartNode , GoalNode )
-	
-	local NodePath		=	{ GoalNode }
-	
-	local Current		=	GoalNode
-	
-	local Attempts		=	0
-	
-	while ( Current != StartNode and Attempts < 5001 ) do
-		
-		Attempts = Attempts + 1
-		
-		Current			=	Current:Get_Parent_Node()
-		
-		NodePath[ #NodePath + 1 ]	=	Current
-		
-	end
-	
-	
-	return NodePath
 end
 
 -- This is a hybrid version of pathfollower, it can use ladders and is very optimized
@@ -2407,7 +2311,7 @@ function BOT:TBotCreateNavTimer()
 				self:PressJump()
 				self.ShouldUse	=	true
 				
-				if Attempts > 10 then self.Path	=	nil end
+				if Attempts == 10 then self.Path	=	nil end
 				if Attempts > 20 then self.Goal =	nil end
 				Attempts = Attempts + 1
 				
@@ -2626,117 +2530,6 @@ function Get_Direction( FirstArea , SecondArea )
 	
 end
 
--- Gives us the best node and removes it from the open list and puts it in the closed list.
-function Get_Best_Node()
-	
-	local BestNode		=	Open_List[ #Open_List ]
-	
-	Open_List[ #Open_List ]		=	nil
-	
-	Node_Data[ BestNode:Node_Get_Type() ][ BestNode:GetID() ][ "State" ]	=	false
-	
-	return BestNode
-end
-
-function Sort_Open_List()
-	
-	local SortedList	=	{}
-	local HasDoneLoop	=	false
-	local UnsortedList	=	{}
-	
-	-- List all the nodes in the table.
-	UnsortedList[ 1 ]	=	Open_List[ #Open_List ]
-	Open_List[ #Open_List ]			=	nil
-	
-	if IsValid( Open_List[ #Open_List ] ) then
-		
-		UnsortedList[ 2 ]	=	Open_List[ #Open_List ]
-		Open_List[ #Open_List ]		=	nil
-		
-	end
-	
-	if IsValid( Open_List[ #Open_List ] ) then
-		
-		UnsortedList[ 3 ]	=	Open_List[ #Open_List ]
-		Open_List[ #Open_List ]		=	nil
-		
-	end
-
-	--[[if IsValid( Open_List[ #Open_List ] ) then
-		
-		UnsortedList[ 4 ]	=	Open_List[ #Open_List ]
-		Open_List[ #Open_List ]				=	nil
-		
-	end
-	
-	if IsValid( Open_List[ #Open_List ] ) then
-		
-		UnsortedList[ 5 ]	=	Open_List[ #Open_List ]
-		Open_List[ #Open_List ]				=	nil
-		
-	end]]
-	
-	
-	for k, v in ipairs( UnsortedList ) do
-		if !IsValid( v ) then continue end
-		
-		if table.IsEmpty( SortedList ) then
-			
-			SortedList[ 1 ]		=	v
-			
-			continue
-		end
-		
-		for j, y in ipairs( SortedList ) do
-			
-			if v == y then
-				
-				HasDoneLoop		=	true
-				
-				break
-			end
-			
-			if v:Get_F_Cost() > y:Get_F_Cost() then
-				
-				if IsValid( SortedList[ j ] ) then
-					
-					if IsValid( SortedList[ j + 1 ] ) then
-						
-						SortedList[ j + 2 ]	=	SortedList[ j + 1 ]
-						
-					end
-					
-					SortedList[ j + 1 ]		=	SortedList[ j ]
-					
-				end
-				
-				SortedList[ j ]		=	v
-				
-				--table.insert( SortedList , j , v )
-				
-				HasDoneLoop		=	true
-				
-				break
-			end
-			
-		end
-		
-		if HasDoneLoop == true then HasDoneLoop		=	false continue end
-		
-		SortedList[ #SortedList + 1 ]	=	v
-		
-	end
-	
-	-- Add back all the sorted nodes to the table
-	for k, v in ipairs( SortedList ) do
-		if !IsValid( v ) then return end
-		
-		Open_List[ #Open_List + 1 ]		=	v
-		
-	end
-	
-end
-
 -- This checks if we should drop down to reach the next node
 function BOT:ShouldDropDown( curentArea, nextArea )
 	if !IsValid( curentArea ) or !IsValid( nextArea ) then return false end
@@ -2751,290 +2544,6 @@ function BOT:ShouldJump( curentArea, nextArea )
 	
 	return nextArea.z - curentArea.z > self:GetStepSize()
 	
-end
-
-function Zone:Get_F_Cost()
-	
-	
-	return Node_Data[ 1 ][ self:GetID() ][ "FCost" ]
-end
-
-function Lad:Get_F_Cost()
-	
-	
-	return Node_Data[ 2 ][ self:GetID() ][ "FCost" ]
-end
-
--- Store the F cost, And no only for optimization.We don't do G + H as doing that everytime will give the same answer.
-function Zone:Set_F_Cost( cost )
-	
-	Node_Data[ 1 ][ self:GetID() ][ "FCost" ]	=	cost
-	
-end
-
-function Lad:Set_F_Cost( cost )
-	
-	Node_Data[ 2 ][ self:GetID() ][ "FCost" ]	=	cost
-	
-end
-
-
-
-
-function Zone:Set_G_Cost( cost )
-	
-	Node_Data[ 1 ][ self:GetID() ][ "GCost" ]	=	cost
-	
-end
-
-function Lad:Set_G_Cost( cost )
-	
-	Node_Data[ 2 ][ self:GetID() ][ "GCost" ]	=	cost
-	
-end
-
-function Zone:Get_G_Cost( cost )
-	
-	return Node_Data[ 1 ][ self:GetID() ][ "GCost" ]
-end
-
-function Lad:Get_G_Cost( cost )
-	
-	return Node_Data[ 2 ][ self:GetID() ][ "GCost" ]
-end
-
-function Zone:Set_Parent_Node( SecondNode )
-	
-	Node_Data[ 1 ][ self:GetID() ][ "ParentNode" ]	=	SecondNode
-	
-end
-
-function Lad:Set_Parent_Node( SecondNode )
-	
-	Node_Data[ 2 ][ self:GetID() ][ "ParentNode" ]	=	SecondNode
-	
-end
-
-
-
-
-function Zone:Get_Parent_Node()
-	
-	return Node_Data[ 1 ][ self:GetID() ][ "ParentNode" ]
-end
-
-function Lad:Get_Parent_Node()
-	
-	return Node_Data[ 2 ][ self:GetID() ][ "ParentNode" ]
-end
-
--- Checking if a node is closed or open without iliteration.
-function Zone:Node_Is_Closed()
-	
-	if Node_Data[ 1 ][ self:GetID() ][ "State" ] == false then return true end
-	
-	return false
-end
-
-function Lad:Node_Is_Closed()
-	
-	if Node_Data[ 2 ][ self:GetID() ][ "State" ] == false then return true end
-	
-	return false
-end
-
-
-function Zone:Node_Is_Open()
-	
-	if Node_Data[ 1 ][ self:GetID() ][ "State" ] == true then return true end
-	
-	return false
-end
-
-function Lad:Node_Is_Open()
-	
-	if Node_Data[ 2 ][ self:GetID() ][ "State" ] == true then return true end
-	
-	return false
-end
-
-
-
-
--- Remove from the open list.
--- How to advoid iliteration?
-function Zone:Node_Remove_From_Open_List()
-	
-	for k, v in ipairs( Open_List ) do
-		
-		if v == self then
-			
-			table.remove( Open_List , k )
-			
-			break
-		end
-		
-	end
-	
-	Node_Data[ 1 ][ self:GetID() ][ "State" ]	=	"Unset"
-	
-end
-
-function Lad:Node_Remove_From_Open_List()
-	
-	for k, v in ipairs( Open_List ) do
-		
-		if v == self then
-			
-			table.remove( Open_List , k )
-			
-			break
-		end
-		
-	end
-	
-	Node_Data[ 2 ][ self:GetID() ][ "State" ]	=	"Unset"
-	
-end
-
--- Add a node to the list.
--- Fun fact! This would be the first time I have really added any optimization to the open list.
-function Zone:Node_Add_To_Open_List()
-	
-	local OurCost		=		self:Get_F_Cost()
-	
-	Node_Data[ 1 ][ self:GetID() ][ "State" ]	=	true
-	
-	Open_List[ #Open_List + 1 ]			=	self
-	
-	Sort_Open_List()
-	
-end
-
-function Lad:Node_Add_To_Open_List()
-	
-	local OurCost		=		self:Get_F_Cost()
-	
-	Node_Data[ 2 ][ self:GetID() ][ "State" ]	=	true
-	
-	Open_List[ #Open_List + 1 ]			=	self
-	
-	Sort_Open_List()
-	
-end
-
-function Zone:Node_Remove_From_Closed_List()
-	
-	Node_Data[ 1 ][ self:GetID() ][ "State" ]	=	"Unset"
-	
-end
-
-function Lad:Node_Remove_From_Closed_List()
-	
-	Node_Data[ 2 ][ self:GetID() ][ "State" ]	=	"Unset"
-	
-end
-
--- Prepare everything for a new path find.
--- I might have a way to use this to optimize the open list
-function Prepare_Path_Find()
-	
-	Node_Data	=	{ {} , {} }
-	Open_List	=	{}
-	
-	for k, v in ipairs( navmesh.GetAllNavAreas() ) do
-		
-		local Lads	=	v:GetLadders()
-		
-		if istable( Lads ) then
-			
-			for j, y in ipairs( Lads ) do
-				
-				Node_Data[ 2 ][ y:GetID() ]		=	{
-					
-					GCost			=	0,
-					FCost			=	0,
-					ParentNode		=	nil,
-					State			=	"Unset",
-					
-				}
-				
-			end
-			
-		end
-		
-		Node_Data[ 1 ][ v:GetID() ]		=	{
-			
-			GCost			=	0,
-			FCost			=	0,
-			ParentNode		=	nil,
-			State			=	"Unset",
-			
-		}
-		
-	end
-	
-end
-
--- Just like GetAdjacentAreas but a more advanced one.
--- For both ladders and CNavAreas.
-function Zone:Get_Connected_Areas()
-	
-	local AllNodes		=	self:GetAdjacentAreas()
-	
-	local AllLadders	=	self:GetLadders()
-	
-	for k, v in ipairs( AllLadders ) do
-		
-		AllNodes[ #AllNodes + 1 ]	=	v
-		
-	end
-	
-	return AllNodes
-end
-
-function Lad:Get_Connected_Areas()
-	
-	local AllNodes		=	{}
-	
-	local TopLArea		=	self:GetTopLeftArea()
-	if IsValid( TopLArea ) then
-		
-		AllNodes[ #AllNodes + 1 ]	=	TopLArea
-		
-	end
-	
-	
-	local TopRArea		=	self:GetTopRightArea()
-	if IsValid( TopRArea ) then
-		
-		AllNodes[ #AllNodes + 1 ]	=	TopRArea
-		
-	end
-	
-	
-	local TopBArea		=	self:GetTopBehindArea()
-	if IsValid( TopBArea ) then
-		
-		AllNodes[ #AllNodes + 1 ]	=	TopBArea
-		
-	end
-	
-	local TopFArea		=	self:GetTopForwardArea()
-	if IsValid( TopFArea ) then
-		
-		AllNodes[ #AllNodes + 1 ]	=	TopFArea
-		
-	end
-	
-	local BArea		=	self:GetBottomArea()
-	if IsValid( BArea ) then
-		
-		AllNodes[ #AllNodes + 1 ]	=	BArea
-		
-	end
-	
-	return AllNodes
 end
 
 function BOT:Is_On_Ladder()
