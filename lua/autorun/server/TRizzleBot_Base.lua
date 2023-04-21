@@ -741,9 +741,10 @@ function BOT:IsAbleToSee( pos )
 			
 			if trace.Entity == pos then
 				return true
-			end
 		
-		elseif self:PointWithinViewAngle(self:GetShootPos(), pos:EyePos(), self:GetAimVector(), fov) then
+			end
+		end
+		if self:PointWithinViewAngle(self:GetShootPos(), pos:EyePos(), self:GetAimVector(), fov) then
 			local trace = util.TraceLine( { start = self:GetShootPos(), endpos = pos:EyePos(), filter = self, mask = MASK_VISIBLE_AND_NPCS } )
 			
 			if trace.Entity == pos then
@@ -886,17 +887,18 @@ end
 -- This will check if the bot's cursor is close the enemy the bot is fighting
 function BOT:PointWithinCursor( targetpos )
 	
-	local trace = util.TraceLine( { start = self:GetShootPos(), endpos = targetpos, filter = self, mask = MASK_SHOT } )
-	
-	if trace.Entity != self.Enemy then return false end
-	
 	local EntWidth = self.Enemy:BoundingRadius() * 0.5
 	local pos = targetpos - self:GetShootPos()
 	local fov = math.cos( math.atan( EntWidth / pos:Length() ) )
 	local diff = self:GetAimVector():Dot( pos )
+	if diff < 0 then return false end
 	
 	local length = pos:LengthSqr()
-	return diff * diff > length * fov * fov
+	if diff * diff <= length * fov * fov then return false end
+	
+	-- This check makes sure the bot won't attempt to shoot through other players and unbreakable windows
+	local trace = util.TraceLine( { start = self:GetShootPos(), endpos = targetpos, filter = self, mask = MASK_SHOT } )
+	return trace.Entity != self.Enemy
 
 end
 
@@ -913,6 +915,8 @@ function BOT:IsCursorOnTarget()
 		return self:PointWithinCursor( self.Enemy:EyePos() )
 	
 	end
+	
+	return false
 end
 
 function BOT:SelectBestWeapon()
@@ -1157,7 +1161,8 @@ hook.Add( "Think" , "TRizzleBotThink" , function()
 					bot:RestoreAmmo() 
 					
 				elseif IsValid( bot.Enemy ) then
-				
+					
+					-- Should I limit how often this runs?
 					local trace = util.TraceLine( { start = bot:GetShootPos(), endpos = bot.Enemy:EyePos(), filter = bot, mask = MASK_SHOT } )
 					
 					if trace.Entity == bot.Enemy then
@@ -1176,7 +1181,7 @@ hook.Add( "Think" , "TRizzleBotThink" , function()
 					
 						if bot.FullReload and ( botWeapon:Clip1() >= botWeapon:GetMaxClip1() or bot:GetAmmoCount( botWeapon:GetPrimaryAmmoType() ) <= botWeapon:Clip1() or botWeapon:GetClass() != bot.Shotgun ) then bot.FullReload = false end -- Fully reloaded :)
 						
-						if CurTime() > bot.FireWeaponInterval and !botWeapon:GetInternalVariable( "m_bInReload" ) and !bot.FullReload and botWeapon:GetClass() != "weapon_medkit" and ( bot:GetEyeTraceNoCursor().Entity == bot.Enemy or bot:IsCursorOnTarget() ) then
+						if CurTime() > bot.FireWeaponInterval and !botWeapon:GetInternalVariable( "m_bInReload" ) and !bot.FullReload and botWeapon:GetClass() != "weapon_medkit" and bot:IsCursorOnTarget() then
 							bot:PressPrimaryAttack()
 							bot.FireWeaponInterval = CurTime() + math.Rand( 0.15 , 0.4 )
 						end
@@ -1547,7 +1552,7 @@ end
 
 -- Target any hostile NPCS that is visible to us.
 function BOT:TBotFindClosestEnemy()
-	local VisibleEnemies		=	self.EnemyList -- This is how many enemies the bot can see. Currently not used......yet
+	local VisibleEnemies			=	self.EnemyList -- This is how many enemies the bot can see. Currently not used......yet
 	local targetdistsqr			=	100000000 -- This will allow the bot to select the closest enemy to it.
 	local target				=	self.Enemy -- This is the closest enemy to the bot.
 	
@@ -1570,7 +1575,7 @@ function BOT:TBotFindClosestEnemy()
 				
 			elseif VisibleEnemies[ v:GetCreationID() ] and v:Visible( self ) and !self:IsHiddenByFog( self:GetShootPos():Distance( v:EyePos() ) ) then
 				
-				if ( !IsValid( target ) or enemydistsqr < 200 * 200 ) and enemydistsqr < targetdistsqr then 
+				if ( !IsValid( target ) or enemydistsqr < 40000 ) and enemydistsqr < targetdistsqr then 
 					target = v
 					targetdistsqr = enemydistsqr
 				end
@@ -2305,7 +2310,7 @@ end
 -- The navigation and navigation debugger for when a bot is stuck.
 function BOT:TBotCreateNavTimer()
 	
-	local index				=	self:EntIndex()
+	local index			=	self:EntIndex()
 	local LastBotPos		=	self:GetPos()
 	local Attempts			=	0
 	
