@@ -1,5 +1,6 @@
 local BOT					=	FindMetaTable( "Player" )
 local Ent					=	FindMetaTable( "Entity" )
+local Npc					=	FindMetaTable( "NPC" )
 local Zone					=	FindMetaTable( "CNavArea" )
 local Lad					=	FindMetaTable( "CNavLadder" )
 local LOW_PRIORITY			=	0
@@ -1448,7 +1449,7 @@ hook.Add( "PlayerHurt" , "TRizzleBotPlayerHurt" , function( victim, attacker )
 
 	if !IsValid( attacker ) or !IsValid( victim ) or !victim.IsTRizzleBot or !victim:IsBot() or attacker:IsPlayer() then return end
 	
-	if attacker:IsNPC() and !victim.EnemyList[ attacker:GetCreationID() ] and ( attacker:Disposition( victim ) == D_HT or attacker:Disposition( victim.Owner ) == D_HT ) then
+	if attacker:IsNPC() and !victim.EnemyList[ attacker:GetCreationID() ] and attacker:IsAlive() and ( attacker:Disposition( victim ) == D_HT or attacker:Disposition( victim.Owner ) == D_HT ) then
 
 		victim.EnemyList[ attacker:GetCreationID() ]		=	{ Enemy = attacker, LastSeenTime = CurTime() + 10.0 }
 	
@@ -1463,7 +1464,7 @@ hook.Add( "EntityEmitSound" , "TRizzleBotEntityEmitSound" , function( soundTable
 		
 		if !IsValid( bot ) or !bot.IsTRizzleBot or !IsValid( soundTable.Entity ) or soundTable.Entity:IsPlayer() or soundTable.Entity == bot then return end
 	
-		if soundTable.Entity:IsNPC() and !bot.EnemyList[ soundTable.Entity:GetCreationID() ] and soundTable.Entity:GetNPCState() != NPC_STATE_DEAD and soundTable.Entity:GetInternalVariable( "m_lifeState" ) == 0 and (soundTable.Entity:Disposition( bot ) == D_HT or soundTable.Entity:Disposition( bot.Owner ) == D_HT) and (soundTable.Entity:GetPos() - bot:GetPos()):LengthSqr() < ( ( 1000 * ( soundTable.SoundLevel / 100 ) ) * ( 1000 * ( soundTable.SoundLevel / 100 ) ) ) then
+		if soundTable.Entity:IsNPC() and !bot.EnemyList[ soundTable.Entity:GetCreationID() ] and soundTable.Entity:IsAlive() and (soundTable.Entity:Disposition( bot ) == D_HT or soundTable.Entity:Disposition( bot.Owner ) == D_HT) and (soundTable.Entity:GetPos() - bot:GetPos()):LengthSqr() < ( ( 1000 * ( soundTable.SoundLevel / 100 ) ) * ( 1000 * ( soundTable.SoundLevel / 100 ) ) ) then
 			
 			bot.EnemyList[ soundTable.Entity:GetCreationID() ]		=	{ Enemy = soundTable.Entity, LastSeenTime = CurTime() + 10.0 }
 			
@@ -1474,13 +1475,24 @@ hook.Add( "EntityEmitSound" , "TRizzleBotEntityEmitSound" , function( soundTable
 	return
 end)
 
+-- Checks if the NPC is alive
+function Npc:IsAlive()
+	if !IsValid( self ) return false end
+	
+	if self:GetNPCState() == NPC_STATE_DEAD then return false
+	elseif self:GetInternalVariable( "m_lifeState" ) != 0 then return false end
+	
+	return true
+		
+end
+
 -- Checks if its current enemy is still alive and still visible to the bot
 function BOT:CheckCurrentEnemyStatus()
 	
 	if !IsValid( self.Enemy ) then self.Enemy							=	nil
 	elseif self.Enemy:IsPlayer() and !self.Enemy:Alive() then self.Enemy				=	nil -- Just incase the bot's enemy is set to a player even though the bot should only target NPCS and "hopefully" NEXTBOTS 
 	elseif !self.Enemy:Visible( self ) or self.IsTRizzleBotBlind or self:IsHiddenByFog( self:GetShootPos():Distance( self.Enemy:EyePos() ) ) then self.Enemy						=	nil
-	elseif self.Enemy:IsNPC() and ( self.Enemy:GetNPCState() == NPC_STATE_DEAD or self.Enemy:GetInternalVariable( "m_lifeState" ) != 0 or (self.Enemy:Disposition( self ) != D_HT and self.Enemy:Disposition( self.Owner ) != D_HT) ) then self.Enemy	=	nil
+	elseif self.Enemy:IsNPC() and ( !self.Enemy:IsAlive() or (self.Enemy:Disposition( self ) != D_HT and self.Enemy:Disposition( self.Owner ) != D_HT) ) then self.Enemy	=	nil
 	elseif GetConVar( "ai_ignoreplayers" ):GetInt() != 0 or GetConVar( "ai_disabled" ):GetInt() != 0 then self.Enemy	=	nil end
 	
 end
@@ -1509,7 +1521,7 @@ function BOT:TBotCheckEnemyList()
 			self.EnemyList[ k ] = nil -- Just incase the bot's enemy is set to a player even though the bot should only target NPCS and "hopefully" NEXTBOTS
 			continue
 			
-		elseif v.Enemy:IsNPC() and ( v.Enemy:GetNPCState() == NPC_STATE_DEAD or v.Enemy:GetInternalVariable( "m_lifeState" ) != 0 or (v.Enemy:Disposition( self ) != D_HT and v.Enemy:Disposition( self.Owner ) != D_HT) ) then 
+		elseif v.Enemy:IsNPC() and ( !v.Enemy:IsAlive() or (v.Enemy:Disposition( self ) != D_HT and v.Enemy:Disposition( self.Owner ) != D_HT) ) then 
 			
 			self.EnemyList[ k ] = nil
 			continue
@@ -1544,7 +1556,7 @@ function BOT:TBotFindClosestEnemy()
 	
 	for k, v in ipairs( ents.GetAll() ) do
 		
-		if IsValid ( v ) and v:IsNPC() and v:GetNPCState() != NPC_STATE_DEAD and v:GetInternalVariable( "m_lifeState" ) == 0 and (v:Disposition( self ) == D_HT or v:Disposition( self.Owner ) == D_HT) then -- The bot should attack any NPC that is hostile to them or their owner. D_HT means hostile/hate
+		if IsValid ( v ) and v:IsNPC() and v:IsAlive() and (v:Disposition( self ) == D_HT or v:Disposition( self.Owner ) == D_HT) then -- The bot should attack any NPC that is hostile to them or their owner. D_HT means hostile/hate
 			
 			local enemydistsqr = (v:GetPos() - self:GetPos()):LengthSqr()
 			if self:IsAbleToSee( v ) then
@@ -1604,7 +1616,7 @@ function BOT:FindNearbySeat()
 	
 	for k, v in ipairs( ents.GetAll() ) do
 		
-		if IsValid ( v ) and v:IsVehicle() and v:GetDriver() == NULL then -- The bot should enter the closest vehicle to it
+		if IsValid ( v ) and v:IsVehicle() and !IsValid( v:GetDriver() ) then -- The bot should enter the closest vehicle to it
 			
 			local vehicledistsqr = (v:GetPos() - self:GetPos()):LengthSqr()
 			
