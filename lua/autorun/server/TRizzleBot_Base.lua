@@ -1477,7 +1477,7 @@ end)
 
 -- Checks if the NPC is alive
 function Npc:IsAlive()
-	if !IsValid( self ) return false end
+	if !IsValid( self ) then return false end
 	
 	if self:GetNPCState() == NPC_STATE_DEAD then return false
 	elseif self:GetInternalVariable( "m_lifeState" ) != 0 then return false end
