@@ -898,7 +898,7 @@ function BOT:PointWithinCursor( targetpos )
 	
 	-- This check makes sure the bot won't attempt to shoot through other players and unbreakable windows
 	local trace = util.TraceLine( { start = self:GetShootPos(), endpos = targetpos, filter = self, mask = MASK_SHOT } )
-	return trace.Entity != self.Enemy
+	return trace.Entity == self.Enemy
 
 end
 
@@ -1561,7 +1561,7 @@ function BOT:TBotFindClosestEnemy()
 	
 	for k, v in ipairs( ents.GetAll() ) do
 		
-		if IsValid ( v ) and v:IsNPC() and v:IsAlive() and (v:Disposition( self ) == D_HT or v:Disposition( self.Owner ) == D_HT) then -- The bot should attack any NPC that is hostile to them or their owner. D_HT means hostile/hate
+		if IsValid ( v ) and v:IsNPC() and v:IsAlive() and !self.IsTRizzleBotBlind and (v:Disposition( self ) == D_HT or v:Disposition( self.Owner ) == D_HT) then -- The bot should attack any NPC that is hostile to them or their owner. D_HT means hostile/hate
 			
 			local enemydistsqr = (v:GetPos() - self:GetPos()):LengthSqr()
 			if self:IsAbleToSee( v ) then
