@@ -2101,7 +2101,6 @@ function BOT:ComputeNavmeshVisibility()
 		
 		local CurrentNode	=	v.area
 		local currentIndex	=	#self.Path
-		local Drop			=	false
 		
 		if !self.NavmeshNodes[ k + 1 ] or !self.NavmeshNodes[ k + 1 ].area or !self.NavmeshNodes[ k + 1 ].how then
 			
@@ -2140,7 +2139,6 @@ function BOT:ComputeNavmeshVisibility()
 		if self:ShouldDropDown( LastVisPos, connection ) then
 		
 			local dir = vector_origin
-			Drop = true
 			
 			if NextHow == NORTH then 
 				dir.x = 0 
@@ -2160,18 +2158,19 @@ function BOT:ComputeNavmeshVisibility()
 			connection.x = connection.x + ( 25.0 * dir.x )
 			connection.y = connection.y + ( 25.0 * dir.y )
 			
-			self.Path[ currentIndex + 1 ]			=	{ Pos = connection, IsLadder = false, Check = area, IsDropDown = Drop }
+			-- Should I set this to area and use connection as the second part of the drop down?
+			self.Path[ currentIndex + 1 ]			=	{ Pos = connection, IsLadder = false, Check = area, IsDropDown = true }
 			
 			connection.z = NextNode:GetZ( LastVisPos )
 			
-			self.Path[ currentIndex + 2 ]			=	{ Pos = connection, IsLadder = false, IsDropDown = Drop }
+			self.Path[ currentIndex + 2 ]			=	{ Pos = connection, IsLadder = false, IsDropDown = true }
 			
 			LastVisPos							=	connection
 			
 			continue
 		end
 		
-		self.Path[ #self.Path + 1 ]			=	{ Pos = connection, IsLadder = false, Check = area, IsDropDown = Drop }
+		self.Path[ #self.Path + 1 ]			=	{ Pos = connection, IsLadder = false, Check = area, IsDropDown = false }
 		
 		LastVisPos							=	connection
 		
