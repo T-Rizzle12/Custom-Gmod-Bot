@@ -939,25 +939,25 @@ function BOT:SelectBestWeapon()
 			bestWeapon = self.Sniper
 		end
 		
-		if self:HasWeapon( self.Pistol ) and self:GetWeapon( self.Pistol ):HasAmmo() and enemydistsqr < self.PistolDist * self.PistolDist then
+		if self:HasWeapon( self.Pistol ) and self:GetWeapon( self.Pistol ):HasAmmo() and ( enemydistsqr < self.PistolDist * self.PistolDist or !bestWeapon ) then
 			
 			-- If an enemy is far the bot, the bot should use its pistol
 			bestWeapon = self.Pistol
 		end
 		
-		if self:HasWeapon( self.Rifle ) and self:GetWeapon( self.Rifle ):HasAmmo() and enemydistsqr < self.RifleDist * self.RifleDist then
+		if self:HasWeapon( self.Rifle ) and self:GetWeapon( self.Rifle ):HasAmmo() and ( enemydistsqr < self.RifleDist * self.RifleDist or !bestWeapon ) then
 		
 			-- If an enemy gets too far but is still close, the bot should use its rifle
 			bestWeapon = self.Rifle
 		end
 		
-		if self:HasWeapon( self.Shotgun ) and self:GetWeapon( self.Shotgun ):HasAmmo() and enemydistsqr < self.ShotgunDist * self.ShotgunDist then
+		if self:HasWeapon( self.Shotgun ) and self:GetWeapon( self.Shotgun ):HasAmmo() and ( enemydistsqr < self.ShotgunDist * self.ShotgunDist or !bestWeapon ) then
 			
 			-- If an enemy gets close, the bot should use its shotgun
 			bestWeapon = self.Shotgun
 		end
 		
-		if self:HasWeapon( self.Melee ) and enemydistsqr < self.MeleeDist * self.MeleeDist then
+		if self:HasWeapon( self.Melee ) and ( enemydistsqr < self.MeleeDist * self.MeleeDist or !bestWeapon ) then
 
 			-- If an enemy gets too close, the bot should use its melee
 			bestWeapon = self.Melee
