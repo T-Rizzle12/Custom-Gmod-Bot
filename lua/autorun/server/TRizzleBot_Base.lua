@@ -1934,6 +1934,7 @@ function TRizzleBotRetracePathCheap( StartNode , GoalNode )
 	local NewPath	=	{ GoalNode }
 	
 	local Current	=	GoalNode
+	local Parent 	=	GoalNode:GetParentHow()
 	
 	while( Current:GetParent() != StartNode and Trys < 50001 ) do
 	
@@ -1947,16 +1948,15 @@ function TRizzleBotRetracePathCheap( StartNode , GoalNode )
 		
 			local list = Current:GetLadders()
 			--print( "Ladders: " .. #list )
-			for k, ladder in ipairs( list ) do
-				--print( ladder:GetTopForwardArea() )
-				--print( ladder:GetTopLeftArea() )
-				--print( ladder:GetTopRightArea() )
-				--print( ladder:GetTopBehindArea() )
-				--print( ladder:GetBottomArea() )
-				if ladder:GetTopForwardArea() == Current or ladder:GetTopLeftArea() == Current or ladder:GetTopRightArea() == Current or ladder:GetTopBehindArea() == Current or ladder:GetBottomArea() == Current then
-					local currentIndex = #NewPath
-					NewPath[ currentIndex + 1 ] = { area = Current, how = Parent }
-					NewPath[ currentIndex + 2 ] = { area = ladder, how = Parent }
+			for k, Ladder in ipairs( list ) do
+				--print( Ladder:GetTopForwardArea() )
+				--print( Ladder:GetTopLeftArea() )
+				--print( Ladder:GetTopRightArea() )
+				--print( Ladder:GetTopBehindArea() )
+				--print( Ladder:GetBottomArea() )
+				if Ladder:GetTopForwardArea() == Current or Ladder:GetTopLeftArea() == Current or Ladder:GetTopRightArea() == Current or Ladder:GetTopBehindArea() == Current or Ladder:GetBottomArea() == Current then
+					
+					NewPath[ #NewPath + 1 ] = { area = Current, how = Parent, ladder = Ladder }
 					break
 					
 				end
@@ -2112,32 +2112,40 @@ function BOT:ComputeNavmeshVisibility()
 		local NextNode		=	self.NavmeshNodes[ k + 1 ].area
 		local NextHow		=	self.NavmeshNodes[ k + 1 ].how
 		
-		if NextNode:Node_Get_Type() == 2 then
+		if self.NavmeshNodes[ k + 1 ].ladder then
 		
-			local CloseToStart, ClimbUp		=	NextNode:Get_Closest_Point( LastVisPos )
+			local CloseToStart, LadderNode, ClimbUp		=	self.NavmeshNodes[ k + 1 ].ladder:Get_Closest_Point_Next( LastVisPos )
 			
 			LastVisPos		=	CloseToStart
 			
-			self.Path[ #self.Path + 1 ]		=	{ Pos = CloseToStart, IsLadder = true, LadderUp = ClimbUp }
+			self.Path[ currentIndex + 1 ]		=	{ Pos = CloseToStart, IsLadder = true, LadderUp = ClimbUp }
+			self.Path[ currentIndex + 2 ]		=	{ Pos = LadderNode, IsLadder = true, LadderUp = ClimbUp }
 			
 			continue
 		end
 		
-		if CurrentNode:Node_Get_Type() == 2 then
+		--[[if v.ladder then
 		
-			local CloseToEnd, ClimbUp		=	CurrentNode:Get_Closest_Point( NextNode:GetCenter() )
+			local CloseToEnd, LadderNode, ClimbUp		=	v.ladder:Get_Closest_Point_Current( NextNode:GetCenter() )
 			
 			LastVisPos		=	CloseToEnd
 			
-			self.Path[ #self.Path + 1 ]		=	{ Pos = CloseToEnd, IsLadder = true, LadderUp = ClimbUp }
+			self.Path[ currentIndex + 1 ]		=	{ Pos = CloseToEnd, IsLadder = true, LadderUp = ClimbUp }
+			self.Path[ currentIndex + 2 ]		=	{ Pos = LadderNode, IsLadder = true, LadderUp = ClimbUp }
 			
 			continue
-		end
+		end]]
 		
 		local connection, area = Get_Blue_Connection( CurrentNode, NextNode )
 		
+		print( "Should Drop Down: " .. tostring( self:ShouldDropDown( LastVisPos, connection ) ) )
+		print( "LastVisPos: " .. tostring( LastVisPos ))
+		print( "Area: " .. tostring( area ) )
+		print( "Connection: " .. tostring( connection ) )
+		
 		if self:ShouldDropDown( LastVisPos, connection ) then
 		
+			print("DROP")
 			local dir = vector_origin
 			
 			if NextHow == NORTH then 
@@ -2270,11 +2278,11 @@ function BOT:TBotNavigation()
 				
 				table.remove( self.Path , 1 )
 				
-			elseif !self.Path[ 1 ][ "IsLadder" ] and self.Path[ 1 ][ "IsDropDown" ] and !self:ShouldDropDown( self:GetPos(), self.Path[ 1 ][ "Pos" ] ) then
+			elseif !self.Path[ 1 ][ "IsLadder" ] and self.Path[ 1 ][ "IsDropDown" ] and self:GetPos().z <= self.Path[ 1 ][ "Pos" ].z then
 				
 				table.remove( self.Path , 1 )
 				
-			elseif self.Path[ 1 ][ "IsLadder" ] and self.Path[ 1 ][ "LadderUp" ] and ( self:GetPos().z >= self.Path[ 1 ][ "Pos" ].z or IsVecCloseEnough( self:GetPos() , Waypoint2D , 8 ) ) then
+			elseif self.Path[ 1 ][ "IsLadder" ] and self.Path[ 1 ][ "LadderUp" ] and self:GetPos().z >= self.Path[ 1 ][ "Pos" ].z then
 				
 				if self.Path[ 2 ] and !self.Path[ 2 ][ "IsLadder" ] then
 					self:PressJump()
@@ -2283,7 +2291,7 @@ function BOT:TBotNavigation()
 				
 				table.remove( self.Path , 1 )
 				
-			elseif self.Path[ 1 ][ "IsLadder" ] and !self.Path[ 1 ][ "LadderUp" ] and self:GetPos().z <= self.Path[ 1 ][ "Pos" ].z and IsVecCloseEnough( self:GetPos() , Waypoint2D , 8 ) then
+			elseif self.Path[ 1 ][ "IsLadder" ] and !self.Path[ 1 ][ "LadderUp" ] and self:GetPos().z <= self.Path[ 1 ][ "Pos" ].z then
 			
 				if self.Path[ 2 ] and !self.Path[ 2 ][ "IsLadder" ] then
 					self:PressJump()
@@ -2408,7 +2416,7 @@ function BOT:TBotUpdateMovement( cmd )
 		
 		cmd:SetViewAngles( MovementAngle )
 		cmd:SetForwardMove( self:GetRunSpeed() )
-		self:AimAtPos( self.Goal + Vector( 0 , 0 , 64 ), CurTime() + 0.1, LookTargetPriorityTemp )
+		self:AimAtPos( self.Goal + Vector( 0 , 0 , 16 ), CurTime() + 0.1, LookTargetPriorityTemp )
 		
 		local GoalIn2D			=	Vector( self.Goal.x , self.Goal.y , self:GetPos().z )
 		if IsVecCloseEnough( self:GetPos() , GoalIn2D , 32 ) then
@@ -2464,7 +2472,7 @@ function BOT:TBotUpdateMovement( cmd )
 		
 		cmd:SetViewAngles( MovementAngle )
 		cmd:SetForwardMove( 1000 )
-		self:AimAtPos( self.Path[ 1 ][ "Pos" ] + Vector( 0 , 0 , 64 ), CurTime() + 0.1, LookTargetPriorityTemp )
+		self:AimAtPos( self.Path[ 1 ][ "Pos" ] + Vector( 0 , 0 , 16 ), CurTime() + 0.1, LookTargetPriorityTemp )
 		
 	end
 	
@@ -2551,18 +2559,18 @@ function Get_Direction( FirstArea , SecondArea )
 end
 
 -- This checks if we should drop down to reach the next node
-function BOT:ShouldDropDown( curentArea, nextArea )
-	if !IsValid( curentArea ) or !IsValid( nextArea ) then return false end
+function BOT:ShouldDropDown( currentArea, nextArea )
+	if !currentArea or !nextArea then return false end
 	
-	return curentArea.z - nextArea.z > self:GetStepSize()
+	return currentArea.z - nextArea.z > self:GetStepSize()
 	
 end
 
 -- This checks if we should jump to reach the next node
-function BOT:ShouldJump( curentArea, nextArea )
-	if !IsValid( curentArea ) or !IsValid( nextArea ) then return false end
+function BOT:ShouldJump( currentArea, nextArea )
+	if !currentArea or !nextArea then return false end
 	
-	return nextArea.z - curentArea.z > self:GetStepSize()
+	return nextArea.z - currentArea.z > self:GetStepSize()
 	
 end
 
@@ -2576,17 +2584,30 @@ function BOT:Is_On_Ladder()
 	return false
 end
 
-function Lad:Get_Closest_Point( pos )
+function Lad:Get_Closest_Point_Next( pos )
 	
 	local TopArea	=	self:GetTop():Distance( pos )
 	local LowArea	=	self:GetBottom():Distance( pos )
 	
 	if TopArea < LowArea then
-		
-		return self:GetTop() - self:GetNormal() * 16, true
+		-- self:GetTop() - self:GetNormal() * 16 I need to make a function to detect which side the bot should approach the ladder
+		return self:GetTop(), self:GetBottom() + self:GetNormal() * 2.0 * 16, false
 	end
 	
-	return self:GetBottom() + self:GetNormal() * 2.0 * 16, false
+	return self:GetBottom(), self:GetTop() - self:GetNormal() * 16, true
+end
+
+function Lad:Get_Closest_Point_Current( pos )
+	
+	local TopArea	=	self:GetTop():Distance( pos )
+	local LowArea	=	self:GetBottom():Distance( pos )
+	
+	if TopArea < LowArea then
+		-- self:GetTop() - self:GetNormal() * 16 I need to make a function to detect which side the bot should approach the ladder
+		return self:GetTop() - self:GetNormal() * 16, self:GetTop(), true
+	end
+	
+	return self:GetBottom(), self:GetBottom() + self:GetNormal() * 2.0 * 16, false
 end
 
 -- See if a node is an area : 1 or a ladder : 2
