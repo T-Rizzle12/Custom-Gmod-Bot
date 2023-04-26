@@ -391,6 +391,7 @@ function BOT:TBotResetAI()
 	self.Goal					=	nil -- The vector goal we want to get to.
 	self.NavmeshNodes			=	{} -- The nodes given to us by the pathfinder.
 	self.Path					=	nil -- The nodes converted into waypoints by our visiblilty checking.
+	self.PathLength				=	0 -- This is how long the current path is.
 	self.PathTime				=	CurTime() + 0.5 -- This will limit how often the path gets recreated.
 	
 	--self:TBotCreateThinking() -- Start our AI
@@ -1661,18 +1662,19 @@ function TRizzleBotRangeCheck( FirstNode , SecondNode , Ladder , Height )
 	
 	if Ladder then return Ladder:GetLength() end
 	
-	DefaultCost = FirstNode:GetCenter():Distance( SecondNode:GetCenter() )
+	local DefaultCost = FirstNode:GetCenter():Distance( SecondNode:GetCenter() )
+	local EditedCost = DefaultCost
 	
 	if isnumber( Height ) and Height > 32 then
 		
-		DefaultCost		=	DefaultCost * 5
+		EditedCost		=	EditedCost + ( DefaultCost * 5 )
 		-- Jumping is slower than ground movement.
 		
 	end
 	
 	if isnumber( Height ) and -Height > 32 then
 	
-		DefaultCost		=	DefaultCost + ( GetApproximateFallDamage( math.abs( Height ) ) * 5 )
+		EditedCost		=	EditedCost + ( DefaultCost + ( GetApproximateFallDamage( math.abs( Height ) ) * 5 ) )
 		-- Falling is risky and the bot might take fall damage.
 		
 	end
@@ -1680,25 +1682,25 @@ function TRizzleBotRangeCheck( FirstNode , SecondNode , Ladder , Height )
 	-- Crawling through a vent is very slow.
 	if SecondNode:HasAttributes( NAV_MESH_CROUCH ) then 
 		
-		DefaultCost	=	DefaultCost * 8
+		EditedCost	=	EditedCost + ( DefaultCost * 8 )
 		
 	end
 	
 	-- The bot should avoid this area unless alternatives are too dangerous or too far.
 	if SecondNode:HasAttributes( NAV_MESH_AVOID ) then 
 		
-		DefaultCost	=	DefaultCost * 20
+		EditedCost	=	EditedCost + ( DefaultCost * 20 )
 		
 	end
 	
 	-- We will try not to swim since it can be slower than running on land, it can also be very dangerous, Ex. "Acid, Lava, Etc."
 	if SecondNode:IsUnderwater() then
 	
-		DefaultCost		=	DefaultCost * 2
+		EditedCost		=	EditedCost + ( DefaultCost * 2 )
 		
 	end
 	
-	return DefaultCost
+	return EditedCost
 end
 
 -- Got this from CS:GO Source Code, made some changes so it works for Lua
@@ -1732,9 +1734,7 @@ function TRizzleBotPathfinderCheap( StartNode , GoalNode )
 	
 	StartNode:UpdateOnOpenList()
 	
-	local Final_Path		=	{}
 	local Trys			=	0 -- Backup! Prevent crashing.
-	local GoalCen			=	GoalNode:GetCenter()
 	
 	while ( !StartNode:IsOpenListEmpty() and Trys < 50000 ) do
 		Trys	=	Trys + 1
@@ -1881,7 +1881,7 @@ function TRizzleBotPathfinderCheap( StartNode , GoalNode )
 				
 			end
 		
-			if newArea == area then 
+			if newArea == Current then 
 			
 				continue
 				
@@ -1890,7 +1890,7 @@ function TRizzleBotPathfinderCheap( StartNode , GoalNode )
 			local Height	=	Current:ComputeAdjacentConnectionHeightChange( newArea )
 			-- Optimization,Prevent computing the height twice.
 			
-			local NewCostSoFar		=	Current:GetCostSoFar() + TRizzleBotRangeCheck( Current , newArea , ladder , Height )
+			local NewCostSoFar		=	Current:GetCostSoFar() + TRizzleBotRangeCheck( newArea , Current , ladder , Height )
 			
 			if !IsValid( ladder ) and !Current:IsUnderwater() and !newArea:IsUnderwater() and -Height < 200 and Height > 64 then
 				-- We can't jump that high.
