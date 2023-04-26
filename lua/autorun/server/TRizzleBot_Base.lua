@@ -18,7 +18,7 @@ function TBotCreate( ply , cmd , args ) -- This code defines stats of the bot wh
 	local NewBot					=	player.CreateNextBot( args[ 1 ] ) -- Create the bot and store it in a varaible.
 	
 	NewBot.IsTRizzleBot				=	true -- Flag this as our bot so we don't control other bots, Only ours!
-	NewBot.Owner					=	ply -- Make the player who created the bot its "owner"
+	NewBot.TBotOwner				=	ply -- Make the player who created the bot its "owner"
 	NewBot.FollowDist				=	tonumber( args[ 2 ] ) or 200 -- This is how close the bot will follow it's owner
 	NewBot.DangerDist				=	tonumber( args[ 3 ] ) or 300 -- This is how far the bot can be from it's owner when in combat
 	NewBot.Melee					=	args[ 4 ] or "weapon_crowbar" -- This is the melee weapon the bot will use
@@ -48,7 +48,7 @@ function TBotSetFollowDist( ply, cmd, args ) -- Command for changing the bots "F
 	
 	for k, bot in ipairs( player.GetBots() ) do
 		
-		if bot.IsTRizzleBot and bot:Nick() == targetbot and bot.Owner == ply then
+		if bot.IsTRizzleBot and bot:Nick() == targetbot and bot.TBotOwner == ply then
 			
 			bot.FollowDist = followdist
 			break
@@ -66,7 +66,7 @@ function TBotSetDangerDist( ply, cmd, args ) -- Command for changing the bots "D
 	
 	for k, bot in ipairs( player.GetBots() ) do
 		
-		if bot.IsTRizzleBot and bot:Nick() == targetbot and bot.Owner == ply then
+		if bot.IsTRizzleBot and bot:Nick() == targetbot and bot.TBotOwner == ply then
 			
 			bot.DangerDist = dangerdist
 			break
@@ -84,7 +84,7 @@ function TBotSetMelee( ply, cmd, args ) -- Command for changing the bots melee t
 	
 	for k, bot in ipairs( player.GetBots() ) do
 		
-		if bot.IsTRizzleBot and bot:Nick() == targetbot and bot.Owner == ply then
+		if bot.IsTRizzleBot and bot:Nick() == targetbot and bot.TBotOwner == ply then
 			
 			bot.Melee = melee
 			break
@@ -102,7 +102,7 @@ function TBotSetPistol( ply, cmd, args ) -- Command for changing the bots pistol
 	
 	for k, bot in ipairs( player.GetBots() ) do
 		
-		if bot.IsTRizzleBot and bot:Nick() == targetbot and bot.Owner == ply then
+		if bot.IsTRizzleBot and bot:Nick() == targetbot and bot.TBotOwner == ply then
 			
 			bot.Pistol = pistol
 			break
@@ -120,7 +120,7 @@ function TBotSetShotgun( ply, cmd, args ) -- Command for changing the bots shotg
 	
 	for k, bot in ipairs( player.GetBots() ) do
 		
-		if bot.IsTRizzleBot and bot:Nick() == targetbot and bot.Owner == ply then
+		if bot.IsTRizzleBot and bot:Nick() == targetbot and bot.TBotOwner == ply then
 			
 			bot.Shotgun = shotgun
 			break
@@ -138,7 +138,7 @@ function TBotSetRifle( ply, cmd, args ) -- Command for changing the bots rifle t
 	
 	for k, bot in ipairs( player.GetBots() ) do
 		
-		if bot.IsTRizzleBot and bot:Nick() == targetbot and bot.Owner == ply then
+		if bot.IsTRizzleBot and bot:Nick() == targetbot and bot.TBotOwner == ply then
 			
 			bot.Rifle = rifle
 			break
@@ -156,7 +156,7 @@ function TBotSetSniper( ply, cmd, args ) -- Command for changing the bots sniper
 	
 	for k, bot in ipairs( player.GetBots() ) do
 		
-		if bot.IsTRizzleBot and bot:Nick() == targetbot and bot.Owner == ply then
+		if bot.IsTRizzleBot and bot:Nick() == targetbot and bot.TBotOwner == ply then
 			
 			bot.Sniper = rifle
 			break
@@ -174,7 +174,7 @@ function TBotSetMeleeDist( ply, cmd, args )
 	
 	for k, bot in ipairs( player.GetBots() ) do
 		
-		if bot.IsTRizzleBot and bot:Nick() == targetbot and bot.Owner == ply then
+		if bot.IsTRizzleBot and bot:Nick() == targetbot and bot.TBotOwner == ply then
 			
 			bot.MeleeDist = meleedist
 			break
@@ -192,7 +192,7 @@ function TBotSetPistolDist( ply, cmd, args )
 	
 	for k, bot in ipairs( player.GetBots() ) do
 		
-		if bot.IsTRizzleBot and bot:Nick() == targetbot and bot.Owner == ply then
+		if bot.IsTRizzleBot and bot:Nick() == targetbot and bot.TBotOwner == ply then
 			
 			bot.PistolDist = pistoldist
 			break
@@ -210,7 +210,7 @@ function TBotSetShotgunDist( ply, cmd, args )
 	
 	for k, bot in ipairs( player.GetBots() ) do
 		
-		if bot.IsTRizzleBot and bot:Nick() == targetbot and bot.Owner == ply then
+		if bot.IsTRizzleBot and bot:Nick() == targetbot and bot.TBotOwner == ply then
 			
 			bot.ShotgunDist = shotgundist
 			break
@@ -228,7 +228,7 @@ function TBotSetRifleDist( ply, cmd, args )
 	
 	for k, bot in ipairs( player.GetBots() ) do
 		
-		if bot.IsTRizzleBot and bot:Nick() == targetbot and bot.Owner == ply then
+		if bot.IsTRizzleBot and bot:Nick() == targetbot and bot.TBotOwner == ply then
 			
 			bot.RifleDist = rifledist
 			break
@@ -246,7 +246,7 @@ function TBotSetHealThreshold( ply, cmd, args )
 	
 	for k, bot in ipairs( player.GetBots() ) do
 		
-		if bot.IsTRizzleBot and bot:Nick() == targetbot and bot.Owner == ply then
+		if bot.IsTRizzleBot and bot:Nick() == targetbot and bot.TBotOwner == ply then
 			
 			if healthreshold > bot:GetMaxHealth() then healthreshold = bot:GetMaxHealth() end
 			bot.HealThreshold = healthreshold
@@ -265,7 +265,7 @@ function TBotSetCombatHealThreshold( ply, cmd, args )
 	
 	for k, bot in ipairs( player.GetBots() ) do
 		
-		if bot.IsTRizzleBot and bot:Nick() == targetbot and bot.Owner == ply then
+		if bot.IsTRizzleBot and bot:Nick() == targetbot and bot.TBotOwner == ply then
 			
 			if combathealthreshold > bot:GetMaxHealth() then combathealthreshold = bot:GetMaxHealth() end
 			bot.CombatHealThreshold = combathealthreshold
@@ -286,7 +286,7 @@ function TBotSetPlayerModel( ply, cmd, args )
 	
 	for k, bot in ipairs( player.GetBots() ) do
 		
-		if bot.IsTRizzleBot and bot:Nick() == targetbot and bot.Owner == ply then
+		if bot.IsTRizzleBot and bot:Nick() == targetbot and bot.TBotOwner == ply then
 			
 			bot:SetModel( playermodel )
 			bot.PlayerModel = playermodel
@@ -305,7 +305,7 @@ function TBotSpawnWithPreferredWeapons( ply, cmd, args )
 	
 	for k, bot in ipairs( player.GetBots() ) do
 		
-		if bot.IsTRizzleBot and bot:Nick() == targetbot and bot.Owner == ply then
+		if bot.IsTRizzleBot and bot:Nick() == targetbot and bot.TBotOwner == ply then
 			
 			if spawnwithweapons == 0 then bot.SpawnWithWeapons = false
 			else bot.SpawnWithWeapons = true end
@@ -421,9 +421,9 @@ hook.Add( "StartCommand" , "TRizzleBotAIHook" , function( bot , cmd )
 		
 		end
 		
-		if isvector( bot.Goal ) and (bot.Owner:GetPos() - bot.Goal):LengthSqr() > bot.FollowDist * bot.FollowDist or !isvector( bot.Goal ) and (bot.Owner:GetPos() - bot:GetPos()):LengthSqr() > bot.DangerDist * bot.DangerDist then
+		if isvector( bot.Goal ) and (bot.TBotOwner:GetPos() - bot.Goal):LengthSqr() > bot.FollowDist * bot.FollowDist or !isvector( bot.Goal ) and (bot.TBotOwner:GetPos() - bot:GetPos()):LengthSqr() > bot.DangerDist * bot.DangerDist then
 		
-			bot:TBotSetNewGoal( bot.Owner:GetPos() )
+			bot:TBotSetNewGoal( bot.TBotOwner:GetPos() )
 		
 		else
 		
@@ -431,11 +431,11 @@ hook.Add( "StartCommand" , "TRizzleBotAIHook" , function( bot , cmd )
 		
 		end
 	
-	elseif IsValid( bot.Owner ) and bot.Owner:Alive() then
+	elseif IsValid( bot.TBotOwner ) and bot.TBotOwner:Alive() then
 	
-		if isvector( bot.Goal ) and (bot.Owner:GetPos() - bot.Goal):LengthSqr() > bot.FollowDist * bot.FollowDist or !isvector( bot.Goal ) and (bot.Owner:GetPos() - bot:GetPos()):LengthSqr() > bot.FollowDist * bot.FollowDist then
+		if isvector( bot.Goal ) and (bot.TBotOwner:GetPos() - bot.Goal):LengthSqr() > bot.FollowDist * bot.FollowDist or !isvector( bot.Goal ) and (bot.TBotOwner:GetPos() - bot:GetPos()):LengthSqr() > bot.FollowDist * bot.FollowDist then
 		
-			bot:TBotSetNewGoal( bot.Owner:GetPos() )
+			bot:TBotSetNewGoal( bot.TBotOwner:GetPos() )
 		
 		else
 		
@@ -517,7 +517,7 @@ function BOT:HandleButtons()
 	end
 	
 	-- Run if we are too far from our owner or the navmesh tells us to
-	if CanRun and ( ShouldRun or (self.Owner:GetPos() - self:GetPos()):LengthSqr() > self.DangerDist * self.DangerDist ) and self:GetSuitPower() > 20 then 
+	if CanRun and ( ShouldRun or (self.TBotOwner:GetPos() - self:GetPos()):LengthSqr() > self.DangerDist * self.DangerDist ) and self:GetSuitPower() > 20 then 
 		
 		self:PressRun()
 	
@@ -550,7 +550,7 @@ function BOT:HandleButtons()
 	
 	local door = self:GetEyeTrace().Entity
 	
-	if self.ShouldUse and IsValid( door ) and door:IsDoor() and (door:GetPos() - self:GetPos()):LengthSqr() < 6400 then 
+	if self.ShouldUse and IsValid( door ) and door:IsDoor() and !door:IsDoorOpen() and (door:GetPos() - self:GetPos()):LengthSqr() < 6400 then 
 	
 		self:PressUse()
 		
@@ -1053,6 +1053,22 @@ function Ent:IsDoor()
 	
 end
 
+function Ent:IsDoorOpen()
+
+	if self:GetClass() == "func_door" or self:GetClass() == "func_door_rotating" then
+        
+		return self:GetInternalVariable( "m_toggle_state" ) == 0
+    
+	elseif self:GetClass() == "prop_door_rotating" then
+	
+		return self:GetInternalVariable( "m_eDoorState" ) != 0
+	
+	end
+	
+	return false
+	
+end
+
 
 -- When a player leaves the server, every bot "owned" by the player should leave as well
 hook.Add( "PlayerDisconnected" , "TRizzleBotPlayerLeave" , function( ply )
@@ -1061,7 +1077,7 @@ hook.Add( "PlayerDisconnected" , "TRizzleBotPlayerLeave" , function( ply )
 		
 		for k, bot in ipairs( player.GetBots() ) do
 		
-			if bot.IsTRizzleBot and bot.Owner == ply then
+			if bot.IsTRizzleBot and bot.TBotOwner == ply then
 			
 				bot:Kick( "Owner " .. ply:Nick() .. " has left the server" )
 			
@@ -1203,7 +1219,7 @@ hook.Add( "Think" , "TRizzleBotThink" , function()
 				
 				end
 				
-				if bot.Owner:InVehicle() and !bot:InVehicle() then
+				if bot.TBotOwner:InVehicle() and !bot:InVehicle() then
 				
 					local vehicle = bot:FindNearbySeat()
 					
@@ -1211,7 +1227,7 @@ hook.Add( "Think" , "TRizzleBotThink" , function()
 				
 				end
 				
-				if !bot.Owner:InVehicle() and bot:InVehicle() then
+				if !bot.TBotOwner:InVehicle() and bot:InVehicle() then
 				
 					bot:ExitVehicle() -- Should I make the bot press its use key instead?
 				
@@ -1454,7 +1470,7 @@ hook.Add( "PlayerHurt" , "TRizzleBotPlayerHurt" , function( victim, attacker )
 
 	if !IsValid( attacker ) or !IsValid( victim ) or !victim.IsTRizzleBot or !victim:IsBot() or attacker:IsPlayer() then return end
 	
-	if attacker:IsNPC() and !victim.EnemyList[ attacker:GetCreationID() ] and attacker:IsAlive() and ( attacker:Disposition( victim ) == D_HT or attacker:Disposition( victim.Owner ) == D_HT ) then
+	if attacker:IsNPC() and !victim.EnemyList[ attacker:GetCreationID() ] and attacker:IsAlive() and ( attacker:Disposition( victim ) == D_HT or attacker:Disposition( victim.TBotOwner ) == D_HT ) then
 
 		victim.EnemyList[ attacker:GetCreationID() ]		=	{ Enemy = attacker, LastSeenTime = CurTime() + 10.0 }
 	
@@ -1469,7 +1485,7 @@ hook.Add( "EntityEmitSound" , "TRizzleBotEntityEmitSound" , function( soundTable
 		
 		if !IsValid( bot ) or !bot.IsTRizzleBot or !IsValid( soundTable.Entity ) or soundTable.Entity:IsPlayer() or soundTable.Entity == bot then return end
 	
-		if soundTable.Entity:IsNPC() and !bot.EnemyList[ soundTable.Entity:GetCreationID() ] and soundTable.Entity:IsAlive() and (soundTable.Entity:Disposition( bot ) == D_HT or soundTable.Entity:Disposition( bot.Owner ) == D_HT) and (soundTable.Entity:GetPos() - bot:GetPos()):LengthSqr() < ( ( 1000 * ( soundTable.SoundLevel / 100 ) ) * ( 1000 * ( soundTable.SoundLevel / 100 ) ) ) then
+		if soundTable.Entity:IsNPC() and !bot.EnemyList[ soundTable.Entity:GetCreationID() ] and soundTable.Entity:IsAlive() and (soundTable.Entity:Disposition( bot ) == D_HT or soundTable.Entity:Disposition( bot.TBotOwner ) == D_HT) and (soundTable.Entity:GetPos() - bot:GetPos()):LengthSqr() < ( ( 1000 * ( soundTable.SoundLevel / 100 ) ) * ( 1000 * ( soundTable.SoundLevel / 100 ) ) ) then
 			
 			bot.EnemyList[ soundTable.Entity:GetCreationID() ]		=	{ Enemy = soundTable.Entity, LastSeenTime = CurTime() + 10.0 }
 			
@@ -1488,7 +1504,7 @@ function Npc:IsAlive()
 	elseif self:GetInternalVariable( "m_lifeState" ) != 0 then return false end
 	
 	return true
-		
+	
 end
 
 -- Checks if its current enemy is still alive and still visible to the bot
@@ -1497,7 +1513,7 @@ function BOT:CheckCurrentEnemyStatus()
 	if !IsValid( self.Enemy ) then self.Enemy							=	nil
 	elseif self.Enemy:IsPlayer() and !self.Enemy:Alive() then self.Enemy				=	nil -- Just incase the bot's enemy is set to a player even though the bot should only target NPCS and "hopefully" NEXTBOTS 
 	elseif !self.Enemy:Visible( self ) or self.IsTRizzleBotBlind or self:IsHiddenByFog( self:GetShootPos():Distance( self.Enemy:EyePos() ) ) then self.Enemy						=	nil
-	elseif self.Enemy:IsNPC() and ( !self.Enemy:IsAlive() or (self.Enemy:Disposition( self ) != D_HT and self.Enemy:Disposition( self.Owner ) != D_HT) ) then self.Enemy	=	nil
+	elseif self.Enemy:IsNPC() and ( !self.Enemy:IsAlive() or (self.Enemy:Disposition( self ) != D_HT and self.Enemy:Disposition( self.TBotOwner ) != D_HT) ) then self.Enemy	=	nil
 	elseif GetConVar( "ai_ignoreplayers" ):GetInt() != 0 or GetConVar( "ai_disabled" ):GetInt() != 0 then self.Enemy	=	nil end
 	
 end
@@ -1526,7 +1542,7 @@ function BOT:TBotCheckEnemyList()
 			self.EnemyList[ k ] = nil -- Just incase the bot's enemy is set to a player even though the bot should only target NPCS and "hopefully" NEXTBOTS
 			continue
 			
-		elseif v.Enemy:IsNPC() and ( !v.Enemy:IsAlive() or (v.Enemy:Disposition( self ) != D_HT and v.Enemy:Disposition( self.Owner ) != D_HT) ) then 
+		elseif v.Enemy:IsNPC() and ( !v.Enemy:IsAlive() or (v.Enemy:Disposition( self ) != D_HT and v.Enemy:Disposition( self.TBotOwner ) != D_HT) ) then 
 			
 			self.EnemyList[ k ] = nil
 			continue
@@ -1561,7 +1577,7 @@ function BOT:TBotFindClosestEnemy()
 	
 	for k, v in ipairs( ents.GetAll() ) do
 		
-		if IsValid ( v ) and v:IsNPC() and v:IsAlive() and !self.IsTRizzleBotBlind and (v:Disposition( self ) == D_HT or v:Disposition( self.Owner ) == D_HT) then -- The bot should attack any NPC that is hostile to them or their owner. D_HT means hostile/hate
+		if IsValid ( v ) and v:IsNPC() and v:IsAlive() and !self.IsTRizzleBotBlind and (v:Disposition( self ) == D_HT or v:Disposition( self.TBotOwner ) == D_HT) then -- The bot should attack any NPC that is hostile to them or their owner. D_HT means hostile/hate
 			
 			local enemydistsqr = (v:GetPos() - self:GetPos()):LengthSqr()
 			if self:IsAbleToSee( v ) then
@@ -1596,7 +1612,7 @@ function BOT:TBotFindClosestTeammate()
 	local target				=	nil -- This is the closest teammate to the bot.
 	
 	--The bot should heal its owner and itself before it heals anyone else
-	if IsValid( self.Owner ) and self.Owner:Alive() and self.Owner:Health() < self.HealThreshold and (self.Owner:GetPos() - self:GetPos()):LengthSqr() < 6400 then return self.Owner
+	if IsValid( self.TBotOwner ) and self.TBotOwner:Alive() and self.TBotOwner:Health() < self.HealThreshold and (self.TBotOwner:GetPos() - self:GetPos()):LengthSqr() < 6400 then return self.TBotOwner
 	elseif self:Health() < self.HealThreshold then return self end
 
 	for k, v in ipairs( player.GetAll() ) do
@@ -1924,37 +1940,59 @@ function TRizzleBotPathfinderCheap( StartNode , GoalNode )
 end
 
 function TRizzleBotRetracePathCheap( StartNode , GoalNode )
+	if !IsValid( StartNode ) or !IsValid( GoalNode ) then return false end
 	
+	local LADDER_UP = 0
+	local LADDER_DOWN = 1
 	local GO_LADDER_UP = 4
 	local GO_LADDER_DOWN = 5
+	local NUM_TRAVERSE_TYPES = 9
 	
 	local Trys			=	0 -- Backup! Prevent crashing.
 	-- I need to check if this works
-	--local NewPath	=	{ { area = GoalNode, how = GoalNode:GetParentHow() } }
-	local NewPath	=	{ GoalNode }
+	local NewPath	=	{ { area = GoalNode, how = GoalNode:GetParentHow() } }
+	--local NewPath	=	{ GoalNode }
 	
 	local Current	=	GoalNode
 	local Parent 	=	GoalNode:GetParentHow()
+	local StopLoop	=	false
 	
-	while( Current:GetParent() != StartNode and Trys < 50001 ) do
-	
-		Current		=	Current:GetParent()
-		Parent		=	Current:GetParentHow()
+	while( !StopLoop and Trys < 50001 ) do
+		
+		if Current == StartNode then 
+		
+			StopLoop = true
+			Parent = NUM_TRAVERSE_TYPES
+			
+		end
 		
 		--print( Current )
 		--print( Parent )
 		
-		if Parent == GO_LADDER_UP or Parent == GO_LADDER_DOWN then
+		if Parent == GO_LADDER_UP then
 		
-			local list = Current:GetLadders()
+			local list = Current:GetParent():GetLaddersAtSide( LADDER_UP )
 			--print( "Ladders: " .. #list )
 			for k, Ladder in ipairs( list ) do
-				--print( Ladder:GetTopForwardArea() )
-				--print( Ladder:GetTopLeftArea() )
-				--print( Ladder:GetTopRightArea() )
-				--print( Ladder:GetTopBehindArea() )
-				--print( Ladder:GetBottomArea() )
-				if Ladder:GetTopForwardArea() == Current or Ladder:GetTopLeftArea() == Current or Ladder:GetTopRightArea() == Current or Ladder:GetTopBehindArea() == Current or Ladder:GetBottomArea() == Current then
+				print( "Top Area: " .. tostring( Ladder:GetTopForwardArea() ) )
+				print( "TopLeft Area: " .. tostring( Ladder:GetTopLeftArea() ) )
+				print( "TopRight Area: " .. tostring( Ladder:GetTopRightArea() ) )
+				print( "TopBehind Area: " .. tostring( Ladder:GetTopBehindArea() ) )
+				if Ladder:GetTopForwardArea() == Current or Ladder:GetTopLeftArea() == Current or Ladder:GetTopRightArea() == Current or Ladder:GetTopBehindArea() == Current then
+					
+					NewPath[ #NewPath + 1 ] = { area = Current, how = Parent, ladder = Ladder }
+					break
+					
+				end
+			end
+			
+		elseif Parent == GO_LADDER_DOWN then
+		
+			local list = Current:GetParent():GetLaddersAtSide( LADDER_DOWN )
+			--print( "Ladders: " .. #list )
+			for k, Ladder in ipairs( list ) do
+				print( "Bottom Area: " .. tostring( Ladder:GetBottomArea() ) )
+				if Ladder:GetBottomArea() == Current then
 					
 					NewPath[ #NewPath + 1 ] = { area = Current, how = Parent, ladder = Ladder }
 					break
@@ -1968,9 +2006,12 @@ function TRizzleBotRetracePathCheap( StartNode , GoalNode )
 			
 		end
 		
+		Current		=	Current:GetParent()
+		Parent		=	Current:GetParentHow()
+		
 	end
 	
-	NewPath[ #NewPath + 1 ] = { area = StartNode, how = Current:GetParentHow() }
+	--NewPath[ #NewPath + 1 ] = { area = StartNode, how = NUM_TRAVERSE_TYPES }
 	
 	return NewPath
 end
@@ -2138,14 +2179,14 @@ function BOT:ComputeNavmeshVisibility()
 		
 		local connection, area = Get_Blue_Connection( CurrentNode, NextNode )
 		
-		print( "Should Drop Down: " .. tostring( self:ShouldDropDown( LastVisPos, connection ) ) )
-		print( "LastVisPos: " .. tostring( LastVisPos ))
-		print( "Area: " .. tostring( area ) )
-		print( "Connection: " .. tostring( connection ) )
+		--print( "Should Drop Down: " .. tostring( self:ShouldDropDown( LastVisPos, connection ) ) )
+		--print( "LastVisPos: " .. tostring( LastVisPos ))
+		--print( "Area: " .. tostring( area ) )
+		--print( "Connection: " .. tostring( connection ) )
 		
 		if self:ShouldDropDown( LastVisPos, connection ) then
 		
-			print("DROP")
+			--print("DROP")
 			local dir = vector_origin
 			
 			if NextHow == NORTH then 
