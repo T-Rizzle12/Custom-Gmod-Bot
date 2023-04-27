@@ -1950,16 +1950,16 @@ function TRizzleBotRetracePathCheap( StartNode , GoalNode )
 	
 	local Trys			=	0 -- Backup! Prevent crashing.
 	-- I need to check if this works
-	local NewPath	=	{ { area = GoalNode, how = GoalNode:GetParentHow() } }
+	local NewPath	=	{ { area = GoalNode, how = NUM_TRAVERSE_TYPES } }
 	--local NewPath	=	{ GoalNode }
 	
 	local Current	=	GoalNode
-	local Parent 	=	GoalNode:GetParentHow()
+	local Parent 	=	NUM_TRAVERSE_TYPES
 	local StopLoop	=	false
 	
 	while( !StopLoop and Trys < 50001 ) do
 		
-		if Current == StartNode then 
+		if !IsValid( Current ) or Current == StartNode then 
 		
 			StopLoop = true
 			Parent = NUM_TRAVERSE_TYPES
@@ -2007,7 +2007,7 @@ function TRizzleBotRetracePathCheap( StartNode , GoalNode )
 		end
 		
 		Current		=	Current:GetParent()
-		Parent		=	Current:GetParentHow()
+		if IsValid( Current ) and !StopLoop then Parent		=	Current:GetParentHow() end
 		
 	end
 	
@@ -2258,7 +2258,7 @@ function BOT:TBotNavigation()
 				-- This can cause major lag if the bot is doing this almost every think.
 				-- To prevent this, We block the bots pathfinding completely for a while before allowing them to pathfind again.
 				-- So its not as bad.
-				self.BlockPathFind		        =	true
+				self.BlockPathFind		=	true
 				self.Goal				=	nil
 				
 				timer.Simple( 1.0 , function() -- Prevent spamming the path finder.
@@ -2359,8 +2359,8 @@ end
 function BOT:TBotCreateNavTimer()
 	
 	local index			=	self:EntIndex()
-	local LastBotPos		=	self:GetPos()
-	local Attempts			=	0
+	local LastBotPos	=	self:GetPos()
+	local Attempts		=	0
 	
 	
 	timer.Create( "trizzle_bot_nav" .. index , 0.09 , 0 , function()
