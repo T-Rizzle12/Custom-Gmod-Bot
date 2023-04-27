@@ -2028,10 +2028,78 @@ function BOT:TBotSetNewGoal( NewGoal )
 	
 end
 
+-- This will compute the length of the path given
+function GetPathLength( tbl )
+	
+	return 10 -- This is a placeholder
 
+end
 
+-- Returns a table of hiding spots.
+function BOT:FindSpots( tbl )
 
+	local tbl = tbl or {}
 
+	tbl.pos			= tbl.pos			or self:WorldSpaceCenter()
+	tbl.radius		= tbl.radius		or 1000
+	tbl.stepdown	= tbl.stepdown		or 20
+	tbl.stepup		= tbl.stepup		or 20
+	tbl.type		= tbl.type			or 'hiding'
+
+	-- Use a path to find the length
+	local path = Path( "Follow" )
+
+	-- Find a bunch of areas within this distance
+	local areas = navmesh.Find( tbl.pos, tbl.radius, tbl.stepdown, tbl.stepup )
+
+	local found = {}
+
+	-- In each area
+	for _, area in ipairs( areas ) do
+
+		-- get the spots
+		local spots
+
+		if ( tbl.type == 'hiding' ) then spots = area:GetHidingSpots() end
+
+		for k, vec in ipairs( spots ) do
+
+			local tempPath = TRizzleBotPathfinderCheap( navmesh.GetNearestNavArea( self:GetPos() ), navmesh.GetNearestNavArea( vec ) )
+
+			table.insert( found, { vector = vec, distance = GetPathLength( tempPath ) } )
+
+		end
+
+	end
+
+	return found
+
+end
+
+-- Like FindSpots but only returns a vector
+function BOT:FindSpot( type, options )
+
+	local spots = self:FindSpots( options )
+	if ( !spots || #spots == 0 ) then return end
+
+	if ( type == "near" ) then
+
+		table.SortByMember( spots, "distance", true )
+		return spots[1].vector
+
+	end
+
+	if ( type == "far" ) then
+
+		table.SortByMember( spots, "distance", false )
+		return spots[1].vector
+
+	end
+
+	-- random
+	return spots[ math.random( 1, #spots ) ].vector
+
+end
 
 -- A handy function for range checking.
 local function IsVecCloseEnough( start , endpos , dist )
