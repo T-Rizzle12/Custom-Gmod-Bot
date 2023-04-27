@@ -2028,9 +2028,19 @@ function BOT:TBotSetNewGoal( NewGoal )
 end
 
 -- This will compute the length of the path given
-function GetPathLength( tbl )
+function GetPathLength( tbl, startArea, endArea )
+	if isbool( tbl ) and tbl then return startArea:GetCenter():Distance( endArea:GetCenter() )
+	elseif isbool( tbl ) and !tbl then return -1 end
 	
-	return 10 -- This is a placeholder
+	local totalDist = 0
+	for k, v in ipairs( tbl ) do
+		if !tbl[ k + 1 ] then break
+		elseif !IsValid( v.area ) or !IsValid( tbl[ k + 1 ].area ) then return -1 end -- The table is either not a path or is corrupted
+		
+		totalDist = totalDist + v.area:GetCenter():Distance( tbl[ k + 1 ].area:GetCenter() )
+	end
+	
+	return totalDist
 
 end
 
@@ -2043,12 +2053,14 @@ function BOT:FindSpots( tbl )
 	tbl.radius		= tbl.radius		or 1000
 	tbl.stepdown	= tbl.stepdown		or 20
 	tbl.stepup		= tbl.stepup		or 20
-	tbl.type		= tbl.type			or 'hiding'
+	tbl.type		= tbl.type			or "hiding"
 
 	-- Find a bunch of areas within this distance
 	local areas = navmesh.Find( tbl.pos, tbl.radius, tbl.stepdown, tbl.stepup )
 
 	local found = {}
+	
+	local startArea = navmesh.GetNearestNavArea( tbl.pos )
 
 	-- In each area
 	for _, area in ipairs( areas ) do
@@ -2060,9 +2072,12 @@ function BOT:FindSpots( tbl )
 
 		for k, vec in ipairs( spots ) do
 
-			local tempPath = TRizzleBotPathfinderCheap( navmesh.GetNearestNavArea( self:GetPos() ), navmesh.GetNearestNavArea( vec ) )
-
-			table.insert( found, { vector = vec, distance = GetPathLength( tempPath ) } )
+			local endArea = navmesh.GetNearestNavArea( vec )
+			local tempPath = TRizzleBotPathfinderCheap( startArea, endArea )
+			local tempPathLength = GetPathLength( tempPath, startArea, endArea )
+			
+			if tempPathLength < 0 then continue end -- If the bot can't path to a hiding spot, it shouldn't consider it
+			table.insert( found, { vector = vec, distance = tempPathLength } )
 
 		end
 
