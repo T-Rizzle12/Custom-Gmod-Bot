@@ -57,6 +57,9 @@ CommandName, CommandParameters, Example
 - The bot can use ladders
 - The bot has "smooth aiming" (Aim won't instantly aim at enemies) 
 - The bot can open doors
+- The bot has an LOS, "Line of Sight," and can't see behind itself
+- The bot remembers enemies it has seen recently
+- The bot can "hear" noises created by enemies
 - The bot will use its flashlight when in a dark area
 - The bot will attack any NPC that is hostile them and its "owner" (The player that created it)
 - The bot, if it has a medkit, will heal itself and any players nearby it, although the bot's owner is prioritized.
@@ -69,7 +72,7 @@ I know what you are thinking, but these are needed to make the bot fun and easy 
 
 # Issues
 - The bot doesn't know if a Nextbot is hostile or friendly, wont attack nextbots at all!
-- The bot doesn’t know how to drive cars.
+- The bot doesn’t know how to drive cars, basic support is planned.
 
 # Planned Features
 - [ ] Get the bot to detect Nextbots
