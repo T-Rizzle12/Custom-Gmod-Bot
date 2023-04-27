@@ -2184,7 +2184,9 @@ function BOT:ComputeNavmeshVisibility()
 		--print( "Area: " .. tostring( area ) )
 		--print( "Connection: " .. tostring( connection ) )
 		
-		if self:ShouldDropDown( LastVisPos, connection ) then
+		-- We don't need to compute the dropdown points if the next area is marked as a jump area
+		-- as it causes the bot to get stuck.
+		if self:ShouldDropDown( LastVisPos, connection ) and !NextNode:HasAttributes( NAV_MESH_JUMP ) then
 		
 			--print("DROP")
 			local dir = vector_origin
