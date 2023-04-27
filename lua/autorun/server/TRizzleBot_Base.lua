@@ -391,7 +391,6 @@ function BOT:TBotResetAI()
 	self.Goal					=	nil -- The vector goal we want to get to.
 	self.NavmeshNodes			=	{} -- The nodes given to us by the pathfinder.
 	self.Path					=	nil -- The nodes converted into waypoints by our visiblilty checking.
-	self.PathLength				=	0 -- This is how long the current path is.
 	self.PathTime				=	CurTime() + 0.5 -- This will limit how often the path gets recreated.
 	
 	--self:TBotCreateThinking() -- Start our AI
@@ -2046,9 +2045,6 @@ function BOT:FindSpots( tbl )
 	tbl.stepup		= tbl.stepup		or 20
 	tbl.type		= tbl.type			or 'hiding'
 
-	-- Use a path to find the length
-	local path = Path( "Follow" )
-
 	-- Find a bunch of areas within this distance
 	local areas = navmesh.Find( tbl.pos, tbl.radius, tbl.stepdown, tbl.stepup )
 
@@ -2060,7 +2056,7 @@ function BOT:FindSpots( tbl )
 		-- get the spots
 		local spots
 
-		if ( tbl.type == 'hiding' ) then spots = area:GetHidingSpots() end
+		if ( tbl.type == "hiding" ) then spots = area:GetHidingSpots() end
 
 		for k, vec in ipairs( spots ) do
 
@@ -2080,7 +2076,7 @@ end
 function BOT:FindSpot( type, options )
 
 	local spots = self:FindSpots( options )
-	if ( !spots || #spots == 0 ) then return end
+	if ( !spots or #spots == 0 ) then return end
 
 	if ( type == "near" ) then
 
