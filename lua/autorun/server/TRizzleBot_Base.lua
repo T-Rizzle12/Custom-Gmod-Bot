@@ -361,15 +361,15 @@ concommand.Add( "TBotSetDefault" , TBotSetDefault , nil , "Set the specified bot
 function BOT:TBotResetAI()
 	
 	self.buttonFlags			=	0 -- These are the buttons the bot is going to press.
-	self.Enemy					=	nil -- This is the bot's current enemy.
+	self.Enemy				=	nil -- This is the bot's current enemy.
 	self.EnemyList				=	{} -- This is the list of enemies the bot knows about.
 	self.AimForHead				=	false -- Should the bot aim for the head?
 	self.TimeInCombat			=	0 -- This is how long the bot has been in combat.
 	self.LastCombatTime			=	0 -- This is the last time the bot was in combat.
 	self.BestWeapon				=	nil -- This is the weapon the bot currently wants to equip.
-	self.MinEquipInterval		=	0 -- Throttles how often equipping is allowed.
+	self.MinEquipInterval			=	0 -- Throttles how often equipping is allowed.
 	self.HealTarget				=	nil -- This is the player the bot is trying to heal.
-	self.IsTRizzleBotBlind		=	false -- Is the bot blind?
+	self.TRizzleBotBlindTime		=	0 -- This is how long the bot should be blind
 	self.NextJump				=	0 -- This is the next time the bot is allowed to jump.
 	self.HoldAttack				=	0 -- This is how long the bot should hold its attack button.
 	self.HoldAttack2			=	0 -- This is how long the bot should hold its attack2 button.
@@ -382,15 +382,15 @@ function BOT:TBotResetAI()
 	self.HoldUse				=	0 -- This is how long the bot should hold its use button.
 	self.ShouldReset			=	false -- This tells the bot to clear all buttons and movement.
 	self.FullReload				=	false -- This tells the bot not to press its attack button until its current weapon is fully reloaded.
-	self.FireWeaponInterval		=	0 -- Limits how often the bot presses its attack button.
+	self.FireWeaponInterval			=	0 -- Limits how often the bot presses its attack button.
 	self.ReloadInterval			=	0 -- Limits how often the bot can press its reload button.
-	self.Light					=	false -- Tells the bot if it should have its flashlight on or off.
+	self.Light				=	false -- Tells the bot if it should have its flashlight on or off.
 	self.LookTarget				=	false -- This is the position the bot is currently trying to look at.
 	self.LookTargetTime			=	0 -- This is how long the bot will look at the position the bot is currently trying to look at.
-	self.LookTargetPriority		=	LOW_PRIORITY -- This is how important the position the bot is currently trying to look at is.
-	self.Goal					=	nil -- The vector goal we want to get to.
+	self.LookTargetPriority			=	LOW_PRIORITY -- This is how important the position the bot is currently trying to look at is.
+	self.Goal				=	nil -- The vector goal we want to get to.
 	self.NavmeshNodes			=	{} -- The nodes given to us by the pathfinder.
-	self.Path					=	nil -- The nodes converted into waypoints by our visiblilty checking.
+	self.Path				=	nil -- The nodes converted into waypoints by our visiblilty checking.
 	self.PathTime				=	CurTime() + 0.5 -- This will limit how often the path gets recreated.
 	
 	--self:TBotCreateThinking() -- Start our AI
@@ -728,7 +728,7 @@ end
 
 -- This checks if the entered position in the bot's LOS
 function BOT:IsAbleToSee( pos )
-	if self.IsTRizzleBotBlind then return false end
+	if self:IsTRizzleBotBlind() then return false end
 
 	local fov = math.cos(0.5 * self:GetFOV() * math.pi / 180) -- I grab the bot's current FOV
 
@@ -767,15 +767,16 @@ end
 
 -- Blinds the bot for a specified amount of time
 function BOT:TBotBlind( time )
-	if !IsValid( self ) or !self:Alive() or !self.IsTRizzleBot or !isnumber( time ) or time < 0 then return end
+	if !IsValid( self ) or !self:Alive() or !self.IsTRizzleBot or !isnumber( time ) or time < ( self.TRizzleBotBlindTime - CurTime() ) then return end
 	
-	self.IsTRizzleBotBlind = true
-	timer.Simple( time , function()
-		
-		if IsValid( self ) and self:Alive() then self.IsTRizzleBotBlind = false end
-		
-	end)
+	self.TRizzleBotBlindTime = CurTime() + time
+end
+
+-- Is the bot currently blind?
+function BOT:IsTRizzleBotBlind()
+	if !IsValid( self ) or !self:Alive() or !self.IsTRizzleBot then return false end
 	
+	return self.TRizzleBotBlindTime > CurTime()
 end
 
 -- Got this from CS:GO Source Code, made some changes so it works for Lua
@@ -1512,7 +1513,7 @@ function BOT:CheckCurrentEnemyStatus()
 	
 	if !IsValid( self.Enemy ) then self.Enemy							=	nil
 	elseif self.Enemy:IsPlayer() and !self.Enemy:Alive() then self.Enemy				=	nil -- Just incase the bot's enemy is set to a player even though the bot should only target NPCS and "hopefully" NEXTBOTS 
-	elseif !self.Enemy:Visible( self ) or self.IsTRizzleBotBlind or self:IsHiddenByFog( self:GetShootPos():Distance( self.Enemy:EyePos() ) ) then self.Enemy						=	nil
+	elseif !self.Enemy:Visible( self ) or self:IsTRizzleBotBlind() or self:IsHiddenByFog( self:GetShootPos():Distance( self.Enemy:EyePos() ) ) then self.Enemy						=	nil
 	elseif self.Enemy:IsNPC() and ( !self.Enemy:IsAlive() or (self.Enemy:Disposition( self ) != D_HT and self.Enemy:Disposition( self.TBotOwner ) != D_HT) ) then self.Enemy	=	nil
 	elseif GetConVar( "ai_ignoreplayers" ):GetInt() != 0 or GetConVar( "ai_disabled" ):GetInt() != 0 then self.Enemy	=	nil end
 	
@@ -1552,12 +1553,12 @@ function BOT:TBotCheckEnemyList()
 			self.EnemyList[ k ] = nil
 			continue
 			
-		elseif ( !v.Enemy:Visible( self ) or self.IsTRizzleBotBlind or self:IsHiddenByFog( self:GetShootPos():Distance( v.Enemy:EyePos() ) ) ) and v.LastSeenTime < CurTime() then 
+		elseif ( !v.Enemy:Visible( self ) or self:IsTRizzleBotBlind() or self:IsHiddenByFog( self:GetShootPos():Distance( v.Enemy:EyePos() ) ) ) and v.LastSeenTime < CurTime() then 
 			
 			self.EnemyList[ k ] = nil
 			continue
 		
-		elseif !self.IsTRizzleBotBlind and v.Enemy:Visible( self ) and !self:IsHiddenByFog( self:GetShootPos():Distance( v.Enemy:EyePos() ) ) then 
+		elseif !self:IsTRizzleBotBlind() and v.Enemy:Visible( self ) and !self:IsHiddenByFog( self:GetShootPos():Distance( v.Enemy:EyePos() ) ) then 
 		
 			self.EnemyList[ k ][ "LastSeenTime" ] = CurTime() + 10.0 
 			
@@ -1572,12 +1573,13 @@ function BOT:TBotFindClosestEnemy()
 	local targetdistsqr			=	100000000 -- This will allow the bot to select the closest enemy to it.
 	local target				=	self.Enemy -- This is the closest enemy to the bot.
 	
+	if self:IsTRizzleBotBlind() then return end -- The bot is blind
 	if ( ( engine:TickCount() + self:EntIndex() ) % 5 ) != 0 then return end -- This shouldn't run as often
 	if GetConVar( "ai_ignoreplayers" ):GetInt() != 0 or GetConVar( "ai_disabled" ):GetInt() != 0 then return end
 	
 	for k, v in ipairs( ents.GetAll() ) do
 		
-		if IsValid ( v ) and v:IsNPC() and v:IsAlive() and !self.IsTRizzleBotBlind and (v:Disposition( self ) == D_HT or v:Disposition( self.TBotOwner ) == D_HT) then -- The bot should attack any NPC that is hostile to them or their owner. D_HT means hostile/hate
+		if IsValid ( v ) and v:IsNPC() and v:IsAlive() and (v:Disposition( self ) == D_HT or v:Disposition( self.TBotOwner ) == D_HT) then -- The bot should attack any NPC that is hostile to them or their owner. D_HT means hostile/hate
 			
 			local enemydistsqr = (v:GetPos() - self:GetPos()):LengthSqr()
 			if self:IsAbleToSee( v ) then
@@ -1617,7 +1619,7 @@ function BOT:TBotFindClosestTeammate()
 
 	for k, v in ipairs( player.GetAll() ) do
 		
-		if IsValid ( v ) and v:Alive() and v:Health() < self.HealThreshold and !self.IsTRizzleBotBlind and v:Visible( self ) then -- The bot will heal any teammate that needs healing that we can actually see and are alive.
+		if IsValid ( v ) and v:Alive() and v:Health() < self.HealThreshold and !self:IsTRizzleBotBlind() and v:Visible( self ) then -- The bot will heal any teammate that needs healing that we can actually see and are alive.
 			local teammatedistsqr = (v:GetPos() - self:GetPos()):LengthSqr()
 			if teammatedistsqr < targetdistsqr then 
 				target = v
