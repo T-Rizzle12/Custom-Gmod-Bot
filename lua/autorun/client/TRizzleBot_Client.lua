@@ -1,3 +1,4 @@
+-- This is the flashlight check for the bots
 net.Receive("TRizzleBotFlashlight", function()
     local flashlights = {}
     for _, ply in pairs(player.GetBots()) do
