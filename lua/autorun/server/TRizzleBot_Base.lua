@@ -9,6 +9,7 @@ local HIGH_PRIORITY			=	2
 local MAXIMUM_PRIORITY		=	3
 local BotUpdateSkipCount	=	2 -- This is how many upkeep events must be skipped before another update event can be run
 local BotUpdateInterval		=	0
+local LookUpVector			=	Vector( 0, 0, 64 )
 util.AddNetworkString( "TRizzleBotFlashlight" )
 
 function TBotCreate( ply , cmd , args ) -- This code defines stats of the bot when it is created.  
@@ -361,20 +362,25 @@ concommand.Add( "TBotSetDefault" , TBotSetDefault , nil , "Set the specified bot
 function BOT:TBotResetAI()
 	
 	self.buttonFlags			=	0 -- These are the buttons the bot is going to press.
-	self.Enemy				=	nil -- This is the bot's current enemy.
+	self.forwardMovement		=	0 -- This tells my bot to move either forward or backwards.
+	self.strafeMovement			=	0 -- This tells my bot to move left or right.
+	self.Enemy					=	nil -- This is the bot's current enemy.
 	self.EnemyList				=	{} -- This is the list of enemies the bot knows about.
 	self.AimForHead				=	false -- Should the bot aim for the head?
 	self.TimeInCombat			=	0 -- This is how long the bot has been in combat.
 	self.LastCombatTime			=	0 -- This is the last time the bot was in combat.
 	self.BestWeapon				=	nil -- This is the weapon the bot currently wants to equip.
-	self.MinEquipInterval			=	0 -- Throttles how often equipping is allowed.
+	self.MinEquipInterval		=	0 -- Throttles how often equipping is allowed.
 	self.HealTarget				=	nil -- This is the player the bot is trying to heal.
-	self.TRizzleBotBlindTime		=	0 -- This is how long the bot should be blind
+	self.TRizzleBotBlindTime	=	0 -- This is how long the bot should be blind
 	self.NextJump				=	0 -- This is the next time the bot is allowed to jump.
 	self.HoldAttack				=	0 -- This is how long the bot should hold its attack button.
 	self.HoldAttack2			=	0 -- This is how long the bot should hold its attack2 button.
 	self.HoldReload				=	0 -- This is how long the bot should hold its reload button.
 	self.HoldForward			=	0 -- This is how long the bot should hold its forward button.
+	self.HoldBack				=	0 -- This is how long the bot should hold its back button.
+	self.HoldLeft				=	0 -- This is how long the bot should hold its left button.
+	self.HoldRight				=	0 -- This is how long the bot should hold its right button.
 	self.HoldRun				=	0 -- This is how long the bot should hold its run button.
 	self.HoldWalk				=	0 -- This is how long the bot should hold its walk button.
 	self.HoldJump				=	0 -- This is how long the bot should hold its jump button.
@@ -382,15 +388,15 @@ function BOT:TBotResetAI()
 	self.HoldUse				=	0 -- This is how long the bot should hold its use button.
 	self.ShouldReset			=	false -- This tells the bot to clear all buttons and movement.
 	self.FullReload				=	false -- This tells the bot not to press its attack button until its current weapon is fully reloaded.
-	self.FireWeaponInterval			=	0 -- Limits how often the bot presses its attack button.
+	self.FireWeaponInterval		=	0 -- Limits how often the bot presses its attack button.
 	self.ReloadInterval			=	0 -- Limits how often the bot can press its reload button.
-	self.Light				=	false -- Tells the bot if it should have its flashlight on or off.
+	self.Light					=	false -- Tells the bot if it should have its flashlight on or off.
 	self.LookTarget				=	false -- This is the position the bot is currently trying to look at.
 	self.LookTargetTime			=	0 -- This is how long the bot will look at the position the bot is currently trying to look at.
-	self.LookTargetPriority			=	LOW_PRIORITY -- This is how important the position the bot is currently trying to look at is.
-	self.Goal				=	nil -- The vector goal we want to get to.
+	self.LookTargetPriority		=	LOW_PRIORITY -- This is how important the position the bot is currently trying to look at is.
+	self.Goal					=	nil -- The vector goal we want to get to.
 	self.NavmeshNodes			=	{} -- The nodes given to us by the pathfinder.
-	self.Path				=	nil -- The nodes converted into waypoints by our visiblilty checking.
+	self.Path					=	nil -- The nodes converted into waypoints by our visiblilty checking.
 	self.PathTime				=	CurTime() + 0.5 -- This will limit how often the path gets recreated.
 	
 	--self:TBotCreateThinking() -- Start our AI
@@ -454,20 +460,51 @@ function BOT:ResetCommand( cmd )
 
 	cmd:ClearButtons() -- Clear the bots buttons. Shooting, Running , jumping etc...
 	cmd:ClearMovement() -- For when the bot is moving around.
-	local buttons = 0
+	local buttons			= 0
+	local forwardmovement	= 0
+	local strafemovement	= 0
 	
 	if self.HoldAttack > CurTime() then buttons = bit.bor( buttons, IN_ATTACK ) end
 	if self.HoldAttack2 > CurTime() then buttons = bit.bor( buttons, IN_ATTACK2 ) end
 	if self.HoldReload > CurTime() then buttons = bit.bor( buttons, IN_RELOAD ) end
-	if self.HoldForward > CurTime() then buttons = bit.bor( buttons, IN_FORWARD ) end
+	if self.HoldForward > CurTime() then 
+	
+		buttons = bit.bor( buttons, IN_FORWARD )
+
+		forwardmovement = self:GetRunSpeed()
+	
+	end
+	if self.HoldBack > CurTime() then 
+	
+		buttons = bit.bor( buttons, IN_BACK )
+		
+		forwardmovement = -self:GetRunSpeed()
+		
+	end
+	if self.HoldLeft > CurTime() then 
+	
+		buttons = bit.bor( buttons, IN_MOVELEFT )
+		
+		strafemovement = -self:GetRunSpeed()
+		
+	end
+	if self.HoldRight > CurTime() then 
+	
+		buttons = bit.bor( buttons, IN_MOVERIGHT ) 
+		
+		strafemovement = self:GetRunSpeed()
+		
+	end
 	if self.HoldRun > CurTime() then buttons = bit.bor( buttons, IN_SPEED ) end
 	if self.HoldWalk > CurTime() then buttons = bit.bor( buttons, IN_WALK ) end
 	if self.HoldJump > CurTime() then buttons = bit.bor( buttons, IN_JUMP ) end
 	if self.HoldCrouch > CurTime() then buttons = bit.bor( buttons, IN_DUCK ) end
 	if self.HoldUse > CurTime() then buttons = bit.bor( buttons, IN_USE ) end
 	
-	self.buttonFlags = buttons
-	self.ShouldReset = false
+	self.buttonFlags		= buttons
+	self.forwardMovement	= forwardmovement
+	self.strafeMovement		= strafemovement
+	self.ShouldReset		= false
 
 end
 
@@ -590,9 +627,44 @@ end
 function BOT:PressForward( holdTime )
 	if self.HoldForward > CurTime() then return end
 	holdTime = holdTime or 0.1
+	
+	self.forwardMovement = self:GetRunSpeed()
 
 	self.buttonFlags = bit.bor( self.buttonFlags, IN_FORWARD )
 	self.HoldForward = CurTime() + holdTime
+
+end
+
+function BOT:PressBack( holdTime )
+	if self.HoldBack > CurTime() then return end
+	holdTime = holdTime or 0.1
+	
+	self.forwardMovement = -self:GetRunSpeed()
+	
+	self.buttonFlags = bit.bor( self.buttonFlags, IN_BACK )
+	self.HoldBack = CurTime() + holdTime
+
+end
+
+function BOT:PressLeft( holdTime )
+	if self.HoldLeft > CurTime() then return end
+	holdTime = holdTime or 0.1
+	
+	self.strafeMovement = -self:GetRunSpeed()
+
+	self.buttonFlags = bit.bor( self.buttonFlags, IN_MOVELEFT )
+	self.HoldLeft = CurTime() + holdTime
+
+end
+
+function BOT:PressRight( holdTime )
+	if self.HoldRight > CurTime() then return end
+	holdTime = holdTime or 0.1
+	
+	self.strafeMovement = self:GetRunSpeed()
+
+	self.buttonFlags = bit.bor( self.buttonFlags, IN_MOVERIGHT )
+	self.HoldRight = CurTime() + holdTime
 
 end
 
@@ -703,6 +775,13 @@ function BOT:AimAtPos( Pos, Time, Priority )
 	self.LookTargetTime			=	Time
 	self.LookTargetPriority		=	Priority
 	
+end
+
+-- Grabs the bot's default FOV
+function BOT:GetDefaultFOV()
+
+	return self:GetInternalVariable( "m_iDefaultFOV" )
+
 end
 
 -- Got this from CS:GO Source Code, made some changes so it works for Lua
@@ -1112,17 +1191,7 @@ end)
 hook.Add( "Think" , "TRizzleBotThink" , function()
 	
 	BotUpdateInterval = ( BotUpdateSkipCount + 1 ) * FrameTime()
-	
-	timer.Simple( 0.15 , function()
-		local tab = player.GetHumans()
-		if #tab > 0 then
-			local ply = table.Random(tab)
-			
-			net.Start( "TRizzleBotFlashlight" )
-			net.Send( ply )
-		end
-		
-	end)
+	--local startTime = SysTime()
 	
 	for k, bot in ipairs( player.GetBots() ) do
 	
@@ -1136,6 +1205,17 @@ hook.Add( "Think" , "TRizzleBotThink" , function()
 				bot:CheckCurrentEnemyStatus()
 				bot:TBotFindClosestEnemy()
 				bot:TBotCheckEnemyList()
+				
+				if ( ( engine:TickCount() + bot:EntIndex() ) % 5 ) == 0 then
+				
+					local tab = player.GetHumans()
+					if #tab > 0 then
+						local ply = table.Random(tab)
+						
+						net.Start( "TRizzleBotFlashlight" )
+						net.Send( ply )
+					end
+				end
 				
 				if !bot:IsInCombat() then
 				
@@ -1220,6 +1300,13 @@ hook.Add( "Think" , "TRizzleBotThink" , function()
 				
 				end
 				
+				if isvector( bot.Goal ) then
+			
+					bot:TBotNavigation()
+					bot:TBotDebugWaypoints()
+					
+				end
+				
 				if bot.TBotOwner:InVehicle() and !bot:InVehicle() then
 				
 					local vehicle = bot:FindNearbySeat()
@@ -1262,6 +1349,7 @@ hook.Add( "Think" , "TRizzleBotThink" , function()
 		end
 	end
 
+	--print( "RunTime: " .. tostring( SysTime() - startTime ) .. " Seconds" )
 	
 end)
 
@@ -1521,7 +1609,7 @@ end
 
 -- This checks every enemy on the bot's Known Enemy List and checks to see if they are alive, visible, and valid
 function BOT:TBotCheckEnemyList()
-	if ( ( engine:TickCount() + self:EntIndex() ) % 5 ) != 0 then return end -- This shouldn't run as often
+	if ( ( engine:TickCount() + self:EntIndex() ) % 5 ) == 0 then return end -- This shouldn't run as often
 	--print( table.Count( self.EnemyList ) )
 	
 	for k, v in pairs( self.EnemyList ) do
@@ -1574,7 +1662,7 @@ function BOT:TBotFindClosestEnemy()
 	local target				=	self.Enemy -- This is the closest enemy to the bot.
 	
 	if self:IsTRizzleBotBlind() then return end -- The bot is blind
-	if ( ( engine:TickCount() + self:EntIndex() ) % 5 ) != 0 then return end -- This shouldn't run as often
+	if ( ( engine:TickCount() + self:EntIndex() ) % 5 ) == 0 then return end -- This shouldn't run as often
 	if GetConVar( "ai_ignoreplayers" ):GetInt() != 0 or GetConVar( "ai_disabled" ):GetInt() != 0 then return end
 	
 	for k, v in ipairs( ents.GetAll() ) do
@@ -2287,8 +2375,8 @@ function BOT:ComputeNavmeshVisibility()
 			end
 			
 			-- Should I use 75 instead?
-			connection.x = connection.x + ( 25.0 * dir.x )
-			connection.y = connection.y + ( 25.0 * dir.y )
+			connection.x = connection.x + ( 75.0 * dir.x )
+			connection.y = connection.y + ( 75.0 * dir.y )
 			
 			-- Should I set this to area and use connection as the second part of the drop down?
 			self.Path[ currentIndex + 1 ]			=	{ Pos = connection, IsLadder = false, Check = area, IsDropDown = true }
@@ -2450,10 +2538,6 @@ function BOT:TBotCreateNavTimer()
 		
 		if IsValid( self ) and self:Alive() and isvector( self.Goal ) then
 			
-			self:TBotNavigation()
-			
-			self:TBotDebugWaypoints()
-			
 			if self:Is_On_Ladder() then return end
 			
 			LastBotPos		=	Vector( LastBotPos.x , LastBotPos.y , self:GetPos().z )
@@ -2538,9 +2622,13 @@ function BOT:TBotUpdateMovement( cmd )
 		
 		if self:Is_On_Ladder() then LookTargetPriorityTemp = MAXIMUM_PRIORITY end
 		
+		self:PressForward()
+		
 		cmd:SetViewAngles( MovementAngle )
-		cmd:SetForwardMove( self:GetRunSpeed() )
-		self:AimAtPos( self.Goal + Vector( 0 , 0 , 16 ), CurTime() + 0.1, LookTargetPriorityTemp )
+		cmd:SetForwardMove( self.forwardMovement )
+		cmd:SetSideMove( self.strafeMovement )
+		
+		self:AimAtPos( self.Goal + LookUpVector, CurTime() + 0.1, LookTargetPriorityTemp )
 		
 		local GoalIn2D			=	Vector( self.Goal.x , self.Goal.y , self:GetPos().z )
 		if IsVecCloseEnough( self:GetPos() , GoalIn2D , 32 ) then
@@ -2594,9 +2682,13 @@ function BOT:TBotUpdateMovement( cmd )
 		
 		if self:Is_On_Ladder() or self.Path[ 1 ][ "IsLadder" ] then LookTargetPriorityTemp = MAXIMUM_PRIORITY end
 		
+		self:PressForward()
+		
 		cmd:SetViewAngles( MovementAngle )
-		cmd:SetForwardMove( 1000 )
-		self:AimAtPos( self.Path[ 1 ][ "Pos" ] + Vector( 0 , 0 , 16 ), CurTime() + 0.1, LookTargetPriorityTemp )
+		cmd:SetForwardMove( self.forwardMovement )
+		cmd:SetSideMove( self.strafeMovement )
+		
+		self:AimAtPos( self.Path[ 1 ][ "Pos" ] + LookUpVector, CurTime() + 0.1, LookTargetPriorityTemp )
 		
 	end
 	
