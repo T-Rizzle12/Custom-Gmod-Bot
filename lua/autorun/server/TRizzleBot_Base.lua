@@ -2374,9 +2374,8 @@ function BOT:ComputeNavmeshVisibility()
 				dir.y = 0 
 			end
 			
-			-- Should I use 75 instead?
-			connection.x = connection.x + ( 75.0 * dir.x )
-			connection.y = connection.y + ( 75.0 * dir.y )
+			connection.x = connection.x + ( 25.0 * dir.x )
+			connection.y = connection.y + ( 25.0 * dir.y )
 			
 			-- Should I set this to area and use connection as the second part of the drop down?
 			self.Path[ currentIndex + 1 ]			=	{ Pos = connection, IsLadder = false, Check = area, IsDropDown = true }
