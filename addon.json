@@ -1,0 +1,9 @@
+{
+	"title"		:	"Custom Gmod Bot",
+	"type"		:	"npc",
+	"tags"		:	[ "fun" ],
+	"ignore"	:
+	[
+	
+	]
+}
