@@ -3,6 +3,8 @@
 - Create at least a 2 player gmod server. This addon creates a "player" bot so you must have a open player spot because gmod will consider the bot a real player. 
 - Create a bot using the TRizzleCreateBot Command. (See below)
 
+This addon is on steam, you can download it there instead: https://steamcommunity.com/sharedfiles/filedetails/?id=2969405101
+
 # Important [![contributions welcome](https://img.shields.io/badge/contributions-welcome-brightgreen.svg?style=flat)](https://github.com/dwyl/esta/issues) [![HitCount](https://hits.dwyl.com/T-Rizzle12/start-here.svg)](https://hits.dwyl.com/T-Rizzle12/Custom-Gmod-Bot)
 
 This mod is in *Beta*, there will be bugs, but constant updates with new features and fixes.
