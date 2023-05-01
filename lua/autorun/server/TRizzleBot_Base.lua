@@ -9,7 +9,8 @@ local HIGH_PRIORITY			=	2
 local MAXIMUM_PRIORITY		=	3
 local BotUpdateSkipCount	=	2 -- This is how many upkeep events must be skipped before another update event can be run
 local BotUpdateInterval		=	0
-local LookUpVector			=	Vector( 0, 0, 64 )
+local HalfHumanHeight		=	Vector( 0, 0, 35.5 )
+local DarkVector			=	Vector( 0, 0, 0 )
 util.AddNetworkString( "TRizzleBotFlashlight" )
 
 function TBotCreate( ply , cmd , args ) -- This code defines stats of the bot when it is created.  
@@ -334,6 +335,7 @@ function TBotSetDefault( ply, cmd, args )
 	TBotSetRifleDist( ply, cmd, args )
 	TBotSetHealThreshold( ply, cmd, args )
 	TBotSetCombatHealThreshold( ply, cmd, args )
+	TBotSpawnWithPreferredWeapons( ply, cmd, args )
 
 end
 
@@ -362,8 +364,8 @@ concommand.Add( "TBotSetDefault" , TBotSetDefault , nil , "Set the specified bot
 function BOT:TBotResetAI()
 	
 	self.buttonFlags			=	0 -- These are the buttons the bot is going to press.
-	self.forwardMovement		=	0 -- This tells my bot to move either forward or backwards.
-	self.strafeMovement			=	0 -- This tells my bot to move left or right.
+	self.forwardMovement		=	0 -- This tells the bot to move either forward or backwards.
+	self.strafeMovement			=	0 -- This tells the bot to move left or right.
 	self.Enemy					=	nil -- This is the bot's current enemy.
 	self.EnemyList				=	{} -- This is the list of enemies the bot knows about.
 	self.AimForHead				=	false -- Should the bot aim for the head?
@@ -426,29 +428,10 @@ hook.Add( "StartCommand" , "TRizzleBotAIHook" , function( bot , cmd )
 			bot:AimAtPos( bot.Enemy:WorldSpaceCenter(), CurTime() + 0.1, HIGH_PRIORITY )
 		
 		end
-		
-		if isvector( bot.Goal ) and (bot.TBotOwner:GetPos() - bot.Goal):LengthSqr() > bot.FollowDist * bot.FollowDist or !isvector( bot.Goal ) and (bot.TBotOwner:GetPos() - bot:GetPos()):LengthSqr() > bot.DangerDist * bot.DangerDist then
-		
-			bot:TBotSetNewGoal( bot.TBotOwner:GetPos() )
-		
-		else
-		
-			bot:TBotUpdateMovement( cmd )
-		
-		end
 	
-	elseif IsValid( bot.TBotOwner ) and bot.TBotOwner:Alive() then
-	
-		if isvector( bot.Goal ) and (bot.TBotOwner:GetPos() - bot.Goal):LengthSqr() > bot.FollowDist * bot.FollowDist or !isvector( bot.Goal ) and (bot.TBotOwner:GetPos() - bot:GetPos()):LengthSqr() > bot.FollowDist * bot.FollowDist then
-		
-			bot:TBotSetNewGoal( bot.TBotOwner:GetPos() )
-		
-		else
-		
-			bot:TBotUpdateMovement( cmd )
-		
-		end
 	end
+	
+	bot:TBotUpdateMovement( cmd )
 	
 	cmd:SetButtons( bot.buttonFlags )
 	if IsValid( bot.BestWeapon ) and bot.BestWeapon:IsWeapon() then cmd:SelectWeapon( bot.BestWeapon ) end
@@ -723,7 +706,7 @@ net.Receive( "TRizzleBotFlashlight", function( _, ply)
 	
 		light = Vector(math.Round(light.x, 2), math.Round(light.y, 2), math.Round(light.z, 2))
 		
-		if light == vector_origin then -- Vector( 0, 0, 0 )
+		if light == DarkVector then -- Vector( 0, 0, 0 )
 		
 			bot.Light	=	true
 			
@@ -1255,6 +1238,12 @@ hook.Add( "Think" , "TRizzleBotThink" , function()
 						bot.ReloadInterval = CurTime() + 0.5
 					end
 					
+					if isvector( bot.Goal ) and (bot.TBotOwner:GetPos() - bot.Goal):LengthSqr() > bot.FollowDist * bot.FollowDist or !isvector( bot.Goal ) and (bot.TBotOwner:GetPos() - bot:GetPos()):LengthSqr() > bot.FollowDist * bot.FollowDist then
+		
+						bot:TBotSetNewGoal( bot.TBotOwner:GetPos() )
+						
+					end
+					
 					bot:RestoreAmmo() 
 					
 				elseif IsValid( bot.Enemy ) then
@@ -1288,7 +1277,7 @@ hook.Add( "Think" , "TRizzleBotThink" , function()
 							bot.FireWeaponInterval = CurTime() + 0.5
 						end
 						
-						if CurTime() > bot.ReloadInterval and !botWeapon:GetInternalVariable( "m_bInReload" ) and botWeapon:Clip1() == 0 then
+						if CurTime() > bot.ReloadInterval and !botWeapon:GetInternalVariable( "m_bInReload" ) and botWeapon:GetClass() != "weapon_medkit" and botWeapon:Clip1() == 0 then
 							if botWeapon:GetClass() == bot.Shotgun then bot.FullReload = true end
 							bot:PressReload()
 							bot.ReloadInterval = CurTime() + 0.5
@@ -1300,7 +1289,11 @@ hook.Add( "Think" , "TRizzleBotThink" , function()
 				
 				end
 				
-				if isvector( bot.Goal ) then
+				if isvector( bot.Goal ) and (bot.TBotOwner:GetPos() - bot.Goal):LengthSqr() > bot.FollowDist * bot.FollowDist or !isvector( bot.Goal ) and (bot.TBotOwner:GetPos() - bot:GetPos()):LengthSqr() > bot.DangerDist * bot.DangerDist then
+		
+					bot:TBotSetNewGoal( bot.TBotOwner:GetPos() )
+		
+				elseif isvector( bot.Goal ) then
 			
 					bot:TBotNavigation()
 					bot:TBotDebugWaypoints()
@@ -2039,7 +2032,7 @@ function TRizzleBotRetracePathCheap( StartNode , GoalNode )
 	
 	local Trys			=	0 -- Backup! Prevent crashing.
 	-- I need to check if this works
-	local NewPath	=	{ { area = GoalNode, how = NUM_TRAVERSE_TYPES } }
+	local NewPath	=	{}
 	--local NewPath	=	{ GoalNode }
 	
 	local Current	=	GoalNode
@@ -2063,10 +2056,10 @@ function TRizzleBotRetracePathCheap( StartNode , GoalNode )
 			local list = Current:GetParent():GetLaddersAtSide( LADDER_UP )
 			--print( "Ladders: " .. #list )
 			for k, Ladder in ipairs( list ) do
-				print( "Top Area: " .. tostring( Ladder:GetTopForwardArea() ) )
-				print( "TopLeft Area: " .. tostring( Ladder:GetTopLeftArea() ) )
-				print( "TopRight Area: " .. tostring( Ladder:GetTopRightArea() ) )
-				print( "TopBehind Area: " .. tostring( Ladder:GetTopBehindArea() ) )
+				--print( "Top Area: " .. tostring( Ladder:GetTopForwardArea() ) )
+				--print( "TopLeft Area: " .. tostring( Ladder:GetTopLeftArea() ) )
+				--print( "TopRight Area: " .. tostring( Ladder:GetTopRightArea() ) )
+				--print( "TopBehind Area: " .. tostring( Ladder:GetTopBehindArea() ) )
 				if Ladder:GetTopForwardArea() == Current or Ladder:GetTopLeftArea() == Current or Ladder:GetTopRightArea() == Current or Ladder:GetTopBehindArea() == Current then
 					
 					NewPath[ #NewPath + 1 ] = { area = Current, how = Parent, ladder = Ladder }
@@ -2080,7 +2073,7 @@ function TRizzleBotRetracePathCheap( StartNode , GoalNode )
 			local list = Current:GetParent():GetLaddersAtSide( LADDER_DOWN )
 			--print( "Ladders: " .. #list )
 			for k, Ladder in ipairs( list ) do
-				print( "Bottom Area: " .. tostring( Ladder:GetBottomArea() ) )
+				--print( "Bottom Area: " .. tostring( Ladder:GetBottomArea() ) )
 				if Ladder:GetBottomArea() == Current then
 					
 					NewPath[ #NewPath + 1 ] = { area = Current, how = Parent, ladder = Ladder }
@@ -2627,7 +2620,7 @@ function BOT:TBotUpdateMovement( cmd )
 		cmd:SetForwardMove( self.forwardMovement )
 		cmd:SetSideMove( self.strafeMovement )
 		
-		self:AimAtPos( self.Goal + LookUpVector, CurTime() + 0.1, LookTargetPriorityTemp )
+		self:AimAtPos( self.Goal + HalfHumanHeight, CurTime() + 0.1, LookTargetPriorityTemp )
 		
 		local GoalIn2D			=	Vector( self.Goal.x , self.Goal.y , self:GetPos().z )
 		if IsVecCloseEnough( self:GetPos() , GoalIn2D , 32 ) then
@@ -2687,7 +2680,7 @@ function BOT:TBotUpdateMovement( cmd )
 		cmd:SetForwardMove( self.forwardMovement )
 		cmd:SetSideMove( self.strafeMovement )
 		
-		self:AimAtPos( self.Path[ 1 ][ "Pos" ] + LookUpVector, CurTime() + 0.1, LookTargetPriorityTemp )
+		self:AimAtPos( self.Path[ 1 ][ "Pos" ] + HalfHumanHeight, CurTime() + 0.1, LookTargetPriorityTemp )
 		
 	end
 	
@@ -2812,7 +2805,7 @@ function Lad:Get_Closest_Point_Next( pos )
 	return self:GetBottom(), self:GetTop() - self:GetNormal() * 16, true
 end
 
-function Lad:Get_Closest_Point_Current( pos )
+--[[function Lad:Get_Closest_Point_Current( pos )
 	
 	local TopArea	=	self:GetTop():Distance( pos )
 	local LowArea	=	self:GetBottom():Distance( pos )
@@ -2823,7 +2816,7 @@ function Lad:Get_Closest_Point_Current( pos )
 	end
 	
 	return self:GetBottom(), self:GetBottom() + self:GetNormal() * 2.0 * 16, false
-end
+end]]
 
 -- See if a node is an area : 1 or a ladder : 2
 function Zone:Node_Get_Type()
