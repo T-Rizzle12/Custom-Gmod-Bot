@@ -10,7 +10,6 @@ local MAXIMUM_PRIORITY		=	3
 local BotUpdateSkipCount	=	2 -- This is how many upkeep events must be skipped before another update event can be run
 local BotUpdateInterval		=	0
 local HalfHumanHeight		=	Vector( 0, 0, 35.5 )
-local DarkVector			=	Vector( 0, 0, 0 )
 util.AddNetworkString( "TRizzleBotFlashlight" )
 
 function TBotCreate( ply , cmd , args ) -- This code defines stats of the bot when it is created.  
@@ -706,7 +705,7 @@ net.Receive( "TRizzleBotFlashlight", function( _, ply)
 	
 		light = Vector(math.Round(light.x, 2), math.Round(light.y, 2), math.Round(light.z, 2))
 		
-		if light == DarkVector then -- Vector( 0, 0, 0 )
+		if light:IsZero() then -- Vector( 0, 0, 0 )
 		
 			bot.Light	=	true
 			
@@ -1310,7 +1309,7 @@ hook.Add( "Think" , "TRizzleBotThink" , function()
 				
 				if !bot.TBotOwner:InVehicle() and bot:InVehicle() then
 				
-					bot:ExitVehicle() -- Should I make the bot press its use key instead?
+					bot:PressUse()
 				
 				end
 				
@@ -2351,7 +2350,7 @@ function BOT:ComputeNavmeshVisibility()
 		if self:ShouldDropDown( LastVisPos, connection ) and !NextNode:HasAttributes( NAV_MESH_JUMP ) then
 		
 			--print("DROP")
-			local dir = vector_origin
+			local dir = vector_origin -- Important, this seems to edit vector_origin, I need to clone vector_origin not edit it
 			
 			if NextHow == NORTH then 
 				dir.x = 0 
