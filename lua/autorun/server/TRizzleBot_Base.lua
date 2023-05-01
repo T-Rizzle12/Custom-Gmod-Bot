@@ -37,6 +37,11 @@ function TBotCreate( ply , cmd , args ) -- This code defines stats of the bot wh
 	
 	TBotSpawnWithPreferredWeapons( ply, cmd, { args[ 1 ], args[ 16 ] } )
 	TBotSetPlayerModel( ply, cmd, { args[ 1 ], NewBot.PlayerModel } )
+	
+	-- These are variables that only need to be intialized once
+	NewBot.GroupLeader				=	nil -- If the bot's owner is dead, this bot will take charge in combat and leads other bots with the same "owner". 
+	NewBot.HasLeader				=	false -- Checks if the bot already has a leader.
+	
 	NewBot:TBotResetAI() -- Fully reset your bots AI.
 	
 end
@@ -363,17 +368,17 @@ concommand.Add( "TBotSetDefault" , TBotSetDefault , nil , "Set the specified bot
 function BOT:TBotResetAI()
 	
 	self.buttonFlags			=	0 -- These are the buttons the bot is going to press.
-	self.forwardMovement		=	0 -- This tells the bot to move either forward or backwards.
+	self.forwardMovement			=	0 -- This tells the bot to move either forward or backwards.
 	self.strafeMovement			=	0 -- This tells the bot to move left or right.
-	self.Enemy					=	nil -- This is the bot's current enemy.
+	self.Enemy				=	nil -- This is the bot's current enemy.
 	self.EnemyList				=	{} -- This is the list of enemies the bot knows about.
 	self.AimForHead				=	false -- Should the bot aim for the head?
 	self.TimeInCombat			=	0 -- This is how long the bot has been in combat.
 	self.LastCombatTime			=	0 -- This is the last time the bot was in combat.
 	self.BestWeapon				=	nil -- This is the weapon the bot currently wants to equip.
-	self.MinEquipInterval		=	0 -- Throttles how often equipping is allowed.
+	self.MinEquipInterval			=	0 -- Throttles how often equipping is allowed.
 	self.HealTarget				=	nil -- This is the player the bot is trying to heal.
-	self.TRizzleBotBlindTime	=	0 -- This is how long the bot should be blind
+	self.TRizzleBotBlindTime		=	0 -- This is how long the bot should be blind
 	self.NextJump				=	0 -- This is the next time the bot is allowed to jump.
 	self.HoldAttack				=	0 -- This is how long the bot should hold its attack button.
 	self.HoldAttack2			=	0 -- This is how long the bot should hold its attack2 button.
@@ -389,15 +394,15 @@ function BOT:TBotResetAI()
 	self.HoldUse				=	0 -- This is how long the bot should hold its use button.
 	self.ShouldReset			=	false -- This tells the bot to clear all buttons and movement.
 	self.FullReload				=	false -- This tells the bot not to press its attack button until its current weapon is fully reloaded.
-	self.FireWeaponInterval		=	0 -- Limits how often the bot presses its attack button.
+	self.FireWeaponInterval			=	0 -- Limits how often the bot presses its attack button.
 	self.ReloadInterval			=	0 -- Limits how often the bot can press its reload button.
-	self.Light					=	false -- Tells the bot if it should have its flashlight on or off.
+	self.Light				=	false -- Tells the bot if it should have its flashlight on or off.
 	self.LookTarget				=	false -- This is the position the bot is currently trying to look at.
 	self.LookTargetTime			=	0 -- This is how long the bot will look at the position the bot is currently trying to look at.
-	self.LookTargetPriority		=	LOW_PRIORITY -- This is how important the position the bot is currently trying to look at is.
-	self.Goal					=	nil -- The vector goal we want to get to.
+	self.LookTargetPriority			=	LOW_PRIORITY -- This is how important the position the bot is currently trying to look at is.
+	self.Goal				=	nil -- The vector goal we want to get to.
 	self.NavmeshNodes			=	{} -- The nodes given to us by the pathfinder.
-	self.Path					=	nil -- The nodes converted into waypoints by our visiblilty checking.
+	self.Path				=	nil -- The nodes converted into waypoints by our visiblilty checking.
 	self.PathTime				=	CurTime() + 0.5 -- This will limit how often the path gets recreated.
 	
 	--self:TBotCreateThinking() -- Start our AI
@@ -1064,7 +1069,7 @@ function BOT:RestoreAmmo()
 	
 	-- This is kind of a cheat, but the bot will only slowly recover ammo when not in combat
 	local pistol		=	self:GetWeapon( self.Pistol )
-	local rifle			=	self:GetWeapon( self.Rifle )
+	local rifle		=	self:GetWeapon( self.Rifle )
 	local shotgun		=	self:GetWeapon( self.Shotgun )
 	local sniper		=	self:GetWeapon( self.Sniper )
 	local pistol_ammo
@@ -1197,6 +1202,28 @@ hook.Add( "Think" , "TRizzleBotThink" , function()
 						net.Start( "TRizzleBotFlashlight" )
 						net.Send( ply )
 					end
+				end
+				
+				if !bot.TBotOwner:Alive() and !IsValid( bot.GroupLeader ) then	
+					for k, v in ipairs( player.GetBots() ) do
+						
+						if IsValid ( v ) and v.IsTRizzleBot and v.TBotOwner == bot.TBotOwner then 
+							if !v.HasLeader then -- Once this is called every bot with the same owner will follow the bot marked as the leader while their owner is dead
+								v.GroupLeader	=	bot
+								v.HasLeader	=	true
+							else -- If the bot with the same owner already has a leader then follow their leader
+								bot.GroupLeader	=	v.GroupLeader
+								bot.HasLeader	=	true
+								break	
+							end
+						end
+					end
+				
+				elseif bot.TBotOwner:Alive() and IsValid( bot.GroupLeader ) then
+						
+					bot.GroupLeader	=	nil
+					bot.HasLeader	=	true
+						
 				end
 				
 				if !bot:IsInCombat() then
