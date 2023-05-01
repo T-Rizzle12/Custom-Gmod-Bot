@@ -2297,6 +2297,7 @@ function BOT:ComputeNavmeshVisibility()
 	self.Path				=	{}
 	
 	local LastVisPos		=	self:GetPos()
+	local dir			=	Vector( 0, 0, 0 )
 	
 	for k, v in ipairs( self.NavmeshNodes ) do
 		-- I should also make sure that the nodes exist as this is called 0.03 seconds after the pathfind.
@@ -2350,7 +2351,7 @@ function BOT:ComputeNavmeshVisibility()
 		if self:ShouldDropDown( LastVisPos, connection ) and !NextNode:HasAttributes( NAV_MESH_JUMP ) then
 		
 			--print("DROP")
-			local dir = vector_origin -- Important, this seems to edit vector_origin, I need to clone vector_origin not edit it
+			dir:Zero() -- This resets dir to Vector( 0, 0, 0 )
 			
 			if NextHow == NORTH then 
 				dir.x = 0 
