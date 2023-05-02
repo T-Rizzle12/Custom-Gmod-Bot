@@ -1286,7 +1286,7 @@ hook.Add( "Think" , "TRizzleBotThink" , function()
 							
 						end
 						
-					elseif !IsValid( bot.TBotOwner ) or !bot.TBotOwner:Alive() then
+					elseif IsValid( bot.TBotOwner ) and bot.TBotOwner:Alive() then
 					
 						if isvector( bot.Goal ) and (bot.TBotOwner:GetPos() - bot.Goal):LengthSqr() > bot.FollowDist * bot.FollowDist or !isvector( bot.Goal ) and (bot.TBotOwner:GetPos() - bot:GetPos()):LengthSqr() > bot.FollowDist * bot.FollowDist then
 			
@@ -1361,7 +1361,7 @@ hook.Add( "Think" , "TRizzleBotThink" , function()
 							
 						end
 						
-					elseif !IsValid( bot.TBotOwner ) or !bot.TBotOwner:Alive() then
+					elseif IsValid( bot.TBotOwner ) and bot.TBotOwner:Alive() then
 					
 						if isvector( bot.Goal ) and (bot.TBotOwner:GetPos() - bot.Goal):LengthSqr() > bot.FollowDist * bot.FollowDist or !isvector( bot.Goal ) and (bot.TBotOwner:GetPos() - bot:GetPos()):LengthSqr() > bot.DangerDist * bot.DangerDist then
 			
