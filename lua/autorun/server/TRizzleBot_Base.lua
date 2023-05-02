@@ -38,10 +38,6 @@ function TBotCreate( ply , cmd , args ) -- This code defines stats of the bot wh
 	TBotSpawnWithPreferredWeapons( ply, cmd, { args[ 1 ], args[ 16 ] } )
 	TBotSetPlayerModel( ply, cmd, { args[ 1 ], NewBot.PlayerModel } )
 	
-	-- These are variables that only need to be intialized once
-	NewBot.GroupLeader				=	nil -- If the bot's owner is dead, this bot will take charge in combat and leads other bots with the same "owner". 
-	NewBot.HasLeader				=	false -- Checks if the bot already has a leader.
-	
 	NewBot:TBotResetAI() -- Fully reset your bots AI.
 	
 end
@@ -367,43 +363,47 @@ concommand.Add( "TBotSetDefault" , TBotSetDefault , nil , "Set the specified bot
 
 function BOT:TBotResetAI()
 	
-	self.buttonFlags			=	0 -- These are the buttons the bot is going to press.
+	self.buttonFlags				=	0 -- These are the buttons the bot is going to press.
 	self.forwardMovement			=	0 -- This tells the bot to move either forward or backwards.
-	self.strafeMovement			=	0 -- This tells the bot to move left or right.
-	self.Enemy				=	nil -- This is the bot's current enemy.
-	self.EnemyList				=	{} -- This is the list of enemies the bot knows about.
-	self.AimForHead				=	false -- Should the bot aim for the head?
-	self.TimeInCombat			=	0 -- This is how long the bot has been in combat.
-	self.LastCombatTime			=	0 -- This is the last time the bot was in combat.
-	self.BestWeapon				=	nil -- This is the weapon the bot currently wants to equip.
+	self.strafeMovement				=	0 -- This tells the bot to move left or right.
+	self.GroupLeader				=	nil -- If the bot's owner is dead, this bot will take charge in combat and leads other bots with the same "owner". 
+	self.Enemy						=	nil -- This is the bot's current enemy.
+	self.EnemyList					=	{} -- This is the list of enemies the bot knows about.
+	self.NumVisibleEnemies			=	0 -- This is how many enemies are on the known enemy list that the bot can currently see.
+	self.EnemyListAverageDistSqr	=	0 -- This is average distance of every enemy on the known enemy list.
+	self.AimForHead					=	false -- Should the bot aim for the head?
+	self.TimeInCombat				=	0 -- This is how long the bot has been in combat.
+	self.LastCombatTime				=	0 -- This is the last time the bot was in combat.
+	self.BestWeapon					=	nil -- This is the weapon the bot currently wants to equip.
 	self.MinEquipInterval			=	0 -- Throttles how often equipping is allowed.
-	self.HealTarget				=	nil -- This is the player the bot is trying to heal.
+	self.HealTarget					=	nil -- This is the player the bot is trying to heal.
 	self.TRizzleBotBlindTime		=	0 -- This is how long the bot should be blind
-	self.NextJump				=	0 -- This is the next time the bot is allowed to jump.
-	self.HoldAttack				=	0 -- This is how long the bot should hold its attack button.
-	self.HoldAttack2			=	0 -- This is how long the bot should hold its attack2 button.
-	self.HoldReload				=	0 -- This is how long the bot should hold its reload button.
-	self.HoldForward			=	0 -- This is how long the bot should hold its forward button.
-	self.HoldBack				=	0 -- This is how long the bot should hold its back button.
-	self.HoldLeft				=	0 -- This is how long the bot should hold its left button.
-	self.HoldRight				=	0 -- This is how long the bot should hold its right button.
-	self.HoldRun				=	0 -- This is how long the bot should hold its run button.
-	self.HoldWalk				=	0 -- This is how long the bot should hold its walk button.
-	self.HoldJump				=	0 -- This is how long the bot should hold its jump button.
-	self.HoldCrouch				=	0 -- This is how long the bot should hold its crouch button.
-	self.HoldUse				=	0 -- This is how long the bot should hold its use button.
-	self.ShouldReset			=	false -- This tells the bot to clear all buttons and movement.
-	self.FullReload				=	false -- This tells the bot not to press its attack button until its current weapon is fully reloaded.
+	self.NextJump					=	0 -- This is the next time the bot is allowed to jump.
+	self.HoldAttack					=	0 -- This is how long the bot should hold its attack button.
+	self.HoldAttack2				=	0 -- This is how long the bot should hold its attack2 button.
+	self.HoldReload					=	0 -- This is how long the bot should hold its reload button.
+	self.HoldForward				=	0 -- This is how long the bot should hold its forward button.
+	self.HoldBack					=	0 -- This is how long the bot should hold its back button.
+	self.HoldLeft					=	0 -- This is how long the bot should hold its left button.
+	self.HoldRight					=	0 -- This is how long the bot should hold its right button.
+	self.HoldRun					=	0 -- This is how long the bot should hold its run button.
+	self.HoldWalk					=	0 -- This is how long the bot should hold its walk button.
+	self.HoldJump					=	0 -- This is how long the bot should hold its jump button.
+	self.HoldCrouch					=	0 -- This is how long the bot should hold its crouch button.
+	self.HoldUse					=	0 -- This is how long the bot should hold its use button.
+	self.ShouldReset				=	false -- This tells the bot to clear all buttons and movement.
+	self.FullReload					=	false -- This tells the bot not to press its attack button until its current weapon is fully reloaded.
 	self.FireWeaponInterval			=	0 -- Limits how often the bot presses its attack button.
-	self.ReloadInterval			=	0 -- Limits how often the bot can press its reload button.
-	self.Light				=	false -- Tells the bot if it should have its flashlight on or off.
-	self.LookTarget				=	false -- This is the position the bot is currently trying to look at.
-	self.LookTargetTime			=	0 -- This is how long the bot will look at the position the bot is currently trying to look at.
+	self.ReloadInterval				=	0 -- Limits how often the bot can press its reload button.
+	self.Light						=	false -- Tells the bot if it should have its flashlight on or off.
+	self.LookTarget					=	false -- This is the position the bot is currently trying to look at.
+	self.LookTargetTime				=	0 -- This is how long the bot will look at the position the bot is currently trying to look at.
 	self.LookTargetPriority			=	LOW_PRIORITY -- This is how important the position the bot is currently trying to look at is.
-	self.Goal				=	nil -- The vector goal we want to get to.
-	self.NavmeshNodes			=	{} -- The nodes given to us by the pathfinder.
-	self.Path				=	nil -- The nodes converted into waypoints by our visiblilty checking.
-	self.PathTime				=	CurTime() + 0.5 -- This will limit how often the path gets recreated.
+	self.HidingSpot					=	nil -- This is the current hiding/sniper spot the bot wants to goto, "only used by group leaders for now".
+	self.Goal						=	nil -- The vector goal we want to get to.
+	self.NavmeshNodes				=	{} -- The nodes given to us by the pathfinder.
+	self.Path						=	nil -- The nodes converted into waypoints by our visiblilty checking.
+	self.PathTime					=	CurTime() + 0.5 -- This will limit how often the path gets recreated.
 	
 	--self:TBotCreateThinking() -- Start our AI
 	
@@ -1136,6 +1136,23 @@ function Ent:IsDoorOpen()
 	
 end
 
+function BOT:FindGroupLeader()
+
+	local CurrentLeader = self.GroupLeader
+	for k, bot in ipairs( player.GetBots() ) do
+	
+		if IsValid( bot ) and bot:Alive() and bot.IsTRizzleBot and self != bot and self.TBotOwner == bot.TBotOwner and IsValid( bot.GroupLeader ) then
+		
+			CurrentLeader = bot.GroupLeader
+			break
+		
+		end
+		
+	end
+
+	return CurrentLeader
+	
+end
 
 -- When a player leaves the server, every bot "owned" by the player should leave as well
 hook.Add( "PlayerDisconnected" , "TRizzleBotPlayerLeave" , function( ply )
@@ -1179,6 +1196,17 @@ hook.Add( "Think" , "TRizzleBotThink" , function()
 	
 	BotUpdateInterval = ( BotUpdateSkipCount + 1 ) * FrameTime()
 	--local startTime = SysTime()
+	--ShowAllHidingSpots()
+	
+	if ( engine:TickCount() % 5 ) == 0 then
+		local tab = player.GetHumans()
+		if #tab > 0 then
+			local ply = table.Random(tab)
+			
+			net.Start( "TRizzleBotFlashlight" )
+			net.Send( ply )
+		end
+	end
 	
 	for k, bot in ipairs( player.GetBots() ) do
 	
@@ -1193,37 +1221,23 @@ hook.Add( "Think" , "TRizzleBotThink" , function()
 				bot:TBotFindClosestEnemy()
 				bot:TBotCheckEnemyList()
 				
-				if ( ( engine:TickCount() + bot:EntIndex() ) % 5 ) == 0 then
-				
-					local tab = player.GetHumans()
-					if #tab > 0 then
-						local ply = table.Random(tab)
+				if !IsValid( bot.TBotOwner ) or !bot.TBotOwner:Alive() then	
+					
+					local CurrentLeader = bot:FindGroupLeader()
+					if IsValid( CurrentLeader ) then
+					
+						bot.GroupLeader = CurrentLeader
 						
-						net.Start( "TRizzleBotFlashlight" )
-						net.Send( ply )
-					end
-				end
-				
-				if !bot.TBotOwner:Alive() and !IsValid( bot.GroupLeader ) then	
-					for k, v in ipairs( player.GetBots() ) do
-						
-						if IsValid ( v ) and v.IsTRizzleBot and v.TBotOwner == bot.TBotOwner then 
-							if !v.HasLeader then -- Once this is called every bot with the same owner will follow the bot marked as the leader while their owner is dead
-								v.GroupLeader	=	bot
-								v.HasLeader	=	true
-							else -- If the bot with the same owner already has a leader then follow their leader
-								bot.GroupLeader	=	v.GroupLeader
-								bot.HasLeader	=	true
-								break	
-							end
-						end
+					else
+					
+						bot.GroupLeader = bot
+					
 					end
 				
-				elseif bot.TBotOwner:Alive() and IsValid( bot.GroupLeader ) then
-						
+				else
+					
 					bot.GroupLeader	=	nil
-					bot.HasLeader	=	true
-						
+					
 				end
 				
 				if !bot:IsInCombat() then
@@ -1264,10 +1278,22 @@ hook.Add( "Think" , "TRizzleBotThink" , function()
 						bot.ReloadInterval = CurTime() + 0.5
 					end
 					
-					if isvector( bot.Goal ) and (bot.TBotOwner:GetPos() - bot.Goal):LengthSqr() > bot.FollowDist * bot.FollowDist or !isvector( bot.Goal ) and (bot.TBotOwner:GetPos() - bot:GetPos()):LengthSqr() > bot.FollowDist * bot.FollowDist then
-		
-						bot:TBotSetNewGoal( bot.TBotOwner:GetPos() )
+					if IsValid( bot.GroupLeader ) and bot != bot.GroupLeader then
+					
+						if isvector( bot.Goal ) and (bot.GroupLeader:GetPos() - bot.Goal):LengthSqr() > bot.FollowDist * bot.FollowDist or !isvector( bot.Goal ) and (bot.GroupLeader:GetPos() - bot:GetPos()):LengthSqr() > bot.FollowDist * bot.FollowDist then
+			
+							bot:TBotSetNewGoal( bot.GroupLeader:GetPos() )
+							
+						end
 						
+					elseif !IsValid( bot.TBotOwner ) or !bot.TBotOwner:Alive() then
+					
+						if isvector( bot.Goal ) and (bot.TBotOwner:GetPos() - bot.Goal):LengthSqr() > bot.FollowDist * bot.FollowDist or !isvector( bot.Goal ) and (bot.TBotOwner:GetPos() - bot:GetPos()):LengthSqr() > bot.FollowDist * bot.FollowDist then
+			
+							bot:TBotSetNewGoal( bot.TBotOwner:GetPos() )
+							
+						end
+					
 					end
 					
 					bot:RestoreAmmo() 
@@ -1311,15 +1337,45 @@ hook.Add( "Think" , "TRizzleBotThink" , function()
 						
 					end
 					
+					if IsValid( bot.GroupLeader ) and bot.GroupLeader == bot then -- Here is the AI for GroupLeaders
+					
+						-- If the bot's group is being overwhelmed then they should retreat
+						if !isvector( bot.HidingSpot ) and !isvector( bot.Goal ) and bot.NumVisibleEnemies >= 10 and bot.EnemyListAverageDistSqr < bot.DangerDist * bot.DangerDist then
+					
+							bot.HidingSpot = bot:FindSpot( "far", { pos = bot:GetPos(), radius = 10000, stepdown = 200, stepup = 64 } )
+						
+						elseif isvector( bot.HidingSpot ) then -- Once the bot has a hiding spot it should path there
+						
+							bot:TBotSetNewGoal( bot.HidingSpot )
+							bot.HidingSpot = nil
+						
+						end
+						
+					end
+					
+					if IsValid( bot.GroupLeader ) and bot != bot.GroupLeader then
+					
+						if isvector( bot.Goal ) and (bot.GroupLeader:GetPos() - bot.Goal):LengthSqr() > bot.FollowDist * bot.FollowDist or !isvector( bot.Goal ) and (bot.GroupLeader:GetPos() - bot:GetPos()):LengthSqr() > bot.FollowDist * bot.FollowDist then
+			
+							bot:TBotSetNewGoal( bot.GroupLeader:GetPos() )
+							
+						end
+						
+					elseif !IsValid( bot.TBotOwner ) or !bot.TBotOwner:Alive() then
+					
+						if isvector( bot.Goal ) and (bot.TBotOwner:GetPos() - bot.Goal):LengthSqr() > bot.FollowDist * bot.FollowDist or !isvector( bot.Goal ) and (bot.TBotOwner:GetPos() - bot:GetPos()):LengthSqr() > bot.DangerDist * bot.DangerDist then
+			
+							bot:TBotSetNewGoal( bot.TBotOwner:GetPos() )
+							
+						end
+					
+					end
+					
 					bot:SelectBestWeapon()
 				
 				end
-				
-				if isvector( bot.Goal ) and (bot.TBotOwner:GetPos() - bot.Goal):LengthSqr() > bot.FollowDist * bot.FollowDist or !isvector( bot.Goal ) and (bot.TBotOwner:GetPos() - bot:GetPos()):LengthSqr() > bot.DangerDist * bot.DangerDist then
 		
-					bot:TBotSetNewGoal( bot.TBotOwner:GetPos() )
-		
-				elseif isvector( bot.Goal ) then
+				if isvector( bot.Goal ) then
 			
 					bot:TBotNavigation()
 					bot:TBotDebugWaypoints()
@@ -1628,9 +1684,11 @@ end
 
 -- This checks every enemy on the bot's Known Enemy List and checks to see if they are alive, visible, and valid
 function BOT:TBotCheckEnemyList()
-	if ( ( engine:TickCount() + self:EntIndex() ) % 5 ) == 0 then return end -- This shouldn't run as often
+	if ( ( engine:TickCount() + self:EntIndex() ) % 5 ) != 0 then return end -- This shouldn't run as often
 	--print( table.Count( self.EnemyList ) )
 	
+	local numVisibleEnemies = 0
+	local averageDistSqr = 0
 	for k, v in pairs( self.EnemyList ) do
 		
 		-- I don't think I have to use this
@@ -1671,7 +1729,14 @@ function BOT:TBotCheckEnemyList()
 			
 		end
 		
+		numVisibleEnemies	= 	numVisibleEnemies + 1
+		averageDistSqr		=	averageDistSqr + v.Enemy:GetPos():DistToSqr( self:GetPos() )
+		
 	end
+	
+	self.NumVisibleEnemies			=	numVisibleEnemies
+	self.EnemyListAverageDistSqr	=	averageDistSqr / numVisibleEnemies
+	
 end
 
 -- Target any hostile NPCS that is visible to us.
@@ -1681,7 +1746,7 @@ function BOT:TBotFindClosestEnemy()
 	local target				=	self.Enemy -- This is the closest enemy to the bot.
 	
 	if self:IsTRizzleBotBlind() then return end -- The bot is blind
-	if ( ( engine:TickCount() + self:EntIndex() ) % 5 ) == 0 then return end -- This shouldn't run as often
+	if ( ( engine:TickCount() + self:EntIndex() ) % 5 ) != 0 then return end -- This shouldn't run as often
 	if GetConVar( "ai_ignoreplayers" ):GetInt() != 0 or GetConVar( "ai_disabled" ):GetInt() != 0 then return end
 	
 	for k, v in ipairs( ents.GetAll() ) do
@@ -2160,8 +2225,8 @@ function BOT:FindSpots( tbl )
 
 	tbl.pos			= tbl.pos			or self:WorldSpaceCenter()
 	tbl.radius		= tbl.radius		or 1000
-	tbl.stepdown	= tbl.stepdown		or 20
-	tbl.stepup		= tbl.stepup		or 20
+	tbl.stepdown	= tbl.stepdown		or 500
+	tbl.stepup		= tbl.stepup		or 500
 	tbl.type		= tbl.type			or "hiding"
 
 	-- Find a bunch of areas within this distance
@@ -2177,7 +2242,7 @@ function BOT:FindSpots( tbl )
 		-- get the spots
 		local spots
 
-		if ( tbl.type == "hiding" ) then spots = area:GetHidingSpots() end
+		if ( tbl.type == "hiding" ) then spots = area:GetHidingSpots( 1 ) end
 
 		for k, vec in ipairs( spots ) do
 
@@ -2865,4 +2930,15 @@ function Test( ply )
 		print( v )
 		
 	end 
+end
+
+-- Draws the hiding spots on debug overlay. This includes sniper/exposed spots too!
+function ShowAllHidingSpots()
+
+	for _, area in ipairs( navmesh.GetAllNavAreas() ) do
+
+		area:DrawSpots()
+
+	end
+
 end
