@@ -48,7 +48,7 @@ function TBotSetFollowDist( ply, cmd, args ) -- Command for changing the bots "F
 	local targetbot = args[ 1 ]
 	local followdist = tonumber( args[ 2 ] ) or 200
 	
-	for k, bot in ipairs( player.GetBots() ) do
+	for k, bot in ipairs( player.GetAll() ) do
 		
 		if bot:IsTRizzleBot() and bot:Nick() == targetbot and bot.TBotOwner == ply then
 			
@@ -66,7 +66,7 @@ function TBotSetDangerDist( ply, cmd, args ) -- Command for changing the bots "D
 	local targetbot = args[ 1 ]
 	local dangerdist = tonumber( args[ 2 ] ) or 300
 	
-	for k, bot in ipairs( player.GetBots() ) do
+	for k, bot in ipairs( player.GetAll() ) do
 		
 		if bot:IsTRizzleBot() and bot:Nick() == targetbot and bot.TBotOwner == ply then
 			
@@ -84,7 +84,7 @@ function TBotSetMelee( ply, cmd, args ) -- Command for changing the bots melee t
 	local targetbot = args[ 1 ]
 	local melee = args[ 2 ] or "weapon_crowbar"
 	
-	for k, bot in ipairs( player.GetBots() ) do
+	for k, bot in ipairs( player.GetAll() ) do
 		
 		if bot:IsTRizzleBot() and bot:Nick() == targetbot and bot.TBotOwner == ply then
 			
@@ -102,7 +102,7 @@ function TBotSetPistol( ply, cmd, args ) -- Command for changing the bots pistol
 	local targetbot = args[ 1 ]
 	local pistol = args[ 2 ] or "weapon_pistol"
 	
-	for k, bot in ipairs( player.GetBots() ) do
+	for k, bot in ipairs( player.GetAll() ) do
 		
 		if bot:IsTRizzleBot() and bot:Nick() == targetbot and bot.TBotOwner == ply then
 			
@@ -120,7 +120,7 @@ function TBotSetShotgun( ply, cmd, args ) -- Command for changing the bots shotg
 	local targetbot = args[ 1 ]
 	local shotgun = args[ 2 ] or "weapon_shotgun"
 	
-	for k, bot in ipairs( player.GetBots() ) do
+	for k, bot in ipairs( player.GetAll() ) do
 		
 		if bot:IsTRizzleBot() and bot:Nick() == targetbot and bot.TBotOwner == ply then
 			
@@ -138,7 +138,7 @@ function TBotSetRifle( ply, cmd, args ) -- Command for changing the bots rifle t
 	local targetbot = args[ 1 ]
 	local rifle = args[ 2 ] or "weapon_smg1"
 	
-	for k, bot in ipairs( player.GetBots() ) do
+	for k, bot in ipairs( player.GetAll() ) do
 		
 		if bot:IsTRizzleBot() and bot:Nick() == targetbot and bot.TBotOwner == ply then
 			
@@ -156,7 +156,7 @@ function TBotSetSniper( ply, cmd, args ) -- Command for changing the bots sniper
 	local targetbot = args[ 1 ]
 	local rifle = args[ 2 ] or "weapon_crossbow"
 	
-	for k, bot in ipairs( player.GetBots() ) do
+	for k, bot in ipairs( player.GetAll() ) do
 		
 		if bot:IsTRizzleBot() and bot:Nick() == targetbot and bot.TBotOwner == ply then
 			
@@ -174,7 +174,7 @@ function TBotSetMeleeDist( ply, cmd, args )
 	local targetbot = args[ 1 ]
 	local meleedist = tonumber( args[ 2 ] ) or 80
 	
-	for k, bot in ipairs( player.GetBots() ) do
+	for k, bot in ipairs( player.GetAll() ) do
 		
 		if bot:IsTRizzleBot() and bot:Nick() == targetbot and bot.TBotOwner == ply then
 			
@@ -192,7 +192,7 @@ function TBotSetPistolDist( ply, cmd, args )
 	local targetbot = args[ 1 ]
 	local pistoldist = tonumber( args[ 2 ] ) or 1300
 	
-	for k, bot in ipairs( player.GetBots() ) do
+	for k, bot in ipairs( player.GetAll() ) do
 		
 		if bot:IsTRizzleBot() and bot:Nick() == targetbot and bot.TBotOwner == ply then
 			
@@ -210,7 +210,7 @@ function TBotSetShotgunDist( ply, cmd, args )
 	local targetbot = args[ 1 ]
 	local shotgundist = tonumber( args[ 2 ] ) or 300
 	
-	for k, bot in ipairs( player.GetBots() ) do
+	for k, bot in ipairs( player.GetAll() ) do
 		
 		if bot:IsTRizzleBot() and bot:Nick() == targetbot and bot.TBotOwner == ply then
 			
@@ -228,7 +228,7 @@ function TBotSetRifleDist( ply, cmd, args )
 	local targetbot = args[ 1 ]
 	local rifledist = tonumber( args[ 2 ] ) or 900
 	
-	for k, bot in ipairs( player.GetBots() ) do
+	for k, bot in ipairs( player.GetAll() ) do
 		
 		if bot:IsTRizzleBot() and bot:Nick() == targetbot and bot.TBotOwner == ply then
 			
@@ -246,7 +246,7 @@ function TBotSetHealThreshold( ply, cmd, args )
 	local targetbot = args[ 1 ]
 	local healthreshold = tonumber( args[ 2 ] ) or 100
 	
-	for k, bot in ipairs( player.GetBots() ) do
+	for k, bot in ipairs( player.GetAll() ) do
 		
 		if bot:IsTRizzleBot() and bot:Nick() == targetbot and bot.TBotOwner == ply then
 			
@@ -265,7 +265,7 @@ function TBotSetCombatHealThreshold( ply, cmd, args )
 	local targetbot = args[ 1 ]
 	local combathealthreshold = tonumber( args[ 2 ] ) or 25
 	
-	for k, bot in ipairs( player.GetBots() ) do
+	for k, bot in ipairs( player.GetAll() ) do
 		
 		if bot:IsTRizzleBot() and bot:Nick() == targetbot and bot.TBotOwner == ply then
 			
@@ -286,7 +286,7 @@ function TBotSetPlayerModel( ply, cmd, args )
 	
 	playermodel = player_manager.TranslatePlayerModel( playermodel )
 	
-	for k, bot in ipairs( player.GetBots() ) do
+	for k, bot in ipairs( player.GetAll() ) do
 		
 		if bot:IsTRizzleBot() and bot:Nick() == targetbot and bot.TBotOwner == ply then
 			
@@ -305,7 +305,7 @@ function TBotSpawnWithPreferredWeapons( ply, cmd, args )
 	local targetbot = args[ 1 ]
 	local spawnwithweapons = tonumber( args[ 2 ] ) or 1
 	
-	for k, bot in ipairs( player.GetBots() ) do
+	for k, bot in ipairs( player.GetAll() ) do
 		
 		if bot:IsTRizzleBot() and bot:Nick() == targetbot and bot.TBotOwner == ply then
 			
@@ -411,8 +411,8 @@ end
 
 
 hook.Add( "StartCommand" , "TRizzleBotAIHook" , function( bot , cmd )
-	if !IsValid( bot ) or !bot:Alive() or !bot:IsTRizzleBot() or FrameTime() < 0.00001 then return end
-	-- Make sure we can control this bot and its not a player. I also check the frame time to stop the bot from spaming user commands
+	if !IsValid( bot ) or !bot:Alive() or !bot:IsTRizzleBot() then return end
+	-- Make sure we can control this bot and its not a player.
 	
 	bot:ResetCommand( cmd )
 	bot:UpdateAim()
@@ -760,6 +760,13 @@ end
 function BOT:GetDefaultFOV()
 
 	return self:GetInternalVariable( "m_iDefaultFOV" )
+
+end
+
+-- Grabs the last time the bot died
+function BOT:GetDeathTimestamp()
+	
+	return self:GetInternalVariable( "m_flDeathTime" )
 
 end
 
@@ -1143,9 +1150,10 @@ end
 function BOT:FindGroupLeader()
 
 	local CurrentLeader = self.GroupLeader
-	for k, bot in ipairs( player.GetBots() ) do
+	if IsValid( CurrentLeader ) and !CurrentLeader:Alive() then CurrentLeader = nil end -- Our current group leader is dead we should select another one.
+	for k, bot in ipairs( player.GetAll() ) do
 	
-		if IsValid( bot ) and bot:Alive() and bot:IsTRizzleBot() and self != bot and self.TBotOwner == bot.TBotOwner and IsValid( bot.GroupLeader ) then
+		if IsValid( bot ) and bot:Alive() and bot:IsTRizzleBot() and self != bot and self.TBotOwner == bot.TBotOwner and IsValid( bot.GroupLeader ) and bot.GroupLeader:Alive() then
 		
 			CurrentLeader = bot.GroupLeader
 			break
@@ -1161,9 +1169,9 @@ end
 -- When a player leaves the server, every bot "owned" by the player should leave as well
 hook.Add( "PlayerDisconnected" , "TRizzleBotPlayerLeave" , function( ply )
 	
-	if !ply:IsBot() and !ply:IsTRizzleBot( true ) then 
+	if !ply:IsTRizzleBot( true ) then 
 		
-		for k, bot in ipairs( player.GetBots() ) do
+		for k, bot in ipairs( player.GetAll() ) do
 		
 			if bot:IsTRizzleBot( true ) and bot.TBotOwner == ply then
 			
@@ -1171,25 +1179,6 @@ hook.Add( "PlayerDisconnected" , "TRizzleBotPlayerLeave" , function( ply )
 			
 			end
 		end
-		
-	end
-	
-end)
-
--- Just a simple way to respawn a bot.
-hook.Add( "PostPlayerDeath" , "TRizzleBotRespawn" , function( ply )
-	
-	if ply:IsBot() and ply:IsTRizzleBot() then 
-		
-		timer.Simple( 3 , function()
-			
-			if IsValid( ply ) and !ply:Alive() then
-				
-				ply:Spawn()
-				
-			end
-			
-		end)
 		
 	end
 	
@@ -1212,7 +1201,7 @@ hook.Add( "Think" , "TRizzleBotThink" , function()
 		end
 	end
 	
-	for k, bot in ipairs( player.GetBots() ) do
+	for k, bot in ipairs( player.GetAll() ) do
 	
 		if bot:IsTRizzleBot() and bot:Alive() then
 			
@@ -1432,6 +1421,22 @@ hook.Add( "Think" , "TRizzleBotThink" , function()
 				bot:HandleButtons()
 				
 			end
+			
+		elseif bot:IsTRizzleBot() and !bot:Alive() and bot:GetDeathTimestamp() + 3.0 < CurTime() then -- We do the respawning here since its better than relying on timers
+			
+			if bot:GetDeathTimestamp() + 6.0 < CurTime() then -- If the bot for some reason still hasn't respawned, I will just forcibly respawn it
+				
+				bot:Spawn()
+				
+			else
+				-- I try to make the bot respawn by pressing a button since it will properly initialize the bot's respawn
+				local randomButton = math.random( 0, 2 )
+				if randomButton == 0 then bot:PressPrimaryAttack() end
+				if randomButton == 1 then bot:PressSecondaryAttack() end
+				if randomButton == 2 then bot:PressJump() end
+			
+			end
+			
 		end
 	end
 
@@ -1442,7 +1447,7 @@ end)
 -- Reset their AI on spawn.
 hook.Add( "PlayerSpawn" , "TRizzleBotSpawnHook" , function( ply )
 	
-	if ply:IsBot() and ply:IsTRizzleBot() then
+	if ply:IsTRizzleBot() then
 		
 		ply:TBotResetAI() -- For some reason running the a timer for 0.0 seconds works, but if I don't use a timer nothing works at all
 		timer.Simple( 0.0 , function()
@@ -1643,7 +1648,7 @@ end]]
 -- Makes the bot react to damage taken by enemies
 hook.Add( "PlayerHurt" , "TRizzleBotPlayerHurt" , function( victim, attacker )
 
-	if !IsValid( attacker ) or !IsValid( victim ) or !victim:IsTRizzleBot() or !victim:IsBot() or attacker:IsPlayer() then return end
+	if !IsValid( attacker ) or !IsValid( victim ) or !victim:IsTRizzleBot() or attacker:IsPlayer() then return end
 	
 	if attacker:IsNPC() and !victim.EnemyList[ attacker:GetCreationID() ] and attacker:IsAlive() and ( attacker:Disposition( victim ) == D_HT or attacker:Disposition( victim.TBotOwner ) == D_HT ) then
 
@@ -1656,7 +1661,7 @@ end)
 -- Makes the bot react to sounds made by enemies
 hook.Add( "EntityEmitSound" , "TRizzleBotEntityEmitSound" , function( soundTable )
 	
-	for k, bot in ipairs( player.GetBots() ) do
+	for k, bot in ipairs( player.GetAll() ) do
 		
 		if !IsValid( bot ) or !bot:IsTRizzleBot() or !IsValid( soundTable.Entity ) or soundTable.Entity:IsPlayer() or soundTable.Entity == bot then return end
 	
