@@ -1282,24 +1282,6 @@ hook.Add( "Think" , "TRizzleBotThink" , function()
 						bot.ReloadInterval = CurTime() + 0.5
 					end
 					
-					if IsValid( bot.GroupLeader ) and bot != bot.GroupLeader then
-					
-						if isvector( bot.Goal ) and (bot.GroupLeader:GetPos() - bot.Goal):LengthSqr() > bot.FollowDist * bot.FollowDist or !isvector( bot.Goal ) and (bot.GroupLeader:GetPos() - bot:GetPos()):LengthSqr() > bot.FollowDist * bot.FollowDist then
-			
-							bot:TBotSetNewGoal( bot.GroupLeader:GetPos() )
-							
-						end
-						
-					elseif IsValid( bot.TBotOwner ) and bot.TBotOwner:Alive() then
-					
-						if isvector( bot.Goal ) and (bot.TBotOwner:GetPos() - bot.Goal):LengthSqr() > bot.FollowDist * bot.FollowDist or !isvector( bot.Goal ) and (bot.TBotOwner:GetPos() - bot:GetPos()):LengthSqr() > bot.FollowDist * bot.FollowDist then
-			
-							bot:TBotSetNewGoal( bot.TBotOwner:GetPos() )
-							
-						end
-					
-					end
-					
 					bot:RestoreAmmo() 
 					
 				elseif IsValid( bot.Enemy ) then
@@ -1341,22 +1323,6 @@ hook.Add( "Think" , "TRizzleBotThink" , function()
 						
 					end
 					
-					if IsValid( bot.GroupLeader ) and bot.GroupLeader == bot then -- Here is the AI for GroupLeaders
-					
-						-- If the bot's group is being overwhelmed then they should retreat
-						if !isvector( bot.HidingSpot ) and !isvector( bot.Goal ) and bot.NumVisibleEnemies >= 10 and bot.EnemyListAverageDistSqr < bot.DangerDist * bot.DangerDist then
-					
-							bot.HidingSpot = bot:FindSpot( "far", { pos = bot:GetPos(), radius = 10000, stepdown = 200, stepup = 64 } )
-						
-						elseif isvector( bot.HidingSpot ) then -- Once the bot has a hiding spot it should path there
-						
-							bot:TBotSetNewGoal( bot.HidingSpot )
-							bot.HidingSpot = nil
-						
-						end
-						
-					end
-					
 					if IsValid( bot.GroupLeader ) and bot != bot.GroupLeader then
 					
 						if isvector( bot.Goal ) and (bot.GroupLeader:GetPos() - bot.Goal):LengthSqr() > bot.FollowDist * bot.FollowDist or !isvector( bot.Goal ) and (bot.GroupLeader:GetPos() - bot:GetPos()):LengthSqr() > bot.FollowDist * bot.FollowDist then
@@ -1377,6 +1343,47 @@ hook.Add( "Think" , "TRizzleBotThink" , function()
 					
 					bot:SelectBestWeapon()
 				
+				end
+				
+				if IsValid( bot.GroupLeader ) and bot.GroupLeader == bot then -- Here is the AI for GroupLeaders
+				
+					-- If the bot's group is being overwhelmed then they should retreat
+					if !isvector( bot.HidingSpot ) and !isvector( bot.Goal ) and bot.NumVisibleEnemies >= 10 and bot.EnemyListAverageDistSqr < bot.DangerDist * bot.DangerDist then
+				
+						bot.HidingSpot = bot:FindSpot( "far", { pos = bot:GetPos(), radius = 10000, stepdown = 200, stepup = 64 } )
+					
+					elseif isvector( bot.HidingSpot ) and !isvector( bot.Goal ) then -- Once the bot has a hiding spot it should path there
+					
+						bot:TBotSetNewGoal( bot.HidingSpot )
+					
+					elseif isvector( bot.HidingSpot ) and (bot:GetPos() - bot.HidingSpot):LengthSqr() > 32 * 32 then -- When have reached our destination
+					
+						bot.HidingSpot = nil
+					
+					end
+					
+				end
+				
+				if !IsValid( bot.Enemy ) then
+				
+					if IsValid( bot.GroupLeader ) and bot != bot.GroupLeader then
+					
+						if isvector( bot.Goal ) and (bot.GroupLeader:GetPos() - bot.Goal):LengthSqr() > bot.FollowDist * bot.FollowDist or !isvector( bot.Goal ) and (bot.GroupLeader:GetPos() - bot:GetPos()):LengthSqr() > bot.FollowDist * bot.FollowDist then
+			
+							bot:TBotSetNewGoal( bot.GroupLeader:GetPos() )
+							
+						end
+						
+					elseif IsValid( bot.TBotOwner ) and bot.TBotOwner:Alive() then
+					
+						if isvector( bot.Goal ) and (bot.TBotOwner:GetPos() - bot.Goal):LengthSqr() > bot.FollowDist * bot.FollowDist or !isvector( bot.Goal ) and (bot.TBotOwner:GetPos() - bot:GetPos()):LengthSqr() > bot.FollowDist * bot.FollowDist then
+			
+							bot:TBotSetNewGoal( bot.TBotOwner:GetPos() )
+							
+						end
+					
+					end
+					
 				end
 		
 				if isvector( bot.Goal ) then
