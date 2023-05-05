@@ -1,15 +1,24 @@
-local BOT					=	FindMetaTable( "Player" )
-local Ent					=	FindMetaTable( "Entity" )
-local Npc					=	FindMetaTable( "NPC" )
-local Zone					=	FindMetaTable( "CNavArea" )
-local Lad					=	FindMetaTable( "CNavLadder" )
-local LOW_PRIORITY			=	0
+-- Grab the needed metatables
+local BOT			=	FindMetaTable( "Player" )
+local Ent			=	FindMetaTable( "Entity" )
+local Npc			=	FindMetaTable( "NPC" )
+local Zone			=	FindMetaTable( "CNavArea" )
+local Lad			=	FindMetaTable( "CNavLadder" )
+
+-- Setup lookatpriority level variables
+local LOW_PRIORITY		=	0
 local MEDIUM_PRIORITY		=	1
-local HIGH_PRIORITY			=	2
+local HIGH_PRIORITY		=	2
 local MAXIMUM_PRIORITY		=	3
+
+-- Setup bot think variables
 local BotUpdateSkipCount	=	2 -- This is how many upkeep events must be skipped before another update event can be run
 local BotUpdateInterval		=	0
+
+-- Setup vectors so they don't have to be created later
 local HalfHumanHeight		=	Vector( 0, 0, 35.5 )
+
+-- Setup net messages
 util.AddNetworkString( "TRizzleBotFlashlight" )
 
 function TBotCreate( ply , cmd , args ) -- This code defines stats of the bot when it is created.  
