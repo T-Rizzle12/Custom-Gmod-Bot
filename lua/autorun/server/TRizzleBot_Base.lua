@@ -718,7 +718,6 @@ function BOT:IsInCombat()
 
 	if IsValid( self.Enemy ) then
 	
-		self.LastCombatTime = CurTime() + 5.0
 		return true
 		
 	end
@@ -800,6 +799,22 @@ function BOT:PointWithinViewAngle( pos, targetpos, lookdir, fov )
 	return diff * diff > length * fov * fov
 end
 
+--[[ This is the old LOS trace checks, until I make a better way to implement this I will just use Visible() instead
+local trace = util.TraceLine( { start = self:GetShootPos(), endpos = pos:WorldSpaceCenter(), filter = self, mask = MASK_VISIBLE_AND_NPCS } )
+	
+	if trace.Entity == pos then
+		return true
+		
+	end
+	
+local trace = util.TraceLine( { start = self:GetShootPos(), endpos = pos, filter = self, mask = MASK_VISIBLE_AND_NPCS } )
+	
+	if trace.Fraction <= 1.0 then
+	
+		return true
+		
+	end]]
+
 -- This checks if the entered position in the bot's LOS
 function BOT:IsAbleToSee( pos )
 	if self:IsTRizzleBotBlind() then return false end
@@ -811,29 +826,17 @@ function BOT:IsAbleToSee( pos )
 		-- maybe in the future add more points
 
 		if self:PointWithinViewAngle(self:GetShootPos(), pos:WorldSpaceCenter(), self:GetAimVector(), fov) then
-			local trace = util.TraceLine( { start = self:GetShootPos(), endpos = pos:WorldSpaceCenter(), filter = self, mask = MASK_VISIBLE_AND_NPCS } )
 			
-			if trace.Entity == pos then
-				return true
+			return true
+			
+		end
 		
-			end
-		end
-		if self:PointWithinViewAngle(self:GetShootPos(), pos:EyePos(), self:GetAimVector(), fov) then
-			local trace = util.TraceLine( { start = self:GetShootPos(), endpos = pos:EyePos(), filter = self, mask = MASK_VISIBLE_AND_NPCS } )
-			
-			if trace.Entity == pos then
-				return true
-			end
-		end
+		return self:PointWithinViewAngle(self:GetShootPos(), pos:EyePos(), self:GetAimVector(), fov)
 
 	else
-		if self:PointWithinViewAngle(self:GetShootPos(), pos, self:GetAimVector(), fov) then 
-			local trace = util.TraceLine( { start = self:GetShootPos(), endpos = pos, filter = self, mask = MASK_VISIBLE_AND_NPCS } )
+	
+		return self:PointWithinViewAngle(self:GetShootPos(), pos, self:GetAimVector(), fov)
 		
-			if trace.Fraction <= 1.0 then
-				return true
-			end
-		end
 	end
 	
 	return false
@@ -1215,18 +1218,13 @@ hook.Add( "Think" , "TRizzleBotThink" , function()
 				
 				if !bot:Alive() then -- We do the respawning here since its better than relying on timers
 			
-					if bot:GetDeathTimestamp() > 6.0 then -- If the bot for some reason still hasn't respawned, I will just forcibly respawn it
+					if bot:GetDeathTimestamp() > 6.0 then -- The bot seems to only be able to respawn if I manually call the Spawn() function
 						
 						bot:Spawn()
 						
-					elseif bot:GetDeathTimestamp() > 3.0 then -- I try to make the bot respawn by pressing a button since it will properly initialize the bot's respawn
-						
-						local randomButton = math.random( 0, 2 )
-						if randomButton == 0 then bot:PressPrimaryAttack() end
-						if randomButton == 1 then bot:PressSecondaryAttack() end
-						if randomButton == 2 then bot:PressJump() end
-					
 					end
+					
+					continue -- We don't need to think while dead
 					
 				end
 			
@@ -1255,6 +1253,8 @@ hook.Add( "Think" , "TRizzleBotThink" , function()
 				end
 				
 				if IsValid( bot.Enemy ) then
+					
+					bot.LastCombatTime = CurTime() + 5.0 -- Update combat timestamp
 					
 					-- Should I limit how often this runs?
 					local trace = util.TraceLine( { start = bot:GetShootPos(), endpos = bot.Enemy:EyePos(), filter = bot, mask = MASK_SHOT } )
@@ -1350,7 +1350,7 @@ hook.Add( "Think" , "TRizzleBotThink" , function()
 					else
 					
 						local botWeapon = bot:GetActiveWeapon()
-						if IsValid( botWeapon ) and botWeapon:IsWeapon() and CurTime() > bot.ReloadInterval and !botWeapon:GetInternalVariable( "m_bInReload" ) and botWeapon:GetClass() != "weapon_medkit" and bot.NumVisibleEnemies <= 0 and botWeapon:Clip1() < ( botWeapon:GetMaxClip1() * 0.6 ) then
+						if IsValid( botWeapon ) and botWeapon:IsWeapon() and CurTime() > bot.ReloadInterval and !botWeapon:GetInternalVariable( "m_bInReload" ) and botWeapon:GetClass() != "weapon_medkit" and bot.NumVisibleEnemies <= 0 and ( ( botWeapon:GetClass() == bot.Shotgun and botWeapon:Clip1() < botWeapon:GetMaxClip1() ) or botWeapon:Clip1() < ( botWeapon:GetMaxClip1() * 0.6 ) ) then
 						
 							bot:PressReload()
 							bot.ReloadInterval = CurTime() + 0.5
@@ -1364,17 +1364,17 @@ hook.Add( "Think" , "TRizzleBotThink" , function()
 				if IsValid( bot.GroupLeader ) and bot:IsGroupLeader() then -- Here is the AI for GroupLeaders
 				
 					-- If the bot's group is being overwhelmed then they should retreat
-					if !isvector( bot.HidingSpot ) and !isvector( bot.Goal ) and bot.NumVisibleEnemies >= 10 and bot.EnemyListAverageDistSqr < bot.DangerDist * bot.DangerDist then
+					if !isvector( bot.HidingSpot ) and !isvector( bot.Goal ) and ( IsValid( bot.Enemy ) and bot:Health() < bot.CombatHealThreshold or ( bot.NumVisibleEnemies >= 10 and bot.EnemyListAverageDistSqr < bot.DangerDist * bot.DangerDist ) ) then
 				
 						bot.HidingSpot = bot:FindSpot( "far", { pos = bot:GetPos(), radius = 10000, stepdown = 200, stepup = 64 } )
+					
+					elseif isvector( bot.HidingSpot ) and (bot:GetPos() - bot.HidingSpot):LengthSqr() < 32 * 32 then -- When have reached our destination clear it so we don't infinitely repath to it
+					
+						bot.HidingSpot = nil
 					
 					elseif isvector( bot.HidingSpot ) and !isvector( bot.Goal ) then -- Once the bot has a hiding spot it should path there
 					
 						bot:TBotSetNewGoal( bot.HidingSpot )
-					
-					elseif isvector( bot.HidingSpot ) and (bot:GetPos() - bot.HidingSpot):LengthSqr() > 32 * 32 then -- When have reached our destination clear it so we don't infinitely repath to it
-					
-						bot.HidingSpot = nil
 					
 					end
 					
@@ -1679,7 +1679,7 @@ hook.Add( "EntityEmitSound" , "TRizzleBotEntityEmitSound" , function( soundTable
 	
 	for k, bot in ipairs( player.GetAll() ) do
 		
-		if !IsValid( bot ) or !bot:IsTRizzleBot() or !IsValid( soundTable.Entity ) or soundTable.Entity:IsPlayer() or soundTable.Entity == bot then return end
+		if !IsValid( bot ) or !bot:IsTRizzleBot() or !IsValid( soundTable.Entity ) or soundTable.Entity:IsPlayer() or soundTable.Entity == bot then continue end
 	
 		if soundTable.Entity:IsNPC() and !bot.EnemyList[ soundTable.Entity:GetCreationID() ] and soundTable.Entity:IsAlive() and (soundTable.Entity:Disposition( bot ) == D_HT or soundTable.Entity:Disposition( bot.TBotOwner ) == D_HT) and (soundTable.Entity:GetPos() - bot:GetPos()):LengthSqr() < ( ( 1000 * ( soundTable.SoundLevel / 100 ) ) * ( 1000 * ( soundTable.SoundLevel / 100 ) ) ) then
 			
@@ -1786,7 +1786,7 @@ function BOT:TBotFindClosestEnemy()
 		if IsValid( v ) and v:IsNPC() and v:IsAlive() and (v:Disposition( self ) == D_HT or v:Disposition( self.TBotOwner ) == D_HT) then -- The bot should attack any NPC that is hostile to them or their owner. D_HT means hostile/hate
 			
 			local enemydistsqr = (v:GetPos() - self:GetPos()):LengthSqr()
-			if self:IsAbleToSee( v ) then
+			if self:IsAbleToSee( v ) and v:Visible( self ) then
 				
 				if !VisibleEnemies[ v:GetCreationID() ] then VisibleEnemies[ v:GetCreationID() ]		=	{ Enemy = v, LastSeenTime = CurTime() + 10.0 } end -- We grab the entity's Creation ID because the will never be the same as any other entity.
 				
