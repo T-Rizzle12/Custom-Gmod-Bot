@@ -2259,6 +2259,33 @@ function GetPathLength( tbl, startArea, endArea )
 
 end
 
+-- Checks if a hiding spot is already in use
+function BOT:IsSpotOccupied( pos )
+
+	for k, v in ipairs( player.GetAll() ) do
+	
+		if v:DistToSqr(pos) < 75 * 75 then return true 
+		elseif v:IsTRizzleBot() and v.HidingSpot == pos then return true end -- Don't consider spots already selected by other bots
+	
+	end
+
+	return false
+
+end
+
+-- Checks if a hiding spot is safe to use
+function BOT:IsSpotSafe( pos )
+
+	for k, v in pairs( EnemyList ) do
+	
+		if IsValid( v ) and v:VisibleVec( pos ) then return false end -- If one of the bot's enemies its aware of can see it the bot won't use it.
+	
+	end
+
+	return true
+
+end
+
 -- Returns a table of hiding spots.
 function BOT:FindSpots( tbl )
 
@@ -2292,7 +2319,9 @@ function BOT:FindSpots( tbl )
 			local tempPath = TRizzleBotPathfinderCheap( startArea, endArea )
 			local tempPathLength = GetPathLength( tempPath, startArea, endArea )
 			
-			if tempPathLength < 0 or tbl.radius < tempPathLength then continue end -- If the bot can't path to a hiding spot or its further than tbl.range, the bot shouldn't consider it
+			if tempPathLength < 0 or tbl.radius < tempPathLength then continue -- If the bot can't path to a hiding spot or its further than tbl.range, the bot shouldn't consider it
+			elseif self:IsSpotOccupied( vec ) then continue -- If the spot is already in use by another player, the bot shouldn't consider it
+			elseif self:IsSpotSafe( vec ) then continue end -- If the spot is visible to enemies on the bot's known enemy list, the bot shouldn't consider it
 			table.insert( found, { vector = vec, distance = tempPathLength } )
 
 		end
@@ -2451,12 +2480,12 @@ function BOT:ComputeNavmeshVisibility()
 		
 		if self.NavmeshNodes[ k + 1 ].ladder then
 		
-			local CloseToStart, LadderNode, ClimbUp		=	self.NavmeshNodes[ k + 1 ].ladder:Get_Closest_Point_Next( LastVisPos )
+			local LadderNode, CloseToStart, ClimbUp		=	self.NavmeshNodes[ k + 1 ].ladder:Get_Closest_Point_Next( LastVisPos )
 			
-			LastVisPos		=	CloseToStart
+			LastVisPos		=	LadderNode
 			
-			self.Path[ currentIndex + 1 ]		=	{ Pos = CloseToStart, IsLadder = true, LadderUp = ClimbUp }
-			self.Path[ currentIndex + 2 ]		=	{ Pos = LadderNode, IsLadder = true, LadderUp = ClimbUp }
+			self.Path[ currentIndex + 1 ]		=	{ Pos = LadderNode, IsLadder = true, LadderUp = ClimbUp }
+			self.Path[ currentIndex + 2 ]		=	{ Pos = CloseToStart, IsLadder = false, LadderUp = ClimbUp }
 			
 			continue
 		end
@@ -2613,7 +2642,7 @@ function BOT:TBotNavigation()
 				
 				table.remove( self.Path , 1 )
 				
-			elseif !self.Path[ 1 ][ "IsLadder" ] and self.Path[ 1 ][ "IsDropDown" ] and self:GetPos().z <= self.Path[ 1 ][ "Pos" ].z then
+			elseif !self.Path[ 1 ][ "IsLadder" ] and self.Path[ 1 ][ "IsDropDown" ] and self:GetPos().z <= self.Path[ 1 ][ "Pos" ].z + self:GetStepSize() then
 				
 				table.remove( self.Path , 1 )
 				
