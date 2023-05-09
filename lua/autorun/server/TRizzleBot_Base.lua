@@ -1500,10 +1500,10 @@ hook.Add( "PlayerSpawn" , "TRizzleBotSpawnHook" , function( ply )
 					
 				end
 				
-				-- For some reason the bot's run and walk speed is slower than the default
+				-- I may make it possible to edit the bot movement speed
 				--ply:SetRunSpeed( 600 )
 				--ply:SetWalkSpeed( 400 )
-				hook.Run( "SetPlayerSpeed", ply, 400, 600 )
+				--hook.Run( "SetPlayerSpeed", ply, 400, 600 )
 				
 			end
 			
