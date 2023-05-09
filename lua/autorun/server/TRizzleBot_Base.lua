@@ -1262,7 +1262,7 @@ hook.Add( "Think" , "TRizzleBotThink" , function()
 					
 					end
 				
-				elseif IsValid( bot.GroupLeader ) -- If the bot's owner is alive, the bot should clear its group leader and the hiding spot it was trying to goto
+				elseif IsValid( bot.GroupLeader ) then -- If the bot's owner is alive, the bot should clear its group leader and the hiding spot it was trying to goto
 					
 					bot.GroupLeader	= nil
 					bot.HidingSpot = nil
