@@ -1389,8 +1389,12 @@ hook.Add( "Think" , "TRizzleBotThink" , function()
 						bot.HidingState = WAIT_AT_SPOT
 						bot.HideTime = CurTime() + 5.0
 					
-					elseif isvector( bot.HidingSpot )
-					elseif isvector( bot.HidingSpot ) and !isvector( bot.Goal ) then -- Once the bot has a hiding spot it should path there
+					elseif isvector( bot.HidingSpot ) and bot.HidingState == WAIT_AT_SPOT and bot.HideTime < CurTime() then
+							
+						bot.HidingSpot = nil
+						bot.HidingState = MOVE_TO_SPOT
+							
+					elseif isvector( bot.HidingSpot ) and !isvector( bot.Goal ) and (bot:GetPos() - bot.HidingSpot):LengthSqr() < 32 * 32 then -- Once the bot has a hiding spot it should path there
 					
 						bot:TBotSetNewGoal( bot.HidingSpot )
 					
