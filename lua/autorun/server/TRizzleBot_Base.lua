@@ -12,8 +12,9 @@ local HIGH_PRIORITY		=	2
 local MAXIMUM_PRIORITY		=	3
 
 -- Setup bot hiding states
-local MOVE_TO_SPOT		=	0
-local WAIT_AT_SPOT		=	1
+local FINISHED_HIDING		=	0
+local MOVE_TO_SPOT		=	1
+local WAIT_AT_SPOT		=	2
 
 -- Setup bot think variables
 local BotUpdateSkipCount	=	2 -- This is how many upkeep events must be skipped before another update event can be run
@@ -413,7 +414,7 @@ function BOT:TBotResetAI()
 	self.LookTargetTime				=	0 -- This is how long the bot will look at the position the bot is currently trying to look at.
 	self.LookTargetPriority			=	LOW_PRIORITY -- This is how important the position the bot is currently trying to look at is.
 	self.HidingSpot					=	nil -- This is the current hiding/sniper spot the bot wants to goto, "only used by group leaders for now".
-	self.HidingState				=	nil -- This is the current hiding state the bot is currently in.
+	self.HidingState				=	FINISHED_HIDING -- This is the current hiding state the bot is currently in.
 	self.HideTime					=	0 -- This is how long the bot will stay at its current hiding spot.
 	self.Goal						=	nil -- The vector goal we want to get to.
 	self.NavmeshNodes				=	{} -- The nodes given to us by the pathfinder.
@@ -1261,9 +1262,11 @@ hook.Add( "Think" , "TRizzleBotThink" , function()
 					
 					end
 				
-				else
+				elseif IsValid( bot.GroupLeader ) -- If the bot's owner is alive, the bot should clear its group leader and the hiding spot it was trying to goto
 					
-					bot.GroupLeader	=	nil
+					bot.GroupLeader	= nil
+					bot.HidingSpot = nil
+					bot.HidingState = FINISHED_HIDING
 					
 				end
 				
@@ -1384,25 +1387,26 @@ hook.Add( "Think" , "TRizzleBotThink" , function()
 						bot.HidingSpot = bot:FindSpot( "far", { pos = bot:GetPos(), radius = 10000, stepdown = 200, stepup = 64 } )
 						bot.HidingState = MOVE_TO_SPOT
 					
-					elseif isvector( bot.HidingSpot ) and bot.HidingState == MOVE_TO_SPOT and (bot:GetPos() - bot.HidingSpot):LengthSqr() < 32 * 32 then -- When have reached our destination clear it so we don't infinitely repath to it
-					
-						bot.HidingState = WAIT_AT_SPOT
-						bot.HideTime = CurTime() + 5.0
-					
-					elseif isvector( bot.HidingSpot ) and bot.HidingState == WAIT_AT_SPOT and bot.HideTime < CurTime() then
-							
-						bot.HidingSpot = nil
-						bot.HidingState = MOVE_TO_SPOT
-							
-					elseif isvector( bot.HidingSpot ) and !isvector( bot.Goal ) and (bot:GetPos() - bot.HidingSpot):LengthSqr() < 32 * 32 then -- Once the bot has a hiding spot it should path there
-					
-						bot:TBotSetNewGoal( bot.HidingSpot )
-					
 					end
 					
 				end
 				
-				if IsValid( bot.GroupLeader ) and !bot:IsGroupLeader() then
+				-- TODO: This looks very ugly and needs to be cleaned up
+				if isvector( bot.HidingSpot ) and bot.HidingState == MOVE_TO_SPOT and (bot:GetPos() - bot.HidingSpot):LengthSqr() < 32 * 32 then -- When have reached our destination start the wait timer
+				
+					bot.HidingState = WAIT_AT_SPOT
+					bot.HideTime = CurTime() + 5.0
+					
+				elseif isvector( bot.HidingSpot ) and bot.HidingState == WAIT_AT_SPOT and bot.HideTime < CurTime() then -- The bot has finished hiding, it should clear its selected hiding spot
+							
+					bot.HidingSpot = nil
+					bot.HidingState = FINISHED_HIDING
+							
+				elseif isvector( bot.HidingSpot ) and !isvector( bot.Goal ) and (bot:GetPos() - bot.HidingSpot):LengthSqr() > 32 * 32 then -- If the bot has a hiding spot it should path there
+					
+					bot:TBotSetNewGoal( bot.HidingSpot )
+					
+				elseif IsValid( bot.GroupLeader ) and !bot:IsGroupLeader() then
 				
 					if isvector( bot.Goal ) and (bot.GroupLeader:GetPos() - bot.Goal):LengthSqr() > bot.FollowDist * bot.FollowDist or !isvector( bot.Goal ) and (bot.GroupLeader:GetPos() - bot:GetPos()):LengthSqr() > bot.FollowDist * bot.FollowDist then
 			
