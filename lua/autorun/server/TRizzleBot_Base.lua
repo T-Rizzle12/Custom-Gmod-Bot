@@ -11,6 +11,10 @@ local MEDIUM_PRIORITY		=	1
 local HIGH_PRIORITY		=	2
 local MAXIMUM_PRIORITY		=	3
 
+-- Setup bot hiding states
+local MOVE_TO_SPOT		=	0
+local WAIT_AT_SPOT		=	1
+
 -- Setup bot think variables
 local BotUpdateSkipCount	=	2 -- This is how many upkeep events must be skipped before another update event can be run
 local BotUpdateInterval		=	0
@@ -409,6 +413,8 @@ function BOT:TBotResetAI()
 	self.LookTargetTime				=	0 -- This is how long the bot will look at the position the bot is currently trying to look at.
 	self.LookTargetPriority			=	LOW_PRIORITY -- This is how important the position the bot is currently trying to look at is.
 	self.HidingSpot					=	nil -- This is the current hiding/sniper spot the bot wants to goto, "only used by group leaders for now".
+	self.HidingState				=	nil -- This is the current hiding state the bot is currently in.
+	self.HideTime					=	0 -- This is how long the bot will stay at its current hiding spot.
 	self.Goal						=	nil -- The vector goal we want to get to.
 	self.NavmeshNodes				=	{} -- The nodes given to us by the pathfinder.
 	self.Path						=	nil -- The nodes converted into waypoints by our visiblilty checking.
@@ -1166,7 +1172,7 @@ end
 function BOT:FindGroupLeader()
 
 	local CurrentLeader = self.GroupLeader
-	if IsValid( CurrentLeader ) and !CurrentLeader:Alive() then CurrentLeader = nil end -- Our current group leader is dead we should select another one.
+	if !IsValid( CurrentLeader ) or !CurrentLeader:Alive() then CurrentLeader = nil end -- Our current group leader is dead or invalid we should select another one.
 	for k, bot in ipairs( player.GetAll() ) do
 	
 		if IsValid( bot ) and bot:Alive() and bot:IsTRizzleBot() and self != bot and self.TBotOwner == bot.TBotOwner and IsValid( bot.GroupLeader ) and bot.GroupLeader:Alive() then
@@ -1207,7 +1213,7 @@ hook.Add( "Think" , "TRizzleBotThink" , function()
 	--local startTime = SysTime()
 	--ShowAllHidingSpots()
 	
-	if ( engine:TickCount() % 5 ) == 0 then
+	if ( engine:TickCount() % 20 ) == 0 then
 		local tab = player.GetHumans()
 		if #tab > 0 then
 			local ply = table.Random(tab)
@@ -1327,13 +1333,13 @@ hook.Add( "Think" , "TRizzleBotThink" , function()
 								
 								if CurTime() > bot.FireWeaponInterval and bot.HealTarget == bot then
 								
-									bot.FireWeaponInterval = CurTime() + 0.5
 									bot:PressSecondaryAttack()
+									bot.FireWeaponInterval = CurTime() + 0.5
 									
 								elseif CurTime() > bot.FireWeaponInterval and bot:GetEyeTrace().Entity == bot.HealTarget then
 								
-									bot.FireWeaponInterval = CurTime() + 0.5
 									bot:PressPrimaryAttack()
+									bot.FireWeaponInterval = CurTime() + 0.5
 									
 								end
 								
@@ -1376,11 +1382,14 @@ hook.Add( "Think" , "TRizzleBotThink" , function()
 					if !isvector( bot.HidingSpot ) and !isvector( bot.Goal ) and ( IsValid( bot.Enemy ) and bot:Health() < bot.CombatHealThreshold or ( bot.NumVisibleEnemies >= 10 and bot.EnemyListAverageDistSqr < bot.DangerDist * bot.DangerDist ) ) then
 				
 						bot.HidingSpot = bot:FindSpot( "far", { pos = bot:GetPos(), radius = 10000, stepdown = 200, stepup = 64 } )
+						bot.HidingState = MOVE_TO_SPOT
 					
-					elseif isvector( bot.HidingSpot ) and (bot:GetPos() - bot.HidingSpot):LengthSqr() < 32 * 32 then -- When have reached our destination clear it so we don't infinitely repath to it
+					elseif isvector( bot.HidingSpot ) and bot.HidingState == MOVE_TO_SPOT and (bot:GetPos() - bot.HidingSpot):LengthSqr() < 32 * 32 then -- When have reached our destination clear it so we don't infinitely repath to it
 					
-						bot.HidingSpot = nil
+						bot.HidingState = WAIT_AT_SPOT
+						bot.HideTime = CurTime() + 5.0
 					
+					elseif isvector( bot.HidingSpot )
 					elseif isvector( bot.HidingSpot ) and !isvector( bot.Goal ) then -- Once the bot has a hiding spot it should path there
 					
 						bot:TBotSetNewGoal( bot.HidingSpot )
@@ -1782,13 +1791,13 @@ end
 
 -- Target any hostile NPCS that is visible to us.
 function BOT:TBotFindClosestEnemy()
-	local VisibleEnemies			=	self.EnemyList -- This is how many enemies the bot can see. Currently not used......yet
-	local targetdistsqr			=	100000000 -- This will allow the bot to select the closest enemy to it.
-	local target				=	self.Enemy -- This is the closest enemy to the bot.
-	
 	if self:IsTRizzleBotBlind() then return end -- The bot is blind
 	if ( ( engine:TickCount() + self:EntIndex() ) % 5 ) != 0 then return end -- This shouldn't run as often
 	if GetConVar( "ai_ignoreplayers" ):GetInt() != 0 or GetConVar( "ai_disabled" ):GetInt() != 0 then return end
+	
+	local VisibleEnemies			=	self.EnemyList -- This is how many enemies the bot can see. Currently not used......yet
+	local targetdistsqr			=	100000000 -- This will allow the bot to select the closest enemy to it.
+	local target				=	self.Enemy -- This is the closest enemy to the bot.
 	
 	for k, v in ipairs( ents.GetAll() ) do
 		
@@ -2264,7 +2273,7 @@ function BOT:IsSpotOccupied( pos )
 
 	for k, v in ipairs( player.GetAll() ) do
 	
-		if v:DistToSqr(pos) < 75 * 75 then return true 
+		if v:GetPos():DistToSqr(pos) < 75 * 75 then return true -- Don't consider spots if a bot or human player is already there
 		elseif v:IsTRizzleBot() and v.HidingSpot == pos then return true end -- Don't consider spots already selected by other bots
 	
 	end
@@ -2320,8 +2329,7 @@ function BOT:FindSpots( tbl )
 			local tempPathLength = GetPathLength( tempPath, startArea, endArea )
 			
 			if tempPathLength < 0 or tbl.radius < tempPathLength then continue -- If the bot can't path to a hiding spot or its further than tbl.range, the bot shouldn't consider it
-			elseif self:IsSpotOccupied( vec ) then continue -- If the spot is already in use by another player, the bot shouldn't consider it
-			elseif self:IsSpotSafe( vec ) then continue end -- If the spot is visible to enemies on the bot's known enemy list, the bot shouldn't consider it
+			elseif self:IsSpotOccupied( vec ) and self:IsSpotSafe( vec ) then continue end -- If the spot is already in use by another player or the spot is visible to enemies on the bot's known enemy list, the bot shouldn't consider it
 			table.insert( found, { vector = vec, distance = tempPathLength } )
 
 		end
@@ -2747,8 +2755,6 @@ end
 function BOT:TBotUpdateMovement( cmd )
 	if !isvector( self.Goal ) then return end
 	
-	local LookTargetPriorityTemp	=	LOW_PRIORITY
-	
 	if !istable( self.Path ) or table.IsEmpty( self.Path ) or isbool( self.NavmeshNodes ) then
 		
 		local MovementAngle		=	( self.Goal - self:GetPos() ):GetNormalized():Angle()
@@ -2772,15 +2778,14 @@ function BOT:TBotUpdateMovement( cmd )
 			end
 		end
 		
-		if self:Is_On_Ladder() then LookTargetPriorityTemp = MAXIMUM_PRIORITY end
-		
 		self:PressForward()
 		
 		cmd:SetViewAngles( MovementAngle )
 		cmd:SetForwardMove( self.forwardMovement )
 		cmd:SetSideMove( self.strafeMovement )
 		
-		self:AimAtPos( self.Goal + HalfHumanHeight, CurTime() + 0.1, LookTargetPriorityTemp )
+		if self:Is_On_Ladder() then self:AimAtPos( self.Goal + HalfHumanHeight, CurTime() + 0.1, MAXIMUM_PRIORITY )
+		else self:AimAtPos( self.Goal + HalfHumanHeight, CurTime() + 0.1, LOW_PRIORITY ) end
 		
 		local GoalIn2D			=	Vector( self.Goal.x , self.Goal.y , self:GetPos().z )
 		if IsVecCloseEnough( self:GetPos() , GoalIn2D , 32 ) then
@@ -2832,15 +2837,14 @@ function BOT:TBotUpdateMovement( cmd )
 			end
 		end
 		
-		if self:Is_On_Ladder() or self.Path[ 1 ][ "IsLadder" ] then LookTargetPriorityTemp = MAXIMUM_PRIORITY end
-		
 		self:PressForward()
 		
 		cmd:SetViewAngles( MovementAngle )
 		cmd:SetForwardMove( self.forwardMovement )
 		cmd:SetSideMove( self.strafeMovement )
 		
-		self:AimAtPos( self.Path[ 1 ][ "Pos" ] + HalfHumanHeight, CurTime() + 0.1, LookTargetPriorityTemp )
+		if self:Is_On_Ladder() or self.Path[ 1 ][ "IsLadder" ] then self:AimAtPos( self.Path[ 1 ][ "Pos" ] + HalfHumanHeight, CurTime() + 0.1, MAXIMUM_PRIORITY )
+		else self:AimAtPos( self.Path[ 1 ][ "Pos" ] + HalfHumanHeight, CurTime() + 0.1, LOW_PRIORITY ) end
 		
 	end
 	
