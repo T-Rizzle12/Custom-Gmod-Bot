@@ -2376,7 +2376,7 @@ function BOT:FindSpots( tbl )
 		local spots
 
 		if ( tbl.type == "hiding" ) then spots = area:GetHidingSpots() -- In Cover/basically a hiding spot, in a corner with good hard cover nearby
-		elseif ( tbl.type == "sniper" ) then spots = area:GetHidingSpots( 8 ) end -- Perfect sniper spot, can see either very far, or a large area, or both
+		elseif ( tbl.type == "sniper" ) then spots = area:GetHidingSpots( 4 ) end -- Perfect sniper spot, can see either very far, or a large area, or both
 
 		for k, vec in ipairs( spots ) do
 
