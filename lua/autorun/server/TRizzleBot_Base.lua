@@ -416,6 +416,7 @@ function BOT:TBotResetAI()
 	self.HidingSpot					=	nil -- This is the current hiding/sniper spot the bot wants to goto, "only used by group leaders for now".
 	self.HidingState				=	FINISHED_HIDING -- This is the current hiding state the bot is currently in.
 	self.HideTime					=	0 -- This is how long the bot will stay at its current hiding spot.
+	self.ReturnPos					=	nil -- This is the spot the will back to after hiding, "Example, If the bot went into cover to reload."
 	self.Goal						=	nil -- The vector goal we want to get to.
 	self.NavmeshNodes				=	{} -- The nodes given to us by the pathfinder.
 	self.Path						=	nil -- The nodes converted into waypoints by our visiblilty checking.
@@ -1379,32 +1380,71 @@ hook.Add( "Think" , "TRizzleBotThink" , function()
 				
 				end
 				
-				if IsValid( bot.GroupLeader ) and bot:IsGroupLeader() then -- Here is the AI for GroupLeaders
+				-- Here is the AI for GroupLeaders
+				if IsValid( bot.GroupLeader ) and bot:IsGroupLeader() then
 				
 					-- If the bot's group is being overwhelmed then they should retreat
 					if !isvector( bot.HidingSpot ) and !isvector( bot.Goal ) and ( IsValid( bot.Enemy ) and bot:Health() < bot.CombatHealThreshold or ( bot.NumVisibleEnemies >= 10 and bot.EnemyListAverageDistSqr < bot.DangerDist * bot.DangerDist ) ) then
 				
 						bot.HidingSpot = bot:FindSpot( "far", { pos = bot:GetPos(), radius = 10000, stepdown = 200, stepup = 64 } )
 						bot.HidingState = MOVE_TO_SPOT
+						bot.HideTime = 5.0
 					
 					end
 					
+				elseif IsValid( bot.GroupLeader ) and !bot:IsGroupLeader() then
+						
+					-- If the bot needs to reload its active weapon it should find cover nearby and reload there
+					if !isvector( bot.HidingSpot ) and !isvector( bot.Goal ) and (bot.GroupLeader:GetPos() - bot:GetPos()):LengthSqr() < bot.FollowDist * bot.FollowDist and IsValid( bot.Enemy ) and bot:GetActiveWeapon():Clip1() == 0 then
+
+						bot.HidingSpot = bot:FindSpot( "near", { pos = bot:GetPos(), radius = bot.FollowDist, stepdown = 200, stepup = 64 } )
+						bot.HidingState = MOVE_TO_SPOT
+						bot.HideTime = 3.0
+						bot.ReturnPos = bot:GetPos()
+
+					end
+						
+				elseif IsValid( bot.TBotOwner ) and bot.TBotOwner:Alive() then
+							
+					-- If the bot needs to reload its active weapon it should find cover nearby and reload there
+					if !isvector( bot.HidingSpot ) and !isvector( bot.Goal ) and (bot.TBotOwner:GetPos() - bot:GetPos()):LengthSqr() < bot.FollowDist * bot.FollowDist and IsValid( bot.Enemy ) and bot:GetActiveWeapon():Clip1() == 0 then
+
+						bot.HidingSpot = bot:FindSpot( "near", { pos = bot:GetPos(), radius = bot.FollowDist, stepdown = 200, stepup = 64 } )
+						bot.HidingState = MOVE_TO_SPOT
+						bot.HideTime = 3.0
+						bot.ReturnPos = bot:GetPos()
+
+					end
+						
 				end
 				
-				-- TODO: This looks very ugly and needs to be cleaned up
-				if isvector( bot.HidingSpot ) and bot.HidingState == MOVE_TO_SPOT and (bot:GetPos() - bot.HidingSpot):LengthSqr() < 32 * 32 then -- When have reached our destination start the wait timer
+				-- This is where the bot sets its move goals
+				if isvector( bot.HidingSpot ) then
+					
+					-- When have reached our destination start the wait timer
+					if bot.HidingState == MOVE_TO_SPOT and (bot:GetPos() - bot.HidingSpot):LengthSqr() < 32 * 32 then
 				
-					bot.HidingState = WAIT_AT_SPOT
-					bot.HideTime = CurTime() + 5.0
+						bot.HidingState = WAIT_AT_SPOT
+						bot.HideTime = CurTime() + bot.HideTime
 					
-				elseif isvector( bot.HidingSpot ) and bot.HidingState == WAIT_AT_SPOT and bot.HideTime < CurTime() then -- The bot has finished hiding, it should clear its selected hiding spot
+					-- If the bot has finished hiding or its hiding spot is no longer safe, it should clear its selected hiding spot
+					elseif bot.HidingState == WAIT_AT_SPOT and ( bot.HideTime < CurTime() or !bot:IsSpotSafe( bot.HidingSpot ) ) then
 							
-					bot.HidingSpot = nil
-					bot.HidingState = FINISHED_HIDING
+						bot.HidingSpot = nil
+						bot.HidingState = FINISHED_HIDING
+						
+						if isvector( bot.ReturnPos ) then
+							-- We only set the goal once just incase something else that is important, "following their owner," wants to move the bot
+							bot:TBotSetNewGoal( bot.ReturnPos )
+							bot.ReturnPos = nil
+						end
 							
-				elseif isvector( bot.HidingSpot ) and !isvector( bot.Goal ) and (bot:GetPos() - bot.HidingSpot):LengthSqr() > 32 * 32 then -- If the bot has a hiding spot it should path there
+					-- If the bot has a hiding spot it should path there
+					elseif !isvector( bot.Goal ) and (bot:GetPos() - bot.HidingSpot):LengthSqr() > 32 * 32 then
 					
-					bot:TBotSetNewGoal( bot.HidingSpot )
+						bot:TBotSetNewGoal( bot.HidingSpot )
+							
+					end
 					
 				elseif IsValid( bot.GroupLeader ) and !bot:IsGroupLeader() then
 				
@@ -1692,7 +1732,7 @@ hook.Add( "PlayerHurt" , "TRizzleBotPlayerHurt" , function( victim, attacker )
 
 	if !IsValid( attacker ) or !IsValid( victim ) or !victim:IsTRizzleBot() or attacker:IsPlayer() then return end
 	
-	if attacker:IsNPC() and !victim.EnemyList[ attacker:GetCreationID() ] and attacker:IsAlive() and ( attacker:Disposition( victim ) == D_HT or attacker:Disposition( victim.TBotOwner ) == D_HT ) then
+	if attacker:IsNPC() and !victim.EnemyList[ attacker:GetCreationID() ] and attacker:IsAlive() and ( attacker:IsEnemy( victim ) or attacker:IsEnemy( victim.TBotOwner ) ) then
 
 		victim.EnemyList[ attacker:GetCreationID() ]		=	{ Enemy = attacker, LastSeenTime = CurTime() + 10.0 }
 	
@@ -1707,7 +1747,7 @@ hook.Add( "EntityEmitSound" , "TRizzleBotEntityEmitSound" , function( soundTable
 		
 		if !IsValid( bot ) or !bot:IsTRizzleBot() or !IsValid( soundTable.Entity ) or soundTable.Entity:IsPlayer() or soundTable.Entity == bot then continue end
 	
-		if soundTable.Entity:IsNPC() and !bot.EnemyList[ soundTable.Entity:GetCreationID() ] and soundTable.Entity:IsAlive() and (soundTable.Entity:Disposition( bot ) == D_HT or soundTable.Entity:Disposition( bot.TBotOwner ) == D_HT) and (soundTable.Entity:GetPos() - bot:GetPos()):LengthSqr() < ( ( 1000 * ( soundTable.SoundLevel / 100 ) ) * ( 1000 * ( soundTable.SoundLevel / 100 ) ) ) then
+		if soundTable.Entity:IsNPC() and !bot.EnemyList[ soundTable.Entity:GetCreationID() ] and soundTable.Entity:IsAlive() and ( soundTable.Entity:IsEnemy( bot ) or soundTable.Entity:IsEnemy( bot.TBotOwner ) ) and (soundTable.Entity:GetPos() - bot:GetPos()):LengthSqr() < ( ( 1000 * ( soundTable.SoundLevel / 100 ) ) * ( 1000 * ( soundTable.SoundLevel / 100 ) ) ) then
 			
 			bot.EnemyList[ soundTable.Entity:GetCreationID() ]		=	{ Enemy = soundTable.Entity, LastSeenTime = CurTime() + 10.0 }
 			
@@ -1729,13 +1769,21 @@ function Npc:IsAlive()
 	
 end
 
+-- Checks if the target entity is the NPC's enemy
+function Npc:IsEnemy( target )
+	if !IsValid( self ) or !IsValid( target ) then return false end
+	
+	return self:Disposition( target ) == D_HT
+	
+end
+
 -- Checks if its current enemy is still alive and still visible to the bot
 function BOT:CheckCurrentEnemyStatus()
 	
 	if !IsValid( self.Enemy ) then self.Enemy							=	nil
 	elseif self.Enemy:IsPlayer() and !self.Enemy:Alive() then self.Enemy				=	nil -- Just incase the bot's enemy is set to a player even though the bot should only target NPCS and "hopefully" NEXTBOTS 
 	elseif !self.Enemy:Visible( self ) or self:IsTRizzleBotBlind() or self:IsHiddenByFog( self:GetShootPos():Distance( self.Enemy:EyePos() ) ) then self.Enemy						=	nil
-	elseif self.Enemy:IsNPC() and ( !self.Enemy:IsAlive() or (self.Enemy:Disposition( self ) != D_HT and self.Enemy:Disposition( self.TBotOwner ) != D_HT) ) then self.Enemy	=	nil
+	elseif self.Enemy:IsNPC() and ( !self.Enemy:IsAlive() or ( !self.Enemy:IsEnemy( self ) and !self.Enemy:IsEnemy( self.TBotOwner ) ) ) then self.Enemy	=	nil
 	elseif GetConVar( "ai_ignoreplayers" ):GetInt() != 0 or GetConVar( "ai_disabled" ):GetInt() != 0 then self.Enemy	=	nil end
 	
 end
@@ -1766,7 +1814,7 @@ function BOT:TBotCheckEnemyList()
 			self.EnemyList[ k ] = nil -- Just incase the bot's enemy is set to a player even though the bot should only target NPCS and "hopefully" NEXTBOTS
 			continue
 			
-		elseif v.Enemy:IsNPC() and ( !v.Enemy:IsAlive() or (v.Enemy:Disposition( self ) != D_HT and v.Enemy:Disposition( self.TBotOwner ) != D_HT) ) then 
+		elseif v.Enemy:IsNPC() and ( !v.Enemy:IsAlive() or ( !v.Enemy:IsEnemy( self ) and !v.Enemy:IsEnemy( self.TBotOwner ) ) ) then 
 			
 			self.EnemyList[ k ] = nil
 			continue
@@ -1809,7 +1857,7 @@ function BOT:TBotFindClosestEnemy()
 	
 	for k, v in ipairs( ents.GetAll() ) do
 		
-		if IsValid( v ) and v:IsNPC() and v:IsAlive() and (v:Disposition( self ) == D_HT or v:Disposition( self.TBotOwner ) == D_HT) then -- The bot should attack any NPC that is hostile to them or their owner. D_HT means hostile/hate
+		if IsValid( v ) and v:IsNPC() and v:IsAlive() and ( v:IsEnemy( self ) or v:IsEnemy( self.TBotOwner ) ) then -- The bot should attack any NPC that is hostile to them or their owner. D_HT means hostile/hate
 			
 			local enemydistsqr = (v:GetPos() - self:GetPos()):LengthSqr()
 			if self:IsAbleToSee( v ) and v:Visible( self ) then
