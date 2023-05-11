@@ -437,24 +437,6 @@ hook.Add( "StartCommand" , "TRizzleBotAIHook" , function( bot , cmd )
 	bot:ResetCommand( cmd )
 	bot:UpdateAim()
 	
-	-- Better make sure they exist of course.
-	if IsValid( bot.Enemy ) then
-	
-		-- Turn and face our enemy!
-		if bot.AimForHead and !bot:IsActiveWeaponRecoilHigh() then
-		
-			-- Can we aim the enemy's head?
-			bot:AimAtPos( bot.Enemy:EyePos(), CurTime() + 0.1, HIGH_PRIORITY )
-		
-		else
-		
-			-- If we can't aim at our enemy's head aim at the center of their body instead.
-			bot:AimAtPos( bot.Enemy:WorldSpaceCenter(), CurTime() + 0.1, HIGH_PRIORITY )
-		
-		end
-	
-	end
-	
 	bot:TBotUpdateMovement( cmd )
 	
 	cmd:SetButtons( bot.buttonFlags )
@@ -760,37 +742,54 @@ function BOT:IsSafe()
 	
 end
 
+-- This where the bot updates its current aim angles
 function BOT:UpdateAim()
-	if ( !isvector( self.LookTarget ) or self.LookTargetTime < CurTime() ) and ( !isvector( self.EncounterSpot ) or self.EncounterSpotLookTime < CurTime() ) then return end
+	if !IsValid( self.Enemy ) and ( !isvector( self.EncounterSpot ) and self.EncounterSpotLookTime < CurTime() ) and ( !isvector( self.LookTarget ) and self.LookTargetTime < CurTime() ) then return end
 	
-	local angles
+	local currentAngles = self:EyeAngles() + self:GetViewPunchAngles()
+	local angles = currentAngles -- This is a backup just incase
+	local lerp = math.Clamp( FrameTime() * math.random(10, 20), 0, 1 ) -- I clamp the value so the bot doesn't aim past where it is trying to look at. Should math.random be a lower number?
 	
+	-- Turn and face our enemy if we have one.
+	if !self:IsTRizzleBotBlind() and IsValid( self.Enemy ) then
+		
+		local AimPos = nil
+		
+		-- Turn and face our enemy!
+		if self.AimForHead and !self:IsActiveWeaponRecoilHigh() then
+		
+			-- Can we aim at the enemy's head?
+			AimPos = self.Enemy:EyePos()
+		
+		else
+		
+			-- If we can't aim at our enemy's head aim at the center of their body instead.
+			AimPos = self.Enemy:WorldSpaceCenter()
+		
+		end
+		
+		local targetPos = ( AimPos - self:GetShootPos() ):GetNormalized()
+		
+		angles = LerpAngle( lerp, currentAngles, targetPos:Angle() )
+		
 	-- The bot will only look at encounter spots if its current look at priority is set to low
-	if ( self.LookTargetPriority <= LOW_PRIORITY or self.LookTargetTime < CurTime() ) and isvector( self.EncounterSpot ) and self.EncounterSpotLookTime > CurTime() then
+	elseif !self:IsTRizzleBotBlind() and ( self.LookTargetPriority <= LOW_PRIORITY or self.LookTargetTime < CurTime() ) and isvector( self.EncounterSpot ) and self.EncounterSpotLookTime > CurTime() then
 	
-		local currentAngles = self:EyeAngles() + self:GetViewPunchAngles()
 		local targetPos = ( self.EncounterSpot - self:GetShootPos() ):GetNormalized()
 		
-		local lerp = FrameTime() * math.random(10, 20) -- Should this be a lower number?
-		
 		angles = LerpAngle( lerp, currentAngles, targetPos:Angle() )
-		
-		-- back out "punch angle"
-		angles = angles - self:GetViewPunchAngles()
-		
+	
+	-- The bot will look at its current look target
 	elseif isvector( self.LookTarget ) and self.LookTargetTime > CurTime() then
 	
-		local currentAngles = self:EyeAngles() + self:GetViewPunchAngles()
 		local targetPos = ( self.LookTarget - self:GetShootPos() ):GetNormalized()
 		
-		local lerp = FrameTime() * math.random(10, 20) -- Should this be a lower number?
-		
 		angles = LerpAngle( lerp, currentAngles, targetPos:Angle() )
-		
-		-- back out "punch angle"
-		angles = angles - self:GetViewPunchAngles()
 
 	end
+	
+	-- back out "punch angle"
+	angles = angles - self:GetViewPunchAngles()
 	
 	self:SetEyeAngles( angles )
 
@@ -799,8 +798,8 @@ end
 function BOT:AimAtPos( Pos, Time, Priority )
 	if !isvector( Pos ) or Time < CurTime() or ( self.LookTargetPriority > Priority and CurTime() < self.LookTargetTime ) then return end
 	
-	self.LookTarget				=	Pos
-	self.LookTargetTime			=	Time
+	self.LookTarget			=	Pos
+	self.LookTargetTime		=	Time
 	self.LookTargetPriority		=	Priority
 	
 end
@@ -808,9 +807,9 @@ end
 function BOT:SetEncounterLookAt( Pos, Time )
 	if !isvector( Pos ) or Time < CurTime() then return end 
 	
-	self.EncounterSpot			=	Pos
+	self.EncounterSpot		=	Pos
 	self.EncounterSpotLookTime	=	Time
-	self.NextEncounterTime		=	CurTime() + 2.0
+	self.NextEncounterTime		=	Time + 2.0
 
 end
 
@@ -909,6 +908,7 @@ function BOT:TBotBlind( time )
 	if !IsValid( self ) or !self:Alive() or !self:IsTRizzleBot() or !isnumber( time ) or time < ( self.TRizzleBotBlindTime - CurTime() ) then return end
 	
 	self.TRizzleBotBlindTime = CurTime() + time
+	self:AimAtPos( Vector( math.random( -30, 30 ), math.random( -180, 180 ), 0 ), CurTime() + 0.5, MAXIMUM_PRIORITY ) -- Make the bot fling its aim in a random direction upon becoming blind
 end
 
 -- Is the bot currently blind?
@@ -1405,7 +1405,7 @@ hook.Add( "Think" , "TRizzleBotThink" , function()
 						-- If the bot doen't feel safe it should look around for possible enemies
 						if !bot:IsSafe() and bot.NextEncounterTime < CurTime() then
 						
-							bot:SetEncounterLookAt( Vector(math.random(-30, 30), math.random(-180, 180), 0), CurTime() + 1.0 )
+							bot:SetEncounterLookAt( Vector( math.random( -30, 30 ), math.random( -180, 180 ), 0 ), CurTime() + 1.0 )
 						
 						end
 						
