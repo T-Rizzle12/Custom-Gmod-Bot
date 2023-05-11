@@ -1405,7 +1405,7 @@ hook.Add( "Think" , "TRizzleBotThink" , function()
 						-- If the bot doen't feel safe it should look around for possible enemies
 						if !bot:IsSafe() and bot.NextEncounterTime < CurTime() then
 						
-							bot:SetEncounterLookAt( Angle(math.random(-30, 30), math.random(-180, 180), 0), CurTime() + 1.0 )
+							bot:SetEncounterLookAt( Vector(math.random(-30, 30), math.random(-180, 180), 0), CurTime() + 1.0 )
 						
 						end
 						
