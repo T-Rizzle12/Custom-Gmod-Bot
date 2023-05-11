@@ -6,15 +6,15 @@ local Zone			=	FindMetaTable( "CNavArea" )
 local Lad			=	FindMetaTable( "CNavLadder" )
 
 -- Setup lookatpriority level variables
-local LOW_PRIORITY		=	0
+local LOW_PRIORITY			=	0
 local MEDIUM_PRIORITY		=	1
-local HIGH_PRIORITY		=	2
+local HIGH_PRIORITY			=	2
 local MAXIMUM_PRIORITY		=	3
 
 -- Setup bot hiding states
 local FINISHED_HIDING		=	0
-local MOVE_TO_SPOT		=	1
-local WAIT_AT_SPOT		=	2
+local MOVE_TO_SPOT			=	1
+local WAIT_AT_SPOT			=	2
 
 -- Setup bot think variables
 local BotUpdateSkipCount	=	2 -- This is how many upkeep events must be skipped before another update event can be run
@@ -413,6 +413,9 @@ function BOT:TBotResetAI()
 	self.LookTarget					=	false -- This is the position the bot is currently trying to look at.
 	self.LookTargetTime				=	0 -- This is how long the bot will look at the position the bot is currently trying to look at.
 	self.LookTargetPriority			=	LOW_PRIORITY -- This is how important the position the bot is currently trying to look at is.
+	self.EncounterSpot				=	nil -- This is the bots current encounter spot
+	self.EncounterSpotLookTime		=	0 -- This is how long the bot should look at said encounter spot
+	self.NextEncounterTime			=	0 -- This is the next time the bot is allowed to look at another encounter spot
 	self.HidingSpot					=	nil -- This is the current hiding/sniper spot the bot wants to goto, "only used by group leaders for now".
 	self.HidingState				=	FINISHED_HIDING -- This is the current hiding state the bot is currently in.
 	self.HideTime					=	0 -- This is how long the bot will stay at its current hiding spot.
@@ -731,6 +734,7 @@ net.Receive( "TRizzleBotFlashlight", function( _, ply)
 	end
 end)
 
+-- Has the bot recently seen an enemy
 function BOT:IsInCombat()
 
 	if IsValid( self.Enemy ) then
@@ -743,19 +747,51 @@ function BOT:IsInCombat()
 	
 end
 
+-- Has the bot not seen any enemies recently
+function BOT:IsSafe()
+
+	if IsValid( self.Enemy ) then
+	
+		return false
+		
+	end
+	
+	return self.LastCombatTime + 5.0 < CurTime()
+	
+end
+
 function BOT:UpdateAim()
-	if !isvector( self.LookTarget ) or self.LookTargetTime < CurTime() then return end
+	if ( !isvector( self.LookTarget ) or self.LookTargetTime < CurTime() ) and ( !isvector( self.EncounterSpot ) or self.EncounterSpotLookTime < CurTime() ) then return end
+	
+	local angles
+	
+	-- The bot will only look at encounter spots if its current look at priority is set to low
+	if ( self.LookTargetPriority <= LOW_PRIORITY or self.LookTargetTime < CurTime() ) and isvector( self.EncounterSpot ) and self.EncounterSpotLookTime > CurTime() then
+	
+		local currentAngles = self:EyeAngles() + self:GetViewPunchAngles()
+		local targetPos = ( self.EncounterSpot - self:GetShootPos() ):GetNormalized()
+		
+		local lerp = FrameTime() * math.random(10, 20) -- Should this be a lower number?
+		
+		angles = LerpAngle( lerp, currentAngles, targetPos:Angle() )
+		
+		-- back out "punch angle"
+		angles = angles - self:GetViewPunchAngles()
+		
+	elseif isvector( self.LookTarget ) and self.LookTargetTime > CurTime() then
+	
+		local currentAngles = self:EyeAngles() + self:GetViewPunchAngles()
+		local targetPos = ( self.LookTarget - self:GetShootPos() ):GetNormalized()
+		
+		local lerp = FrameTime() * math.random(10, 20) -- Should this be a lower number?
+		
+		angles = LerpAngle( lerp, currentAngles, targetPos:Angle() )
+		
+		-- back out "punch angle"
+		angles = angles - self:GetViewPunchAngles()
 
-	local currentAngles = self:EyeAngles() + self:GetViewPunchAngles()
-	local targetPos = ( self.LookTarget - self:GetShootPos() ):GetNormalized()
+	end
 	
-	local lerp = FrameTime() * math.random(10, 20) -- Should this be a lower number?
-	
-	local angles = LerpAngle( lerp, currentAngles, targetPos:Angle() )
-	
-	-- back out "punch angle"
-	angles = angles - self:GetViewPunchAngles()
-
 	self:SetEyeAngles( angles )
 
 end
@@ -767,6 +803,15 @@ function BOT:AimAtPos( Pos, Time, Priority )
 	self.LookTargetTime			=	Time
 	self.LookTargetPriority		=	Priority
 	
+end
+
+function BOT:SetEncounterLookAt( Pos, Time )
+	if !isvector( Pos ) or Time < CurTime() then return end 
+	
+	self.EncounterSpot			=	Pos
+	self.EncounterSpotLookTime	=	Time
+	self.NextEncounterTime		=	CurTime() + 2.0
+
 end
 
 -- Grabs the bot's default FOV
@@ -1113,8 +1158,8 @@ function BOT:RestoreAmmo()
 	local sniper_ammo
 	
 	if IsValid( pistol ) then pistol_ammo		=	self:GetAmmoCount( pistol:GetPrimaryAmmoType() ) end
-	if IsValid( rifle ) then rifle_ammo		=	self:GetAmmoCount( rifle:GetPrimaryAmmoType() ) end
-	if IsValid( shotgun ) then shotgun_ammo	=	self:GetAmmoCount( shotgun:GetPrimaryAmmoType() ) end
+	if IsValid( rifle ) then rifle_ammo			=	self:GetAmmoCount( rifle:GetPrimaryAmmoType() ) end
+	if IsValid( shotgun ) then shotgun_ammo		=	self:GetAmmoCount( shotgun:GetPrimaryAmmoType() ) end
 	if IsValid( sniper ) then sniper_ammo		=	self:GetAmmoCount( sniper:GetPrimaryAmmoType() ) end
 	
 	if isnumber( pistol_ammo ) and self:HasWeapon( self.Pistol ) and pistol_ammo < 100 then
@@ -1357,6 +1402,13 @@ hook.Add( "Think" , "TRizzleBotThink" , function()
 							
 						end
 						
+						-- If the bot doen't feel safe it should look around for possible enemies
+						if !bot:IsSafe() and bot.NextEncounterTime < CurTime() then
+						
+							bot:SetEncounterLookAt( Angle(math.random(-30, 30), math.random(-180, 180), 0), CurTime() + 1.0 )
+						
+						end
+						
 						if IsValid( botWeapon ) and botWeapon:IsWeapon() and CurTime() > bot.ReloadInterval and !botWeapon:GetInternalVariable( "m_bInReload" ) and botWeapon:GetClass() != "weapon_medkit" and botWeapon:Clip1() < botWeapon:GetMaxClip1() then
 						
 							bot:PressReload()
@@ -1393,7 +1445,7 @@ hook.Add( "Think" , "TRizzleBotThink" , function()
 					end
 					
 				elseif IsValid( bot.GroupLeader ) and !bot:IsGroupLeader() then
-						
+					
 					-- If the bot needs to reload its active weapon it should find cover nearby and reload there
 					if !isvector( bot.HidingSpot ) and !isvector( bot.Goal ) and (bot.GroupLeader:GetPos() - bot:GetPos()):LengthSqr() < bot.FollowDist * bot.FollowDist and IsValid( bot.Enemy ) and bot:GetActiveWeapon():Clip1() == 0 then
 
@@ -1403,9 +1455,9 @@ hook.Add( "Think" , "TRizzleBotThink" , function()
 						bot.ReturnPos = bot:GetPos()
 
 					end
-						
+					
 				elseif IsValid( bot.TBotOwner ) and bot.TBotOwner:Alive() then
-							
+					
 					-- If the bot needs to reload its active weapon it should find cover nearby and reload there
 					if !isvector( bot.HidingSpot ) and !isvector( bot.Goal ) and (bot.TBotOwner:GetPos() - bot:GetPos()):LengthSqr() < bot.FollowDist * bot.FollowDist and IsValid( bot.Enemy ) and bot:GetActiveWeapon():Clip1() == 0 then
 
@@ -1415,7 +1467,7 @@ hook.Add( "Think" , "TRizzleBotThink" , function()
 						bot.ReturnPos = bot:GetPos()
 
 					end
-						
+					
 				end
 				
 				-- This is where the bot sets its move goals
@@ -1428,22 +1480,33 @@ hook.Add( "Think" , "TRizzleBotThink" , function()
 						bot.HideTime = CurTime() + bot.HideTime
 					
 					-- If the bot has finished hiding or its hiding spot is no longer safe, it should clear its selected hiding spot
-					elseif bot.HidingState == WAIT_AT_SPOT and ( bot.HideTime < CurTime() or !bot:IsSpotSafe( bot.HidingSpot ) ) then
-							
-						bot.HidingSpot = nil
-						bot.HidingState = FINISHED_HIDING
+					elseif bot.HidingState == WAIT_AT_SPOT then
 						
-						if isvector( bot.ReturnPos ) then
-							-- We only set the goal once just incase something else that is important, "following their owner," wants to move the bot
-							bot:TBotSetNewGoal( bot.ReturnPos )
-							bot.ReturnPos = nil
-						end
+						if bot.HideTime < CurTime() or !bot:IsSpotSafe( bot.HidingSpot ) then
 							
+							bot.HidingSpot = nil
+							bot.HidingState = FINISHED_HIDING
+							
+							if isvector( bot.ReturnPos ) then
+								
+								-- We only set the goal once just incase something else that is important, "following their owner," wants to move the bot
+								bot:TBotSetNewGoal( bot.ReturnPos )
+								bot.ReturnPos = nil
+								
+							end
+							
+						else
+							
+							-- The bot should crouch once it reaches its selected hiding spot
+							bot:PressCrouch()
+						
+						end
+						
 					-- If the bot has a hiding spot it should path there
 					elseif !isvector( bot.Goal ) and (bot:GetPos() - bot.HidingSpot):LengthSqr() > 32 * 32 then
 					
 						bot:TBotSetNewGoal( bot.HidingSpot )
-							
+						
 					end
 					
 				elseif IsValid( bot.GroupLeader ) and !bot:IsGroupLeader() then
@@ -1471,6 +1534,7 @@ hook.Add( "Think" , "TRizzleBotThink" , function()
 					
 				end
 				
+				-- Update the bot movement if they are pathing to a goal
 				if isvector( bot.Goal ) then
 			
 					bot:TBotNavigation()
@@ -1537,6 +1601,7 @@ hook.Add( "PlayerSpawn" , "TRizzleBotSpawnHook" , function( ply )
 			if IsValid( ply ) and ply:Alive() then
 				
 				ply:SetModel( ply.PlayerModel )
+				ply:SetCollisionGroup(5) -- Apparently the bot's default collisiongroup is set to 11 causing the bot not to take damage from melee enemies
 				
 			end
 			
@@ -2327,11 +2392,15 @@ end
 -- Checks if a hiding spot is already in use
 function BOT:IsSpotOccupied( pos )
 
-	for k, v in ipairs( player.GetAll() ) do
+	for k, ply in ipairs( player.GetAll() ) do
+		
+		if ply != self then
+		
+			if ply:GetPos():DistToSqr(pos) < 75 * 75 then return true -- Don't consider spots if a bot or human player is already there
+			elseif ply:IsTRizzleBot() and ply.HidingSpot == pos then return true end -- Don't consider spots already selected by other bots
 	
-		if v:GetPos():DistToSqr(pos) < 75 * 75 then return true -- Don't consider spots if a bot or human player is already there
-		elseif v:IsTRizzleBot() and v.HidingSpot == pos then return true end -- Don't consider spots already selected by other bots
-	
+		end
+		
 	end
 
 	return false
@@ -2341,7 +2410,7 @@ end
 -- Checks if a hiding spot is safe to use
 function BOT:IsSpotSafe( pos )
 
-	for k, v in pairs( EnemyList ) do
+	for k, v in pairs( self.EnemyList ) do
 	
 		if IsValid( v ) and v:VisibleVec( pos ) then return false end -- If one of the bot's enemies its aware of can see it the bot won't use it.
 	
