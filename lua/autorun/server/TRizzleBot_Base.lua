@@ -1601,7 +1601,6 @@ hook.Add( "PlayerSpawn" , "TRizzleBotSpawnHook" , function( ply )
 			if IsValid( ply ) and ply:Alive() then
 				
 				ply:SetModel( ply.PlayerModel )
-				ply:SetCollisionGroup(5) -- Apparently the bot's default collisiongroup is set to 11 causing the bot not to take damage from melee enemies
 				
 			end
 			
@@ -1610,6 +1609,8 @@ hook.Add( "PlayerSpawn" , "TRizzleBotSpawnHook" , function( ply )
 		timer.Simple( 0.3 , function()
 		
 			if IsValid( ply ) and ply:Alive() then
+				
+				ply:SetCollisionGroup(5) -- Apparently the bot's default collisiongroup is set to 11 causing the bot not to take damage from melee enemies
 				
 				if ply.SpawnWithWeapons then
 					
@@ -1828,7 +1829,8 @@ function Npc:IsAlive()
 	if !IsValid( self ) then return false end
 	
 	if self:GetNPCState() == NPC_STATE_DEAD then return false
-	elseif self:GetInternalVariable( "m_lifeState" ) != 0 then return false end
+	elseif self:GetInternalVariable( "m_lifeState" ) != 0 then return false 
+	elseif self:Health() <= 0 then return false end
 	
 	return true
 	
@@ -2394,7 +2396,7 @@ function BOT:IsSpotOccupied( pos )
 
 	for k, ply in ipairs( player.GetAll() ) do
 		
-		if ply != self then
+		if IsValid( ply ) and ply != self then
 		
 			if ply:GetPos():DistToSqr(pos) < 75 * 75 then return true -- Don't consider spots if a bot or human player is already there
 			elseif ply:IsTRizzleBot() and ply.HidingSpot == pos then return true end -- Don't consider spots already selected by other bots
@@ -2454,7 +2456,7 @@ function BOT:FindSpots( tbl )
 			local tempPathLength = GetPathLength( tempPath, startArea, endArea )
 			
 			if tempPathLength < 0 or tbl.radius < tempPathLength then continue -- If the bot can't path to a hiding spot or its further than tbl.range, the bot shouldn't consider it
-			elseif self:IsSpotOccupied( vec ) and self:IsSpotSafe( vec ) then continue end -- If the spot is already in use by another player or the spot is visible to enemies on the bot's known enemy list, the bot shouldn't consider it
+			elseif self:IsSpotOccupied( vec ) or !self:IsSpotSafe( vec ) then continue end -- If the spot is already in use by another player or the spot is visible to enemies on the bot's known enemy list, the bot shouldn't consider it
 			table.insert( found, { vector = vec, distance = tempPathLength } )
 
 		end
