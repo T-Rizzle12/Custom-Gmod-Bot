@@ -33,7 +33,7 @@ CommandName, CommandParameters, Example
 - <code>TBotSetRifle</code> <code>targetbot</code>  <code>rifle</code>  
   - TBotSetRifle Bot weapon_smg1
 - <code>TBotSetSniper</code> <code>targetbot</code>  <code>sniper</code> <code>1 or 0</code>  
-  - TBotSetRifle Bot weapon_crossbow
+  - TBotSetRifle Bot weapon_crossbow 1
 - <code>TBotSetMeleeDist</code> <code>targetbot</code>  <code>meleedist</code>  
   - TBotSetMelee Bot 80
 - <code>TBotSetPistolDist</code> <code>targetbot</code>  <code>pistoldist</code>  
