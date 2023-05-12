@@ -18,8 +18,8 @@ I made this because I usually have to play Gmod alone and I also wanted to see w
 
 # Commands
 CommandName, CommandParameters, Example
-- <code>TRizzleCreateBot</code> <code>botname</code> <code>followdist</code> <code>dangerdist</code> <code>melee</code> <code>pistol</code> <code>shotgun</code> <code>rifle</code> <code>sniper</code> <code>meleedist</code> <code>pistoldist</code> <code>shotgundist</code> <code>rifledist</code> <code>healthreshold</code> <code>combathealthreshold</code> <code>playermodel</code> <code>spawnwithpreferredweapons</code>
-  - TRizzleCreateBot Bot 200 300 weapon_crowbar weapon_pistol weapon_shotgun weapon_smg1 weapon_crossbow 80 1300 300 900 100 25 alyx 1
+- <code>TRizzleCreateBot</code> <code>botname</code> <code>followdist</code> <code>dangerdist</code> <code>melee</code> <code>pistol</code> <code>shotgun</code> <code>rifle</code> <code>sniper</code> <code>hasScope</code> <code>meleedist</code> <code>pistoldist</code> <code>shotgundist</code> <code>rifledist</code> <code>healthreshold</code> <code>combathealthreshold</code> <code>playermodel</code> <code>spawnwithpreferredweapons</code>
+  - TRizzleCreateBot Bot 200 300 weapon_crowbar weapon_pistol weapon_shotgun weapon_smg1 weapon_crossbow 1 80 1300 300 900 100 25 alyx 1
 - <code>TBotSetFollowDist</code> <code>targetbot</code> <code>followdist</code> 
   -  TBotSetFollowDist Bot 200
 - <code>TBotSetDangerDist</code> <code>targetbot</code> <code>dangerdist</code> 
@@ -32,16 +32,16 @@ CommandName, CommandParameters, Example
   - TBotSetShotgun Bot weapon_shotgun
 - <code>TBotSetRifle</code> <code>targetbot</code>  <code>rifle</code>  
   - TBotSetRifle Bot weapon_smg1
-- <code>TBotSetSniper</code> <code>targetbot</code>  <code>sniper</code>  
+- <code>TBotSetSniper</code> <code>targetbot</code>  <code>sniper</code> <code>1 or 0</code>  
   - TBotSetRifle Bot weapon_crossbow
 - <code>TBotSetMeleeDist</code> <code>targetbot</code>  <code>meleedist</code>  
-  - TBotSetMelee Bot weapon_crowbar
+  - TBotSetMelee Bot 80
 - <code>TBotSetPistolDist</code> <code>targetbot</code>  <code>pistoldist</code>  
-  - TBotSetPistol Bot weapon_pistol
+  - TBotSetPistol Bot 1300
 - <code>TBotSetShotgunDist</code> <code>targetbot</code>  <code>shotgundist</code>  
-  - TBotSetShotgun Bot weapon_shotgun
+  - TBotSetShotgun Bot 300
 - <code>TBotSetRifleDist</code> <code>targetbot</code>  <code>rifledist</code>  
-  - TBotSetRifle Bot weapon_smg1
+  - TBotSetRifle Bot 900
 - <code>TBotSetHealThreshold</code> <code>targetbot</code>  <code>healthreshold</code>  
   - TBotSetHealThreshold Bot 100
 - <code>TBotSetCombatHealThreshold</code> <code>targetbot</code>  <code>combathealthreshold</code>  
