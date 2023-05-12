@@ -908,7 +908,7 @@ function BOT:TBotBlind( time )
 	if !IsValid( self ) or !self:Alive() or !self:IsTRizzleBot() or !isnumber( time ) or time < ( self.TRizzleBotBlindTime - CurTime() ) then return end
 	
 	self.TRizzleBotBlindTime = CurTime() + time
-	self:AimAtPos( Vector( math.random( -30, 30 ), math.random( -180, 180 ), 0 ), CurTime() + 0.5, MAXIMUM_PRIORITY ) -- Make the bot fling its aim in a random direction upon becoming blind
+	self:AimAtPos( Vector( math.random( -360, 360 ), math.random( -360, 360 ), 35.5 ), CurTime() + 0.5, MAXIMUM_PRIORITY ) -- Make the bot fling its aim in a random direction upon becoming blind
 end
 
 -- Is the bot currently blind?
@@ -1353,7 +1353,7 @@ hook.Add( "Think" , "TRizzleBotThink" , function()
 							
 						end
 						
-						if CurTime() > bot.ReloadInterval and !botWeapon:GetInternalVariable( "m_bInReload" ) and botWeapon:GetClass() != "weapon_medkit" and botWeapon:Clip1() == 0 then
+						if CurTime() > bot.ReloadInterval and !botWeapon:GetInternalVariable( "m_bInReload" ) and botWeapon:GetClass() != "weapon_medkit" and botWeapon:GetClass() != bot.Melee and botWeapon:Clip1() == 0 then
 							
 							if botWeapon:GetClass() == bot.Shotgun then bot.FullReload = true end
 							
@@ -1405,11 +1405,11 @@ hook.Add( "Think" , "TRizzleBotThink" , function()
 						-- If the bot doen't feel safe it should look around for possible enemies
 						if !bot:IsSafe() and bot.NextEncounterTime < CurTime() then
 						
-							bot:SetEncounterLookAt( Vector( math.random( -30, 30 ), math.random( -180, 180 ), 0 ), CurTime() + 1.0 )
+							bot:SetEncounterLookAt( Vector( math.random( -360, 360 ), math.random( -360, 360 ), 35.5 ), CurTime() + 1.0 )
 						
 						end
 						
-						if IsValid( botWeapon ) and botWeapon:IsWeapon() and CurTime() > bot.ReloadInterval and !botWeapon:GetInternalVariable( "m_bInReload" ) and botWeapon:GetClass() != "weapon_medkit" and botWeapon:Clip1() < botWeapon:GetMaxClip1() then
+						if IsValid( botWeapon ) and botWeapon:IsWeapon() and CurTime() > bot.ReloadInterval and !botWeapon:GetInternalVariable( "m_bInReload" ) and botWeapon:GetClass() != "weapon_medkit" and botWeapon:GetClass() != bot.Melee and botWeapon:Clip1() < botWeapon:GetMaxClip1() then
 						
 							bot:PressReload()
 							bot.ReloadInterval = CurTime() + 0.5
@@ -1421,7 +1421,7 @@ hook.Add( "Think" , "TRizzleBotThink" , function()
 					else
 					
 						local botWeapon = bot:GetActiveWeapon()
-						if IsValid( botWeapon ) and botWeapon:IsWeapon() and CurTime() > bot.ReloadInterval and !botWeapon:GetInternalVariable( "m_bInReload" ) and botWeapon:GetClass() != "weapon_medkit" and bot.NumVisibleEnemies <= 0 and ( ( botWeapon:GetClass() == bot.Shotgun and botWeapon:Clip1() < botWeapon:GetMaxClip1() ) or botWeapon:Clip1() < ( botWeapon:GetMaxClip1() * 0.6 ) ) then
+						if IsValid( botWeapon ) and botWeapon:IsWeapon() and CurTime() > bot.ReloadInterval and !botWeapon:GetInternalVariable( "m_bInReload" ) and botWeapon:GetClass() != "weapon_medkit" and botWeapon:GetClass() != bot.Melee and ( ( botWeapon:GetClass() == bot.Shotgun and botWeapon:Clip1() < botWeapon:GetMaxClip1() ) or ( bot.NumVisibleEnemies <= 0 and botWeapon:Clip1() < ( botWeapon:GetMaxClip1() * 0.6 ) ) ) then
 						
 							bot:PressReload()
 							bot.ReloadInterval = CurTime() + 0.5
@@ -1447,7 +1447,7 @@ hook.Add( "Think" , "TRizzleBotThink" , function()
 				elseif IsValid( bot.GroupLeader ) and !bot:IsGroupLeader() then
 					
 					-- If the bot needs to reload its active weapon it should find cover nearby and reload there
-					if !isvector( bot.HidingSpot ) and !isvector( bot.Goal ) and (bot.GroupLeader:GetPos() - bot:GetPos()):LengthSqr() < bot.FollowDist * bot.FollowDist and IsValid( bot.Enemy ) and bot:GetActiveWeapon():Clip1() == 0 then
+					if !isvector( bot.HidingSpot ) and !isvector( bot.Goal ) and (bot.GroupLeader:GetPos() - bot:GetPos()):LengthSqr() < bot.FollowDist * bot.FollowDist and IsValid( bot.Enemy ) and bot:GetActiveWeapon():GetClass() != bot.Melee and bot:GetActiveWeapon():Clip1() == 0 then
 
 						bot.HidingSpot = bot:FindSpot( "near", { pos = bot:GetPos(), radius = bot.FollowDist, stepdown = 200, stepup = 64 } )
 						bot.HidingState = MOVE_TO_SPOT
@@ -1459,7 +1459,7 @@ hook.Add( "Think" , "TRizzleBotThink" , function()
 				elseif IsValid( bot.TBotOwner ) and bot.TBotOwner:Alive() then
 					
 					-- If the bot needs to reload its active weapon it should find cover nearby and reload there
-					if !isvector( bot.HidingSpot ) and !isvector( bot.Goal ) and (bot.TBotOwner:GetPos() - bot:GetPos()):LengthSqr() < bot.FollowDist * bot.FollowDist and IsValid( bot.Enemy ) and bot:GetActiveWeapon():Clip1() == 0 then
+					if !isvector( bot.HidingSpot ) and !isvector( bot.Goal ) and (bot.TBotOwner:GetPos() - bot:GetPos()):LengthSqr() < bot.FollowDist * bot.FollowDist and IsValid( bot.Enemy ) and bot:GetActiveWeapon():GetClass() != bot.Melee and bot:GetActiveWeapon():Clip1() == 0 then
 
 						bot.HidingSpot = bot:FindSpot( "near", { pos = bot:GetPos(), radius = bot.FollowDist, stepdown = 200, stepup = 64 } )
 						bot.HidingState = MOVE_TO_SPOT
