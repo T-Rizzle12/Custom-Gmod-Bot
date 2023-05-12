@@ -744,7 +744,7 @@ end
 
 -- This where the bot updates its current aim angles
 function BOT:UpdateAim()
-	if !IsValid( self.Enemy ) and ( !isvector( self.EncounterSpot ) and self.EncounterSpotLookTime < CurTime() ) and ( !isvector( self.LookTarget ) and self.LookTargetTime < CurTime() ) then return end
+	if !IsValid( self.Enemy ) and ( !isvector( self.EncounterSpot ) or self.EncounterSpotLookTime < CurTime() ) and ( !isvector( self.LookTarget ) or self.LookTargetTime < CurTime() ) then return end
 	
 	local currentAngles = self:EyeAngles() + self:GetViewPunchAngles()
 	local angles = currentAngles -- This is a backup just incase
