@@ -417,10 +417,10 @@ function BOT:TBotResetAI()
 	self.LookTarget					=	false -- This is the position the bot is currently trying to look at.
 	self.LookTargetTime				=	0 -- This is how long the bot will look at the position the bot is currently trying to look at.
 	self.LookTargetPriority				=	LOW_PRIORITY -- This is how important the position the bot is currently trying to look at is.
-	self.EncounterSpot				=	nil -- This is the bots current encounter spot
-	self.EncounterSpotLookTime			=	0 -- This is how long the bot should look at said encounter spot
-	self.NextEncounterTime				=	0 -- This is the next time the bot is allowed to look at another encounter spot
-	self.HidingSpot					=	nil -- This is the current hiding/sniper spot the bot wants to goto, "only used by group leaders for now".
+	self.EncounterSpot				=	nil -- This is the bots current encounter spot.
+	self.EncounterSpotLookTime			=	0 -- This is how long the bot should look at said encounter spot.
+	self.NextEncounterTime				=	0 -- This is the next time the bot is allowed to look at another encounter spot.
+	self.HidingSpot					=	nil -- This is the current hiding/sniper spot the bot wants to goto.
 	self.HidingState				=	FINISHED_HIDING -- This is the current hiding state the bot is currently in.
 	self.HideTime					=	0 -- This is how long the bot will stay at its current hiding spot.
 	self.ReturnPos					=	nil -- This is the spot the will back to after hiding, "Example, If the bot went into cover to reload."
