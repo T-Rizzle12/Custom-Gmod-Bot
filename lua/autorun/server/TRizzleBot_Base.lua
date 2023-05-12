@@ -34,23 +34,22 @@ function TBotCreate( ply , cmd , args ) -- This code defines stats of the bot wh
 	
 	NewBot.TRizzleBot				=	true -- Flag this as our bot so we don't control other bots, Only ours!
 	NewBot.TBotOwner				=	ply -- Make the player who created the bot its "owner"
-	NewBot.FollowDist				=	tonumber( args[ 2 ] ) or 200 -- This is how close the bot will follow it's owner
-	NewBot.DangerDist				=	tonumber( args[ 3 ] ) or 300 -- This is how far the bot can be from it's owner when in combat
-	NewBot.Melee					=	args[ 4 ] or "weapon_crowbar" -- This is the melee weapon the bot will use
-	NewBot.Pistol					=	args[ 5 ] or "weapon_pistol" -- This is the pistol the bot will use
-	NewBot.Shotgun					=	args[ 6 ] or "weapon_shotgun" -- This is the shotgun the bot will use
-	NewBot.Rifle					=	args[ 7 ] or "weapon_smg1" -- This is the rifle/smg the bot will use
-	NewBot.Sniper					=	args[ 8 ] or "weapon_crossbow" -- This is the sniper the bot will use
-	NewBot.MeleeDist				=	tonumber( args[ 9 ] ) or 80 -- If an enemy is closer than this, the bot will use its melee
-	NewBot.PistolDist				=	tonumber( args[ 10 ] ) or 1300 -- If an enemy is closer than this, the bot will use its pistol
-	NewBot.ShotgunDist				=	tonumber( args[ 11 ] ) or 300 -- If an enemy is closer than this, the bot will use its shotgun
-	NewBot.RifleDist				=	tonumber( args[ 12 ] ) or 900 -- If an enemy is closer than this, the bot will use its rifle
-	NewBot.HealThreshold			=	tonumber( args[ 13 ] ) or 100 -- If the bot's health or a teammate's health drops below this and the bot is not in combat the bot will use its medkit
-	NewBot.CombatHealThreshold		=	tonumber( args[ 14 ] ) or 25 -- If the bot's health drops below this and the bot is in combat the bot will use its medkit
-	NewBot.PlayerModel				=	args[ 15 ] or "kleiner" -- This is the player model the bot will use
 	
-	TBotSpawnWithPreferredWeapons( ply, cmd, { args[ 1 ], args[ 16 ] } )
-	TBotSetPlayerModel( ply, cmd, { args[ 1 ], NewBot.PlayerModel } )
+	TBotSetFollowDist( ply, cmd, { args[ 1 ], args[ 2 ] } ) -- This is how close the bot will follow it's owner
+	TBotSetDangerDist( ply, cmd, { args[ 1 ], args[ 3 ] } ) -- This is how far the bot can be from it's owner when in combat
+	TBotSetMelee( ply, cmd, { args[ 1 ], args[ 4 ] } ) -- This is the melee weapon the bot will use
+	TBotSetPistol( ply, cmd, { args[ 1 ], args[ 5 ] } ) -- This is the pistol the bot will use
+	TBotSetShotgun( ply, cmd, { args[ 1 ], args[ 6 ] } ) -- This is the shotgun the bot will use
+	TBotSetRifle( ply, cmd, { args[ 1 ], args[ 7 ] } ) -- This is the rifle/smg the bot will use
+	TBotSetSniper( ply, cmd, { args[ 1 ], args[ 8 ], args[ 9 ] } ) -- This is the sniper the bot will use and does the sniper the bot is using have a scope
+	TBotSetMeleeDist( ply, cmd, { args[ 1 ], args[ 10 ] } ) -- If an enemy is closer than this, the bot will use its melee
+	TBotSetPistolDist( ply, cmd, { args[ 1 ], args[ 11 ] } ) -- If an enemy is closer than this, the bot will use its pistol
+	TBotSetShotgunDist( ply, cmd, { args[ 1 ], args[ 12 ] } ) -- If an enemy is closer than this, the bot will use its shotgun
+	TBotSetRifleDist( ply, cmd, { args[ 1 ], args[ 13 ] } ) -- If an enemy is closer than this, the bot will use its rifle/smg
+	TBotSetHealThreshold( ply, cmd, { args[ 1 ], args[ 14 ] } ) -- If the bot's health or a teammate's health drops below this and the bot is not in combat the bot will use its medkit
+	TBotSetCombatHealThreshold( ply, cmd, { args[ 1 ], args[ 15 ] } ) -- If the bot's health drops below this and the bot is in combat the bot will use its medkit
+	TBotSetPlayerModel( ply, cmd, { args[ 1 ], args[ 16 ] } ) -- This is the player model the bot will use
+	TBotSpawnWithPreferredWeapons( ply, cmd, { args[ 1 ], args[ 17 ] } ) -- This checks if the bot should spawn with its preferred weapons
 	
 	NewBot:TBotResetAI() -- Fully reset your bots AI.
 	
@@ -169,12 +168,15 @@ function TBotSetSniper( ply, cmd, args ) -- Command for changing the bots sniper
 	
 	local targetbot = args[ 1 ]
 	local rifle = args[ 2 ] or "weapon_crossbow"
+	local hasScope = args[ 3 ] or 1
 	
 	for k, bot in ipairs( player.GetAll() ) do
 		
 		if bot:IsTRizzleBot() and bot:Nick() == targetbot and bot.TBotOwner == ply then
 			
 			bot.Sniper = rifle
+			if hasScope == 0 then bot.SniperScope = false
+			else bot.SniperScope = true end
 			break
 		end
 		
@@ -335,6 +337,7 @@ end
 function TBotSetDefault( ply, cmd, args )
 	if !args[ 1 ] then return end
 	if args[ 2 ] then args[ 2 ] = nil end
+	if args[ 3 ] then args[ 3 ] = nil end
 	
 	TBotSetFollowDist( ply, cmd, args )
 	TBotSetDangerDist( ply, cmd, args )
@@ -353,7 +356,7 @@ function TBotSetDefault( ply, cmd, args )
 
 end
 
-concommand.Add( "TRizzleCreateBot" , TBotCreate , nil , "Creates a TRizzle Bot with the specified parameters. Example: TRizzleCreateBot <botname> <followdist> <dangerdist> <melee> <pistol> <shotgun> <rifle> <sniper> <meleedist> <pistoldist> <shotgundist> <rifledist> <healthreshold> <combathealthreshold> <playermodel> <spawnwithpreferredweapons> Example2: TRizzleCreateBot Bot 200 300 weapon_crowbar weapon_pistol weapon_shotgun weapon_smg1 weapon_crossbow 80 1300 300 900 100 25 alyx 1" )
+concommand.Add( "TRizzleCreateBot" , TBotCreate , nil , "Creates a TRizzle Bot with the specified parameters. Example: TRizzleCreateBot <botname> <followdist> <dangerdist> <melee> <pistol> <shotgun> <rifle> <sniper> <hasScope> <meleedist> <pistoldist> <shotgundist> <rifledist> <healthreshold> <combathealthreshold> <playermodel> <spawnwithpreferredweapons> Example2: TRizzleCreateBot Bot 200 300 weapon_crowbar weapon_pistol weapon_shotgun weapon_smg1 weapon_crossbow 1 80 1300 300 900 100 25 alyx 1" )
 concommand.Add( "TBotSetFollowDist" , TBotSetFollowDist , nil , "Changes the specified bot's how close it should be to its owner. If only the bot is specified the value will revert back to the default." )
 concommand.Add( "TBotSetDangerDist" , TBotSetDangerDist , nil , "Changes the specified bot's how far the bot can be from its owner while in combat. If only the bot is specified the value will revert back to the default." )
 concommand.Add( "TBotSetMelee" , TBotSetMelee , nil , "Changes the specified bot's preferred melee weapon. If only the bot is specified the value will revert back to the default." )
@@ -378,20 +381,20 @@ concommand.Add( "TBotSetDefault" , TBotSetDefault , nil , "Set the specified bot
 function BOT:TBotResetAI()
 	
 	self.buttonFlags				=	0 -- These are the buttons the bot is going to press.
-	self.forwardMovement			=	0 -- This tells the bot to move either forward or backwards.
+	self.forwardMovement				=	0 -- This tells the bot to move either forward or backwards.
 	self.strafeMovement				=	0 -- This tells the bot to move left or right.
 	self.GroupLeader				=	nil -- If the bot's owner is dead, this bot will take charge in combat and leads other bots with the same "owner". 
-	self.Enemy						=	nil -- This is the bot's current enemy.
+	self.Enemy					=	nil -- This is the bot's current enemy.
 	self.EnemyList					=	{} -- This is the list of enemies the bot knows about.
-	self.NumVisibleEnemies			=	0 -- This is how many enemies are on the known enemy list that the bot can currently see.
-	self.EnemyListAverageDistSqr	=	0 -- This is average distance of every enemy on the known enemy list.
+	self.NumVisibleEnemies				=	0 -- This is how many enemies are on the known enemy list that the bot can currently see.
+	self.EnemyListAverageDistSqr			=	0 -- This is average distance of every enemy on the known enemy list.
 	self.AimForHead					=	false -- Should the bot aim for the head?
 	self.TimeInCombat				=	0 -- This is how long the bot has been in combat.
 	self.LastCombatTime				=	0 -- This is the last time the bot was in combat.
 	self.BestWeapon					=	nil -- This is the weapon the bot currently wants to equip.
-	self.MinEquipInterval			=	0 -- Throttles how often equipping is allowed.
+	self.MinEquipInterval				=	0 -- Throttles how often equipping is allowed.
 	self.HealTarget					=	nil -- This is the player the bot is trying to heal.
-	self.TRizzleBotBlindTime		=	0 -- This is how long the bot should be blind
+	self.TRizzleBotBlindTime			=	0 -- This is how long the bot should be blind
 	self.NextJump					=	0 -- This is the next time the bot is allowed to jump.
 	self.HoldAttack					=	0 -- This is how long the bot should hold its attack button.
 	self.HoldAttack2				=	0 -- This is how long the bot should hold its attack2 button.
@@ -407,22 +410,23 @@ function BOT:TBotResetAI()
 	self.HoldUse					=	0 -- This is how long the bot should hold its use button.
 	self.ShouldReset				=	false -- This tells the bot to clear all buttons and movement.
 	self.FullReload					=	false -- This tells the bot not to press its attack button until its current weapon is fully reloaded.
-	self.FireWeaponInterval			=	0 -- Limits how often the bot presses its attack button.
+	self.FireWeaponInterval				=	0 -- Limits how often the bot presses its attack button.
 	self.ReloadInterval				=	0 -- Limits how often the bot can press its reload button.
-	self.Light						=	false -- Tells the bot if it should have its flashlight on or off.
+	self.ScopeInterval				=	0 -- Limits how often the bot can press its scope button.
+	self.Light					=	false -- Tells the bot if it should have its flashlight on or off.
 	self.LookTarget					=	false -- This is the position the bot is currently trying to look at.
 	self.LookTargetTime				=	0 -- This is how long the bot will look at the position the bot is currently trying to look at.
-	self.LookTargetPriority			=	LOW_PRIORITY -- This is how important the position the bot is currently trying to look at is.
+	self.LookTargetPriority				=	LOW_PRIORITY -- This is how important the position the bot is currently trying to look at is.
 	self.EncounterSpot				=	nil -- This is the bots current encounter spot
-	self.EncounterSpotLookTime		=	0 -- This is how long the bot should look at said encounter spot
-	self.NextEncounterTime			=	0 -- This is the next time the bot is allowed to look at another encounter spot
+	self.EncounterSpotLookTime			=	0 -- This is how long the bot should look at said encounter spot
+	self.NextEncounterTime				=	0 -- This is the next time the bot is allowed to look at another encounter spot
 	self.HidingSpot					=	nil -- This is the current hiding/sniper spot the bot wants to goto, "only used by group leaders for now".
 	self.HidingState				=	FINISHED_HIDING -- This is the current hiding state the bot is currently in.
 	self.HideTime					=	0 -- This is how long the bot will stay at its current hiding spot.
 	self.ReturnPos					=	nil -- This is the spot the will back to after hiding, "Example, If the bot went into cover to reload."
-	self.Goal						=	nil -- The vector goal we want to get to.
+	self.Goal					=	nil -- The vector goal we want to get to.
 	self.NavmeshNodes				=	{} -- The nodes given to us by the pathfinder.
-	self.Path						=	nil -- The nodes converted into waypoints by our visiblilty checking.
+	self.Path					=	nil -- The nodes converted into waypoints by our visiblilty checking.
 	self.PathTime					=	CurTime() + 0.5 -- This will limit how often the path gets recreated.
 	
 	--self:TBotCreateThinking() -- Start our AI
@@ -449,7 +453,7 @@ function BOT:ResetCommand( cmd )
 
 	cmd:ClearButtons() -- Clear the bots buttons. Shooting, Running , jumping etc...
 	cmd:ClearMovement() -- For when the bot is moving around.
-	local buttons			= 0
+	local buttons		= 0
 	local forwardmovement	= 0
 	local strafemovement	= 0
 	
@@ -491,7 +495,7 @@ function BOT:ResetCommand( cmd )
 	if self.HoldUse > CurTime() then buttons = bit.bor( buttons, IN_USE ) end
 	
 	self.buttonFlags		= buttons
-	self.forwardMovement	= forwardmovement
+	self.forwardMovement		= forwardmovement
 	self.strafeMovement		= strafemovement
 	self.ShouldReset		= false
 
@@ -813,6 +817,13 @@ function BOT:SetEncounterLookAt( Pos, Time )
 
 end
 
+-- Checks if the bot is currently using the scope of their active weapon
+function BOT:IsUsingScope()
+	
+	return self:GetFOV() < self:GetDefaultFOV()
+	
+end
+
 -- Grabs the bot's default FOV
 function BOT:GetDefaultFOV()
 
@@ -1072,7 +1083,7 @@ function BOT:SelectBestWeapon()
 	-- This will select the best weapon based on the bot's current distance from its enemy
 	local enemydistsqr	=	(self.Enemy:GetPos() - self:GetPos()):LengthSqr() -- Only compute this once, there is no point in recomputing it multiple times as doing so is a waste of computer resources
 	local bestWeapon
-	local oldBestWeapon = self.BestWeapon
+	local oldBestWeapon 	= self.BestWeapon
 	
 	if self:HasWeapon( "weapon_medkit" ) and self.CombatHealThreshold > self:Health() then
 		
@@ -1158,7 +1169,7 @@ function BOT:RestoreAmmo()
 	local sniper_ammo
 	
 	if IsValid( pistol ) then pistol_ammo		=	self:GetAmmoCount( pistol:GetPrimaryAmmoType() ) end
-	if IsValid( rifle ) then rifle_ammo			=	self:GetAmmoCount( rifle:GetPrimaryAmmoType() ) end
+	if IsValid( rifle ) then rifle_ammo		=	self:GetAmmoCount( rifle:GetPrimaryAmmoType() ) end
 	if IsValid( shotgun ) then shotgun_ammo		=	self:GetAmmoCount( shotgun:GetPrimaryAmmoType() ) end
 	if IsValid( sniper ) then sniper_ammo		=	self:GetAmmoCount( sniper:GetPrimaryAmmoType() ) end
 	
@@ -1353,6 +1364,13 @@ hook.Add( "Think" , "TRizzleBotThink" , function()
 							
 						end
 						
+						if CurTime() > bot.ScopeInterval and botWeapon:GetClass() == bot.Sniper and bot.SniperScope and !bot:IsUsingScope() then
+						
+							bot:PressSecondaryAttack( 0.5 )
+							bot.ScopeInterval = CurTime() + 0.5
+								
+						end
+						
 						if CurTime() > bot.ReloadInterval and !botWeapon:GetInternalVariable( "m_bInReload" ) and botWeapon:GetClass() != "weapon_medkit" and botWeapon:GetClass() != bot.Melee and botWeapon:Clip1() == 0 then
 							
 							if botWeapon:GetClass() == bot.Shotgun then bot.FullReload = true end
@@ -1409,11 +1427,22 @@ hook.Add( "Think" , "TRizzleBotThink" , function()
 						
 						end
 						
-						if IsValid( botWeapon ) and botWeapon:IsWeapon() and CurTime() > bot.ReloadInterval and !botWeapon:GetInternalVariable( "m_bInReload" ) and botWeapon:GetClass() != "weapon_medkit" and botWeapon:GetClass() != bot.Melee and botWeapon:Clip1() < botWeapon:GetMaxClip1() then
-						
-							bot:PressReload()
-							bot.ReloadInterval = CurTime() + 0.5
+						if IsValid( botWeapon ) and botWeapon:IsWeapon() then 
 							
+							if CurTime() > bot.ReloadInterval and !botWeapon:GetInternalVariable( "m_bInReload" ) and botWeapon:GetClass() != "weapon_medkit" and botWeapon:GetClass() != bot.Melee and botWeapon:Clip1() < botWeapon:GetMaxClip1() then
+						
+								bot:PressReload()
+								bot.ReloadInterval = CurTime() + 0.5
+									
+							end
+							
+							if CurTime() > bot.ScopeInterval and botWeapon:GetClass() == bot.Sniper and bot.SniperScope and bot:IsUsingScope() then
+						
+								bot:PressSecondaryAttack()
+								bot.ScopeInterval = CurTime() + 0.5
+									
+							end
+								
 						end
 						
 						bot:RestoreAmmo()
