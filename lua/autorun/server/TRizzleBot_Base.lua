@@ -546,9 +546,21 @@ function BOT:HandleButtons()
 	end
 	
 	-- Run if we are too far from our owner or the navmesh tells us to
-	if CanRun and ( ShouldRun or (self.TBotOwner:GetPos() - self:GetPos()):LengthSqr() > self.DangerDist * self.DangerDist ) and self:GetSuitPower() > 20 then 
+	if CanRun and self:GetSuitPower() > 20 then 
 		
-		self:PressRun()
+		if ShouldRun then
+		
+			self:PressRun()
+			
+		elseif IsValid( self.TBotOwner ) and self.TBotOwner:Alive() and (self.TBotOwner:GetPos() - self:GetPos()):LengthSqr() > self.DangerDist * self.DangerDist then
+		
+			self:PressRun()
+		
+		elseif IsValid( self.GroupLeader ) and self.GroupLeader:Alive() and (self.GroupLeader:GetPos() - self:GetPos()):LengthSqr() > self.DangerDist * self.DangerDist then
+		
+			self:PressRun()
+		
+		end
 	
 	end
 	
@@ -742,7 +754,7 @@ function BOT:IsSafe()
 		
 	end
 	
-	return self.LastCombatTime + 5.0 < CurTime()
+	return self.LastCombatTime + 10.0 < CurTime()
 	
 end
 
@@ -919,7 +931,7 @@ function BOT:TBotBlind( time )
 	if !IsValid( self ) or !self:Alive() or !self:IsTRizzleBot() or !isnumber( time ) or time < ( self.TRizzleBotBlindTime - CurTime() ) then return end
 	
 	self.TRizzleBotBlindTime = CurTime() + time
-	self:AimAtPos( Vector( math.random( -360, 360 ), math.random( -360, 360 ), 35.5 ), CurTime() + 0.5, MAXIMUM_PRIORITY ) -- Make the bot fling its aim in a random direction upon becoming blind
+	self:AimAtPos( self:GetShootPos() + 1000 * Angle( math.random( -30, 30 ), math.random( -180, 180 ), 0 ):Forward(), CurTime() + 0.5, MAXIMUM_PRIORITY ) -- Make the bot fling its aim in a random direction upon becoming blind
 end
 
 -- Is the bot currently blind?
@@ -1329,6 +1341,7 @@ hook.Add( "Think" , "TRizzleBotThink" , function()
 				
 				if IsValid( bot.Enemy ) then
 					
+					bot:SetCollisionGroup(5) -- Apparently the bot's default collisiongroup is set to 11 causing the bot not to take damage from melee enemies
 					bot.LastCombatTime = CurTime() + 5.0 -- Update combat timestamp
 					
 					-- Should I limit how often this runs?
@@ -1366,9 +1379,9 @@ hook.Add( "Think" , "TRizzleBotThink" , function()
 						
 						if CurTime() > bot.ScopeInterval and botWeapon:GetClass() == bot.Sniper and bot.SniperScope and !bot:IsUsingScope() then
 						
-							bot:PressSecondaryAttack( 0.5 )
-							bot.ScopeInterval = CurTime() + 0.5
-								
+							bot:PressSecondaryAttack( 1.0 )
+							bot.ScopeInterval = CurTime() + 1.1
+						
 						end
 						
 						if CurTime() > bot.ReloadInterval and !botWeapon:GetInternalVariable( "m_bInReload" ) and botWeapon:GetClass() != "weapon_medkit" and botWeapon:GetClass() != bot.Melee and botWeapon:Clip1() == 0 then
@@ -1423,7 +1436,7 @@ hook.Add( "Think" , "TRizzleBotThink" , function()
 						-- If the bot doen't feel safe it should look around for possible enemies
 						if !bot:IsSafe() and bot.NextEncounterTime < CurTime() then
 						
-							bot:SetEncounterLookAt( Vector( math.random( -360, 360 ), math.random( -360, 360 ), 35.5 ), CurTime() + 1.0 )
+							bot:SetEncounterLookAt( bot:GetShootPos() + 1000 * Angle( math.random( -30, 30 ), math.random( -180, 180 ), 0 ):Forward(), CurTime() + 1.0 )
 						
 						end
 						
@@ -1433,16 +1446,16 @@ hook.Add( "Think" , "TRizzleBotThink" , function()
 						
 								bot:PressReload()
 								bot.ReloadInterval = CurTime() + 0.5
-									
+								
 							end
 							
 							if CurTime() > bot.ScopeInterval and botWeapon:GetClass() == bot.Sniper and bot.SniperScope and bot:IsUsingScope() then
 						
 								bot:PressSecondaryAttack()
 								bot.ScopeInterval = CurTime() + 0.5
-									
-							end
 								
+							end
+							
 						end
 						
 						bot:RestoreAmmo()
@@ -1450,7 +1463,7 @@ hook.Add( "Think" , "TRizzleBotThink" , function()
 					else
 					
 						local botWeapon = bot:GetActiveWeapon()
-						if IsValid( botWeapon ) and botWeapon:IsWeapon() and CurTime() > bot.ReloadInterval and !botWeapon:GetInternalVariable( "m_bInReload" ) and botWeapon:GetClass() != "weapon_medkit" and botWeapon:GetClass() != bot.Melee and ( ( botWeapon:GetClass() == bot.Shotgun and botWeapon:Clip1() < botWeapon:GetMaxClip1() ) or ( bot.NumVisibleEnemies <= 0 and botWeapon:Clip1() < ( botWeapon:GetMaxClip1() * 0.6 ) ) ) then
+						if IsValid( botWeapon ) and botWeapon:IsWeapon() and CurTime() > bot.ReloadInterval and !botWeapon:GetInternalVariable( "m_bInReload" ) and botWeapon:GetClass() != "weapon_medkit" and botWeapon:GetClass() != bot.Melee and bot.NumVisibleEnemies <= 0 and ( ( botWeapon:GetClass() == bot.Shotgun and botWeapon:Clip1() < botWeapon:GetMaxClip1() ) or botWeapon:Clip1() < ( botWeapon:GetMaxClip1() * 0.6 ) ) then
 						
 							bot:PressReload()
 							bot.ReloadInterval = CurTime() + 0.5
@@ -1638,8 +1651,6 @@ hook.Add( "PlayerSpawn" , "TRizzleBotSpawnHook" , function( ply )
 		timer.Simple( 0.3 , function()
 		
 			if IsValid( ply ) and ply:Alive() then
-				
-				ply:SetCollisionGroup(5) -- Apparently the bot's default collisiongroup is set to 11 causing the bot not to take damage from melee enemies
 				
 				if ply.SpawnWithWeapons then
 					
@@ -1927,12 +1938,12 @@ function BOT:TBotCheckEnemyList()
 		
 		elseif !self:IsTRizzleBotBlind() and v.Enemy:Visible( self ) and !self:IsHiddenByFog( self:GetShootPos():Distance( v.Enemy:EyePos() ) ) then 
 		
-			self.EnemyList[ k ][ "LastSeenTime" ] = CurTime() + 10.0 
+			self.EnemyList[ k ][ "LastSeenTime" ] = CurTime() + 10.0
+			
+			numVisibleEnemies	= 	numVisibleEnemies + 1
+			averageDistSqr		=	averageDistSqr + v.Enemy:GetPos():DistToSqr( self:GetPos() )
 			
 		end
-		
-		numVisibleEnemies	= 	numVisibleEnemies + 1
-		averageDistSqr		=	averageDistSqr + v.Enemy:GetPos():DistToSqr( self:GetPos() )
 		
 	end
 	
@@ -1947,7 +1958,7 @@ function BOT:TBotFindClosestEnemy()
 	if ( ( engine:TickCount() + self:EntIndex() ) % 5 ) != 0 then return end -- This shouldn't run as often
 	if GetConVar( "ai_ignoreplayers" ):GetInt() != 0 or GetConVar( "ai_disabled" ):GetInt() != 0 then return end
 	
-	local VisibleEnemies			=	self.EnemyList -- This is how many enemies the bot can see. Currently not used......yet
+	local VisibleEnemies		=	self.EnemyList -- This is the list of enemies the bot knows about.
 	local targetdistsqr			=	100000000 -- This will allow the bot to select the closest enemy to it.
 	local target				=	self.Enemy -- This is the closest enemy to the bot.
 	
