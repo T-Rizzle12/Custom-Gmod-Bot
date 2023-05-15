@@ -1524,7 +1524,7 @@ hook.Add( "Think" , "TRizzleBotThink" , function()
 					-- If the bot has finished hiding or its hiding spot is no longer safe, it should clear its selected hiding spot
 					elseif bot.HidingState == WAIT_AT_SPOT then
 						
-						if bot.HideTime < CurTime() or !bot:IsSpotSafe( bot.HidingSpot ) then
+						if bot.HideTime < CurTime() or bot.NumVisibleEnemies > 0 then -- !bot:IsSpotSafe( bot.HidingSpot ) doesn’t work here since the bot blocks the trace causing it to return false
 							
 							bot.HidingSpot = nil
 							bot.HidingState = FINISHED_HIDING
