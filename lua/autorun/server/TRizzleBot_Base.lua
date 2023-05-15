@@ -899,46 +899,6 @@ local trace = util.TraceLine( { start = self:GetShootPos(), endpos = pos, filter
 		
 	end]]
 
-function BOT:IsVisible( pos )
-	
-	if IsValid( pos ) and IsEntity( pos ) then
-		
-		local trace = util.TraceLine( { start = self:GetShootPos(), endpos = pos:WorldSpaceCenter(), filter = self, mask = MASK_VISIBLE_AND_NPCS } )
-	
-		if trace.Entity == pos or pos:IsPlayer() and trace.Entity == pos:GetVehicle() or trace.Fraction <= 1.0 then
-			
-			return true
-			
-		end
-		
-		local trace = util.TraceLine( { start = self:GetShootPos(), endpos = pos:EyePos(), filter = self, mask = MASK_VISIBLE_AND_NPCS } )
-	
-		if trace.Entity == pos or trace.Fraction <= 1.0 then
-			
-			return true
-			
-		elseif pos:IsPlayer() and trace.Entity == pos:GetVehicle() then
-			
-			return true
-			
-		end
-		
-	else
-		
-		local trace = util.TraceLine( { start = self:GetShootPos(), endpos = pos, filter = self, mask = MASK_VISIBLE_AND_NPCS } )
-	
-		if trace.Fraction <= 1.0 then
-
-			return true
-
-		end
-		
-	end
-	
-	return false
-	
-end
-
 -- This checks if the entered position in the bot's LOS
 function BOT:IsAbleToSee( pos )
 	if self:IsTRizzleBotBlind() then return false end
