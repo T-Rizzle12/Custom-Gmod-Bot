@@ -899,6 +899,46 @@ local trace = util.TraceLine( { start = self:GetShootPos(), endpos = pos, filter
 		
 	end]]
 
+function BOT:IsVisible( pos )
+	
+	if IsValid( pos ) and IsEntity( pos ) then
+		
+		local trace = util.TraceLine( { start = self:GetShootPos(), endpos = pos:WorldSpaceCenter(), filter = self, mask = MASK_VISIBLE_AND_NPCS } )
+	
+		if trace.Entity == pos or pos:IsPlayer() and trace.Entity == pos:GetVehicle() or trace.Fraction <= 1.0 then
+			
+			return true
+			
+		end
+		
+		local trace = util.TraceLine( { start = self:GetShootPos(), endpos = pos:EyePos(), filter = self, mask = MASK_VISIBLE_AND_NPCS } )
+	
+		if trace.Entity == pos or trace.Fraction <= 1.0 then
+			
+			return true
+			
+		elseif pos:IsPlayer() and trace.Entity == pos:GetVehicle() then
+			
+			return true
+			
+		end
+		
+	else
+		
+		local trace = util.TraceLine( { start = self:GetShootPos(), endpos = pos, filter = self, mask = MASK_VISIBLE_AND_NPCS } )
+	
+		if trace.Fraction <= 1.0 then
+
+			return true
+
+		end
+		
+	end
+	
+	return false
+	
+end
+
 -- This checks if the entered position in the bot's LOS
 function BOT:IsAbleToSee( pos )
 	if self:IsTRizzleBotBlind() then return false end
@@ -2825,7 +2865,6 @@ function BOT:TBotNavigation()
 				
 				if self.Path[ 2 ] and !self.Path[ 2 ][ "IsLadder" ] then
 					self:PressJump()
-					self.NextJump =	CurTime()
 				end
 				
 				table.remove( self.Path , 1 )
@@ -2834,7 +2873,6 @@ function BOT:TBotNavigation()
 			
 				if self.Path[ 2 ] and !self.Path[ 2 ][ "IsLadder" ] then
 					self:PressJump()
-					self.NextJump = CurTime()
 				end
 				
 				table.remove( self.Path , 1 )
@@ -2875,7 +2913,7 @@ function BOT:TBotCreateNavTimer()
 				self.ShouldUse	=	true
 				
 				if Attempts == 10 then self.Path	=	nil end
-				if Attempts > 20 then self.Goal =	nil end
+				if Attempts > 20 then self.Goal 	=	nil end
 				Attempts = Attempts + 1
 				
 			else
@@ -2922,9 +2960,11 @@ end
 function BOT:TBotUpdateMovement( cmd )
 	if !isvector( self.Goal ) then return end
 	
+	local MovementAngle		=	self:EyeAngles()
+	
 	if !istable( self.Path ) or table.IsEmpty( self.Path ) or isbool( self.NavmeshNodes ) then
 		
-		local MovementAngle		=	( self.Goal - self:GetPos() ):GetNormalized():Angle()
+		MovementAngle		=	( self.Goal - self:GetPos() ):GetNormalized():Angle()
 		
 		if self:OnGround() then
 			local SmartJump		=	util.TraceLine({
@@ -2947,10 +2987,6 @@ function BOT:TBotUpdateMovement( cmd )
 		
 		self:PressForward()
 		
-		cmd:SetViewAngles( MovementAngle )
-		cmd:SetForwardMove( self.forwardMovement )
-		cmd:SetSideMove( self.strafeMovement )
-		
 		if self:Is_On_Ladder() then self:AimAtPos( self.Goal + HalfHumanHeight, CurTime() + 0.1, MAXIMUM_PRIORITY )
 		else self:AimAtPos( self.Goal + HalfHumanHeight, CurTime() + 0.1, LOW_PRIORITY ) end
 		
@@ -2961,12 +2997,9 @@ function BOT:TBotUpdateMovement( cmd )
 			
 		end
 		
-		return
-	end
-	
-	if self.Path[ 1 ] then
+	elseif self.Path[ 1 ] then
 		
-		local MovementAngle		=	( self.Path[ 1 ][ "Pos" ] - self:GetPos() ):GetNormalized():Angle()
+		MovementAngle		=	( self.Path[ 1 ][ "Pos" ] - self:GetPos() ):GetNormalized():Angle()
 		
 		if isvector( self.Path[ 1 ][ "Check" ] ) then
 			MovementAngle = ( self.Path[ 1 ][ "Check" ] - self:GetPos() ):GetNormalized():Angle()
@@ -3006,14 +3039,14 @@ function BOT:TBotUpdateMovement( cmd )
 		
 		self:PressForward()
 		
-		cmd:SetViewAngles( MovementAngle )
-		cmd:SetForwardMove( self.forwardMovement )
-		cmd:SetSideMove( self.strafeMovement )
-		
 		if self:Is_On_Ladder() or self.Path[ 1 ][ "IsLadder" ] then self:AimAtPos( self.Path[ 1 ][ "Pos" ] + HalfHumanHeight, CurTime() + 0.1, MAXIMUM_PRIORITY )
 		else self:AimAtPos( self.Path[ 1 ][ "Pos" ] + HalfHumanHeight, CurTime() + 0.1, LOW_PRIORITY ) end
 		
 	end
+	
+	cmd:SetViewAngles( MovementAngle )
+	cmd:SetForwardMove( self.forwardMovement )
+	cmd:SetSideMove( self.strafeMovement )
 	
 end
 
