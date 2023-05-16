@@ -2122,7 +2122,7 @@ end
 
 -- This is a hybrid version of pathfollower, it can use ladders and is very optimized
 function TRizzleBotPathfinderCheap( StartNode , GoalNode )
-	if !IsValid( StartNode ) or !IsValid( GoalNode ) then return false end
+	if !IsValid( StartNode ) or !IsValid( GoalNode ) or GoalNode:IsBlocked() then return false end
 	if StartNode == GoalNode then return true end
 	
 	StartNode:ClearSearchLists()
@@ -2141,6 +2141,12 @@ function TRizzleBotPathfinderCheap( StartNode , GoalNode )
 		Trys	=	Trys + 1
 		
 		local Current	=	StartNode:PopOpenList()
+		
+		if Current:IsBlocked() then
+			
+			continue
+			
+		end
 		
 		if Current == GoalNode then
 			
@@ -2282,7 +2288,7 @@ function TRizzleBotPathfinderCheap( StartNode , GoalNode )
 				
 			end
 		
-			if newArea == Current then 
+			if newArea == Current or newArea:IsBlocked() then 
 			
 				continue
 				
