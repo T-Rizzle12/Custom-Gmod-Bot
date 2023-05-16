@@ -1481,8 +1481,13 @@ hook.Add( "Think" , "TRizzleBotThink" , function()
 					if !isvector( bot.HidingSpot ) and !isvector( bot.Goal ) and ( IsValid( bot.Enemy ) and bot:Health() < bot.CombatHealThreshold or ( bot.NumVisibleEnemies >= 10 and bot.EnemyListAverageDistSqr < bot.DangerDist * bot.DangerDist ) ) then
 				
 						bot.HidingSpot = bot:FindSpot( "far", { pos = bot:GetPos(), radius = 10000, stepdown = 200, stepup = 64 } )
-						bot.HidingState = MOVE_TO_SPOT
-						bot.HideTime = 5.0
+						
+						if isvector( bot.HidingSpot ) then
+								
+							bot.HidingState = MOVE_TO_SPOT
+							bot.HideTime = 5.0
+								
+						end
 					
 					end
 					
@@ -1492,9 +1497,14 @@ hook.Add( "Think" , "TRizzleBotThink" , function()
 					if !isvector( bot.HidingSpot ) and !isvector( bot.Goal ) and (bot.GroupLeader:GetPos() - bot:GetPos()):LengthSqr() < bot.FollowDist * bot.FollowDist and IsValid( bot.Enemy ) and bot:GetActiveWeapon():GetClass() != bot.Melee and bot:GetActiveWeapon():Clip1() == 0 then
 
 						bot.HidingSpot = bot:FindSpot( "near", { pos = bot:GetPos(), radius = bot.FollowDist, stepdown = 200, stepup = 64 } )
-						bot.HidingState = MOVE_TO_SPOT
-						bot.HideTime = 3.0
-						bot.ReturnPos = bot:GetPos()
+						
+						if isvector( bot.HidingSpot ) then
+								
+							bot.HidingState = MOVE_TO_SPOT
+							bot.HideTime = 3.0
+							bot.ReturnPos = bot:GetPos()
+								
+						end
 
 					end
 					
@@ -1504,9 +1514,14 @@ hook.Add( "Think" , "TRizzleBotThink" , function()
 					if !isvector( bot.HidingSpot ) and !isvector( bot.Goal ) and (bot.TBotOwner:GetPos() - bot:GetPos()):LengthSqr() < bot.FollowDist * bot.FollowDist and IsValid( bot.Enemy ) and bot:GetActiveWeapon():GetClass() != bot.Melee and bot:GetActiveWeapon():Clip1() == 0 then
 
 						bot.HidingSpot = bot:FindSpot( "near", { pos = bot:GetPos(), radius = bot.FollowDist, stepdown = 200, stepup = 64 } )
-						bot.HidingState = MOVE_TO_SPOT
-						bot.HideTime = 3.0
-						bot.ReturnPos = bot:GetPos()
+						
+						if isvector( bot.HidingSpot ) then
+								
+							bot.HidingState = MOVE_TO_SPOT
+							bot.HideTime = 3.0
+							bot.ReturnPos = bot:GetPos()
+								
+						end
 
 					end
 					
