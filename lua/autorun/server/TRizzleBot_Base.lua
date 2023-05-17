@@ -2652,6 +2652,8 @@ function BOT:ComputeNavmeshVisibility()
 	local EAST = 1
 	local SOUTH = 2
 	local WEST = 3
+	local GO_LADDER_UP = 4
+	local GO_LADDER_DOWN = 5
 	
 	self.Path				=	{}
 	
@@ -2676,21 +2678,25 @@ function BOT:ComputeNavmeshVisibility()
 		
 		if self.NavmeshNodes[ k + 1 ].ladder then
 		
-			local LadderNode, ClimbUp		=	self.NavmeshNodes[ k + 1 ].ladder:Get_Closest_Point_Next( LastVisPos )
+			local NextLadder = self.NavmeshNodes[ k + 1 ].ladder
+			-- May not need this anymore
+			--local LadderNode, ClimbUp		=	self.NavmeshNodes[ k + 1 ].ladder:Get_Closest_Point_Next( LastVisPos )
 			
-			LastVisPos		=	LadderNode
-			
-			if ClimbUp then 
+			if NextHow == GO_LADDER_UP then 
 				
-				self.Path[ currentIndex + 1 ] = { Pos = self.NavmeshNodes[ k + 1 ].ladder:GetBottom() + self.NavmeshNodes[ k + 1 ].ladder:GetNormal() * 2.0 * 16, IsLadder = false, IsDropDown = false }
+				self.Path[ currentIndex + 1 ]		=	{ Pos = NextLadder:GetBottom() + NextLadder:GetNormal() * 2.0 * 16, IsLadder = false, IsDropDown = false }
+				self.Path[ currentIndex + 2 ]		=	{ Pos = NextLadder:GetTop(), IsLadder = true, LadderUp = true }
+				LastVisPos				=	NextLadder:GetTop()
 				
 			else
 				
-				self.Path[ currentIndex + 1 ] = { Pos = self.NavmeshNodes[ k + 1 ].ladder:GetTop(), IsLadder = false, IsDropDown = false }
+				self.Path[ currentIndex + 1 ]		=	{ Pos = NextLadder:GetTop(), IsLadder = false, IsDropDown = false }
+				self.Path[ currentIndex + 2 ]		=	{ Pos = NextLadder:GetBottom(), IsLadder = true, LadderUp = false }
+				LastVisPos				=	NextLadder:GetBottom()
 				
 			end
 			
-			self.Path[ currentIndex + 2 ]		=	{ Pos = LadderNode, IsLadder = true, LadderUp = ClimbUp }
+			
 			
 			continue
 		end
