@@ -1284,7 +1284,7 @@ hook.Add( "Think" , "TRizzleBotThink" , function()
 	--ShowAllHidingSpots()
 	
 	-- This shouldn't run as often
-	if ( engine:TickCount() % math.floor( engine.TickInterval() ) == 0 then
+	if ( engine:TickCount() % math.floor( engine.TickInterval() ) == 0 ) then
 		local tab = player.GetHumans()
 		if #tab > 0 then
 			local ply = table.Random(tab)
