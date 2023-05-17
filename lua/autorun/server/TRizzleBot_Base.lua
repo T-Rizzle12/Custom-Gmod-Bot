@@ -1283,7 +1283,8 @@ hook.Add( "Think" , "TRizzleBotThink" , function()
 	--local startTime = SysTime()
 	--ShowAllHidingSpots()
 	
-	if ( engine:TickCount() % 20 ) == 0 then
+	-- This shouldn't run as often
+	if ( engine:TickCount() % math.floor( engine.TickInterval() ) == 0 then
 		local tab = player.GetHumans()
 		if #tab > 0 then
 			local ply = table.Random(tab)
@@ -1295,7 +1296,7 @@ hook.Add( "Think" , "TRizzleBotThink" , function()
 	
 	for k, bot in ipairs( player.GetAll() ) do
 	
-		if bot:IsTRizzleBot() then
+		if IsValid( bot ) and bot:IsTRizzleBot() then
 			
 			if ( ( engine:TickCount() + bot:EntIndex() ) % BotUpdateSkipCount ) == 0 then
 			
