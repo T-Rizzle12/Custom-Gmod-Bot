@@ -2680,7 +2680,17 @@ function BOT:ComputeNavmeshVisibility()
 			
 			LastVisPos		=	LadderNode
 			
-			self.Path[ currentIndex + 1 ]		=	{ Pos = LadderNode, IsLadder = true, LadderUp = ClimbUp }
+			if ClimbUp then 
+				
+				self.Path[ currentIndex + 1 ] = { Pos = self.NavmeshNodes[ k + 1 ].ladder:GetBottom() + self.NavmeshNodes[ k + 1 ].ladder:GetNormal() * 2.0 * 16, IsLadder = false, IsDropDown = false }
+				
+			else
+				
+				self.Path[ currentIndex + 1 ] = { Pos = self.NavmeshNodes[ k + 1 ].ladder:GetTop(), IsLadder = false, IsDropDown = false }
+				
+			end
+			
+			self.Path[ currentIndex + 2 ]		=	{ Pos = LadderNode, IsLadder = true, LadderUp = ClimbUp }
 			
 			continue
 		end
