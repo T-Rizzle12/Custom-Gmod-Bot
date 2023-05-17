@@ -2676,12 +2676,11 @@ function BOT:ComputeNavmeshVisibility()
 		
 		if self.NavmeshNodes[ k + 1 ].ladder then
 		
-			local LadderNode, CloseToStart, ClimbUp		=	self.NavmeshNodes[ k + 1 ].ladder:Get_Closest_Point_Next( LastVisPos )
+			local LadderNode, ClimbUp		=	self.NavmeshNodes[ k + 1 ].ladder:Get_Closest_Point_Next( LastVisPos )
 			
 			LastVisPos		=	LadderNode
 			
 			self.Path[ currentIndex + 1 ]		=	{ Pos = LadderNode, IsLadder = true, LadderUp = ClimbUp }
-			self.Path[ currentIndex + 2 ]		=	{ Pos = CloseToStart, IsLadder = false, LadderUp = ClimbUp }
 			
 			continue
 		end
@@ -2842,7 +2841,7 @@ function BOT:TBotNavigation()
 				
 				table.remove( self.Path , 1 )
 				
-			elseif self.Path[ 1 ][ "IsLadder" ] and self.Path[ 1 ][ "LadderUp" ] and self:GetPos().z >= self.Path[ 1 ][ "Pos" ].z then
+			elseif self.Path[ 1 ][ "IsLadder" ] and self.Path[ 1 ][ "LadderUp" ] and self:GetPos().z >= self.Path[ 1 ][ "Pos" ].z - self:GetStepSize() then
 				
 				if self.Path[ 2 ] and !self.Path[ 2 ][ "IsLadder" ] then
 					self:PressJump()
@@ -2850,7 +2849,7 @@ function BOT:TBotNavigation()
 				
 				table.remove( self.Path , 1 )
 				
-			elseif self.Path[ 1 ][ "IsLadder" ] and !self.Path[ 1 ][ "LadderUp" ] and self:GetPos().z <= self.Path[ 1 ][ "Pos" ].z then
+			elseif self.Path[ 1 ][ "IsLadder" ] and !self.Path[ 1 ][ "LadderUp" ] and self:GetPos().z <= self.Path[ 1 ][ "Pos" ].z + self:GetStepSize() then
 			
 				if self.Path[ 2 ] and !self.Path[ 2 ][ "IsLadder" ] then
 					self:PressJump()
@@ -3144,10 +3143,10 @@ function Lad:Get_Closest_Point_Next( pos )
 	
 	if TopArea < LowArea then
 		-- self:GetTop() - self:GetNormal() * 16 I need to make a function to detect which side the bot should approach the ladder
-		return self:GetTop(), self:GetBottom() + self:GetNormal() * 2.0 * 16, false
+		return self:GetTop(), true
 	end
 	
-	return self:GetBottom(), self:GetTop() - self:GetNormal() * 16, true
+	return self:GetBottom(), false
 end
 
 --[[function Lad:Get_Closest_Point_Current( pos )
