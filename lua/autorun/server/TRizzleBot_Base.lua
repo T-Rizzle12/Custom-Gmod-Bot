@@ -569,7 +569,11 @@ function BOT:HandleButtons()
 	
 	end
 	
-	if ( ShouldCrouch and !ShouldJump ) or ( !self:IsOnGround() and self:WaterLevel() < 2 ) then 
+	if ShouldJump then 
+	
+		self:PressJump()
+		
+	elseif ShouldCrouch or ( !self:IsOnGround() and self:WaterLevel() < 2 ) then 
 	
 		self:PressCrouch( 0.3 )
 		
@@ -578,12 +582,6 @@ function BOT:HandleButtons()
 	if self:Is_On_Ladder() then
 		
 		self:PressForward()
-		
-	end
-	
-	if ShouldJump then 
-	
-		self:PressJump()
 		
 	end
 	
@@ -1163,21 +1161,26 @@ end
 function BOT:ReloadWeapons()
 	
 	-- The bot should reload weapons that need to be reloaded
-	if self:HasWeapon( self.Sniper ) and self:GetWeapon( self.Sniper ):Clip1() < self:GetWeapon( self.Sniper ):GetMaxClip1() then
+	local pistol		=	self:GetWeapon( self.Pistol )
+	local rifle		=	self:GetWeapon( self.Rifle )
+	local shotgun		=	self:GetWeapon( self.Shotgun )
+	local sniper		=	self:GetWeapon( self.Sniper )
+	
+	if IsValid( sniper ) and sniper:Clip1() < sniper:GetMaxClip1() then
 		
-		self.BestWeapon = self:GetWeapon( self.Sniper )
+		self.BestWeapon = sniper
 		
-	elseif self:HasWeapon( self.Pistol ) and self:GetWeapon( self.Pistol ):Clip1() < self:GetWeapon( self.Pistol ):GetMaxClip1() then
+	elseif IsValid( pistol ) and pistol:Clip1() < pistol:GetMaxClip1() then
 		
-		self.BestWeapon = self:GetWeapon( self.Pistol )
+		self.BestWeapon = pistol
 		
-	elseif self:HasWeapon( self.Rifle ) and self:GetWeapon( self.Rifle ):Clip1() < self:GetWeapon( self.Rifle ):GetMaxClip1() then
+	elseif IsValid( rifle ) and rifle:Clip1() < rifle:GetMaxClip1() then
 		
-		self.BestWeapon = self:GetWeapon( self.Rifle )
+		self.BestWeapon = rifle
 		
-	elseif self:HasWeapon( self.Shotgun ) and self:GetWeapon( self.Shotgun ):Clip1() < self:GetWeapon( self.Shotgun ):GetMaxClip1() then
+	elseif IsValid( shotgun ) and shotgun:Clip1() < shotgun:GetMaxClip1() then
 		
-		self.BestWeapon = self:GetWeapon( self.Shotgun )
+		self.BestWeapon = shotgun
 		
 	end
 	
@@ -1927,11 +1930,27 @@ end
 -- Checks if its current enemy is still alive and still visible to the bot
 function BOT:CheckCurrentEnemyStatus()
 	
-	if !IsValid( self.Enemy ) then self.Enemy							=	nil
-	elseif self.Enemy:IsPlayer() and !self.Enemy:Alive() then self.Enemy				=	nil -- Just incase the bot's enemy is set to a player even though the bot should only target NPCS and "hopefully" NEXTBOTS 
-	elseif self:IsTRizzleBotBlind() or !self.Enemy:Visible( self ) or self:IsHiddenByFog( self:GetShootPos():Distance( self.Enemy:EyePos() ) ) then self.Enemy						=	nil
-	elseif self.Enemy:IsNPC() and ( !self.Enemy:IsAlive() or ( !self.Enemy:IsEnemy( self ) and !self.Enemy:IsEnemy( self.TBotOwner ) ) ) then self.Enemy	=	nil
-	elseif GetConVar( "ai_ignoreplayers" ):GetInt() != 0 or GetConVar( "ai_disabled" ):GetInt() != 0 then self.Enemy	=	nil end
+	if !IsValid( self.Enemy ) then 
+		
+		self.Enemy = nil
+		
+	elseif self.Enemy:IsPlayer() and !self.Enemy:Alive() then 
+		
+		self.Enemy = nil -- Just incase the bot's enemy is set to a player even though the bot should only target NPCS and "hopefully" NEXTBOTS 
+		
+	elseif self:IsTRizzleBotBlind() or !self.Enemy:Visible( self ) or self:IsHiddenByFog( self:GetShootPos():Distance( self.Enemy:EyePos() ) ) then 
+		
+		self.Enemy = nil
+		
+	elseif self.Enemy:IsNPC() and ( !self.Enemy:IsAlive() or ( !self.Enemy:IsEnemy( self ) and !self.Enemy:IsEnemy( self.TBotOwner ) ) ) then 
+		
+		self.Enemy = nil
+		
+	elseif GetConVar( "ai_ignoreplayers" ):GetInt() != 0 or GetConVar( "ai_disabled" ):GetInt() != 0 then 
+		
+		self.Enemy = nil 
+	
+	end
 	
 end
 
@@ -2045,7 +2064,9 @@ function BOT:TBotFindClosestTeammate()
 	for k, v in ipairs( player.GetAll() ) do
 		
 		if IsValid( v ) and v:Alive() and v:Health() < self.HealThreshold and !self:IsTRizzleBotBlind() and v:Visible( self ) then -- The bot will heal any teammate that needs healing that we can actually see and are alive.
+			
 			local teammatedistsqr = (v:GetPos() - self:GetPos()):LengthSqr()
+			
 			if teammatedistsqr < targetdistsqr then 
 				target = v
 				targetdist = teammatedist
@@ -2091,17 +2112,17 @@ function TRizzleBotRangeCheck( FirstNode , SecondNode , Ladder , Height )
 	local DefaultCost = FirstNode:GetCenter():Distance( SecondNode:GetCenter() )
 	local EditedCost = DefaultCost
 	
+	-- Jumping is slower than ground movement.
 	if isnumber( Height ) and Height > 32 then
 		
 		EditedCost		=	EditedCost + ( DefaultCost * 5 )
-		-- Jumping is slower than ground movement.
 		
 	end
 	
+	-- Falling is risky if the bot might take fall damage.
 	if isnumber( Height ) and -Height > 32 then
 	
-		EditedCost		=	EditedCost + ( DefaultCost + ( GetApproximateFallDamage( math.abs( Height ) ) * 5 ) )
-		-- Falling is risky and the bot might take fall damage.
+		EditedCost		=	EditedCost + ( DefaultCost * GetApproximateFallDamage( math.abs( Height ) )
 		
 	end
 	
@@ -2132,6 +2153,7 @@ end
 -- Got this from CS:GO Source Code, made some changes so it works for Lua
 -- Returns approximately how much damage will will take from the given fall height
 function GetApproximateFallDamage( height )
+	
 	-- CS:GO empirically discovered height values, this may return incorrect results for Gmod
 	local slope = 0.2178
 	local intercept = 26.0
