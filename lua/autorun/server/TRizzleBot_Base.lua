@@ -872,7 +872,7 @@ end
 function BOT:IsActiveWeaponAutomatic()
 	
 	local activeWeapon = self:GetActiveWeapon()
-	if IsValid( activeWeapon ) or !activeWeapon:IsWeapon() or !activeWeapon:IsScripted() then return false end
+	if !IsValid( activeWeapon ) or !activeWeapon:IsWeapon() or !activeWeapon:IsScripted() then return false end
 	
 	return activeWeapon.Primary.Automatic
 end
