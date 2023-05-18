@@ -2122,7 +2122,7 @@ function TRizzleBotRangeCheck( FirstNode , SecondNode , Ladder , Height )
 	-- Falling is risky if the bot might take fall damage.
 	if isnumber( Height ) and -Height > 32 then
 	
-		EditedCost		=	EditedCost + ( DefaultCost * GetApproximateFallDamage( math.abs( Height ) )
+		EditedCost		=	EditedCost + ( DefaultCost * GetApproximateFallDamage( math.abs( Height ) ) )
 		
 	end
 	
