@@ -868,6 +868,15 @@ function BOT:IsActiveWeaponRecoilHigh()
 	return angles.x < highRecoil
 end
 
+-- Checks if the bot's active weapon is automatic
+function BOT:IsActiveWeaponAutomatic()
+	
+	local activeWeapon = self:GetActiveWeapon()
+	if IsValid( activeWeapon ) or !activeWeapon:IsWeapon() or !activeWeapon:IsScripted() then return false end
+	
+	return activeWeapon.Primary.Automatic
+end
+
 -- For some reason IsAbleToSee doesn't work with player bots
 function BOT:PointWithinViewAngle( pos, targetpos, lookdir, fov )
 	
@@ -1066,7 +1075,7 @@ function BOT:PointWithinCursor( targetpos )
 	
 	-- This check makes sure the bot won't attempt to shoot through other players and unbreakable windows
 	local trace = util.TraceLine( { start = self:GetShootPos(), endpos = targetpos, filter = self, mask = MASK_SHOT } )
-	return trace.Entity == self.Enemy
+	return trace.Entity == self.Enemy or trace.Fraction <= 1.0
 
 end
 
@@ -1088,7 +1097,7 @@ function BOT:IsCursorOnTarget()
 end
 
 function BOT:SelectBestWeapon()
-	if self.MinEquipInterval > CurTime() then return end
+	if self.MinEquipInterval > CurTime() or !self:GetActiveWeapon():HasAmmo() then return end
 	
 	-- This will select the best weapon based on the bot's current distance from its enemy
 	local enemydistsqr	=	(self.Enemy:GetPos() - self:GetPos()):LengthSqr() -- Only compute this once, there is no point in recomputing it multiple times as doing so is a waste of computer resources
@@ -1098,7 +1107,8 @@ function BOT:SelectBestWeapon()
 	if self:HasWeapon( "weapon_medkit" ) and self.CombatHealThreshold > self:Health() then
 		
 		-- The bot will heal themself if they get too injured during combat
-		bestWeapon = "weapon_medkit"
+		self:SelectMedkit()
+		return
 	else
 		-- I use multiple if statements instead of elseifs
 		if self:HasWeapon( self.Sniper ) and self:GetWeapon( self.Sniper ):HasAmmo() then
@@ -1130,10 +1140,16 @@ function BOT:SelectBestWeapon()
 			-- If an enemy gets too close, the bot should use its melee
 			bestWeapon = self.Melee
 		end
+		
+		bestWeapon = self:GetWeapon( bestWeapon )
+		if IsValid( bestWeapon ) then 
+			
+			self.BestWeapon = bestWeapon
+			self.MinEquipInterval = CurTime() + 5.0
+			
+		end
+		
 	end
-	
-	if isstring( bestWeapon ) then self.BestWeapon = self:GetWeapon( bestWeapon ) end
-	if ( !IsValid( oldBestWeapon ) or !oldBestWeapon:IsWeapon() or self.BestWeapon != oldBestWeapon ) and IsValid( self.BestWeapon ) and self.BestWeapon:GetClass() != "weapon_medkit" then self.MinEquipInterval = CurTime() + 5.0 end
 	
 end
 
@@ -1342,11 +1358,13 @@ hook.Add( "Think" , "TRizzleBotThink" , function()
 					
 					bot:SetCollisionGroup(5) -- Apparently the bot's default collisiongroup is set to 11 causing the bot not to take damage from melee enemies
 					bot.LastCombatTime = CurTime() + 5.0 -- Update combat timestamp
+						
+					local enemyDist = (bot.Enemy:GetPos() - bot:GetPos()):LengthSqr() -- Grab the bot's current distance from their current enemy
 					
 					-- Should I limit how often this runs?
 					local trace = util.TraceLine( { start = bot:GetShootPos(), endpos = bot.Enemy:EyePos(), filter = bot, mask = MASK_SHOT } )
 					
-					if trace.Entity == bot.Enemy then
+					if trace.Entity == bot.Enemy or trace.Fraction <= 1.0 then
 						
 						bot.AimForHead = true
 						
@@ -1365,7 +1383,17 @@ hook.Add( "Think" , "TRizzleBotThink" , function()
 						if CurTime() > bot.FireWeaponInterval and !botWeapon:GetInternalVariable( "m_bInReload" ) and !bot.FullReload and botWeapon:GetClass() != "weapon_medkit" and bot:IsCursorOnTarget() then
 							
 							bot:PressPrimaryAttack()
-							bot.FireWeaponInterval = CurTime() + math.Rand( 0.15 , 0.4 )
+							
+							-- If the bot's active weapon is automatic the bot should just press and hold its attack button if their current enemy is close enough
+							if bot:IsActiveWeaponAutomatic() and enemyDist < 160000 then
+								
+								bot.FireWeaponInterval = CurTime()
+								
+							else
+								
+								bot.FireWeaponInterval = CurTime() + math.Rand( 0.15 , 0.4 )
+								
+							end
 							
 						end
 						
