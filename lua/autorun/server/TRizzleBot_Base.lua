@@ -1284,7 +1284,7 @@ hook.Add( "Think" , "TRizzleBotThink" , function()
 	--ShowAllHidingSpots()
 	
 	-- This shouldn't run as often
-	if ( engine:TickCount() % math.floor( engine.TickInterval() ) == 0 ) then
+	if ( engine:TickCount() % math.floor( 1 / engine.TickInterval() ) == 0 ) then
 		local tab = player.GetHumans()
 		if #tab > 0 then
 			local ply = table.Random(tab)
@@ -2858,19 +2858,19 @@ function BOT:TBotNavigation()
 				
 				table.remove( self.Path , 1 )
 				
-			elseif self.Path[ 1 ][ "IsLadder" ] and self.Path[ 1 ][ "LadderUp" ] and self:GetPos().z >= self.Path[ 1 ][ "Pos" ].z - self:GetStepSize() then
+			elseif self.Path[ 1 ][ "IsLadder" ] and self.Path[ 1 ][ "LadderUp" ] and self:GetPos().z >= self.Path[ 1 ][ "Pos" ].z then
 				
-				if self.Path[ 2 ] and !self.Path[ 2 ][ "IsLadder" ] then
+				--[[if self.Path[ 2 ] and !self.Path[ 2 ][ "IsLadder" ] then
 					self:PressJump()
-				end
+				end]]
 				
 				table.remove( self.Path , 1 )
 				
 			elseif self.Path[ 1 ][ "IsLadder" ] and !self.Path[ 1 ][ "LadderUp" ] and self:GetPos().z <= self.Path[ 1 ][ "Pos" ].z + self:GetStepSize() then
 			
-				if self.Path[ 2 ] and !self.Path[ 2 ][ "IsLadder" ] then
+				--[[if self.Path[ 2 ] and !self.Path[ 2 ][ "IsLadder" ] then
 					self:PressJump()
-				end
+				end]]
 				
 				table.remove( self.Path , 1 )
 			
