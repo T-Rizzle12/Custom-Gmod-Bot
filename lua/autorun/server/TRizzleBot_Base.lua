@@ -909,6 +909,48 @@ local trace = util.TraceLine( { start = self:GetShootPos(), endpos = pos, filter
 		
 	end]]
 
+-- This filter will ignore Players, NPCS, and NextBots
+function TBotTraceFilter( ent )
+	
+	if ent:IsPlayer() or ent:IsNPC() or ent:IsNextBot() then return false end
+	
+	return true
+	
+end
+
+-- Checks if the current position or entity can be seen by the target entity
+function Ent:TBotVisible( pos )
+	
+	if IsValid( pos ) and IsEntity( pos ) then
+		
+		local trace = util.TraceLine( { start = self:GetShootPos(), endpos = pos:WorldSpaceCenter(), filter = TBotTraceFilter, mask = MASK_VISIBLE_AND_NPCS } )
+	
+		if trace.Fraction <= 1.0 or ( pos:IsPlayer() and trace.Entity == pos:GetVehicle() ) then
+			
+			return true
+
+		end
+		
+		local trace2 = util.TraceLine( { start = self:GetShootPos(), endpos = pos:EyePos(), filter = TBotTraceFilter, mask = MASK_VISIBLE_AND_NPCS } )
+	
+		if trace2.Fraction <= 1.0 or ( pos:IsPlayer() and trace2.Entity == pos:GetVehicle() ) then
+			
+			return true
+			
+		end
+		
+	else
+		
+		local trace = util.TraceLine( { start = self:GetShootPos(), endpos = pos, filter = TBotTraceFilter, mask = MASK_VISIBLE_AND_NPCS } )
+		
+		return trace.Fraction <= 1.0
+		
+	end
+	
+	return false
+	
+end
+
 -- This checks if the entered position in the bot's LOS
 function BOT:IsAbleToSee( pos )
 	if self:IsTRizzleBotBlind() then return false end
