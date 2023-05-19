@@ -1077,7 +1077,11 @@ function BOT:PointWithinCursor( targetpos )
 	local length = pos:LengthSqr()
 	if diff * diff <= length * fov * fov then return false end
 	
-	-- This check makes sure the bot won't attempt to shoot through other players and unbreakable windows
+	-- This checks makes sure the bot won't attempt to shoot if the bullet will possibly hit a player
+	local ply = self:GetEyeTrace().Entity
+	if IsValid( ply ) and ply:IsPlayer() then return false end
+	
+	-- This check makes sure the bot won't attempt to shoot if the bullet wont hit its target
 	local trace = util.TraceLine( { start = self:GetShootPos(), endpos = targetpos, filter = self, mask = MASK_SHOT } )
 	return trace.Entity == self.Enemy or trace.Fraction <= 1.0
 
