@@ -1434,6 +1434,20 @@ hook.Add( "Think" , "TRizzleBotThink" , function()
 						
 					end
 					
+					-- If an enemy gets too close and the bot is not using its melee weapon the bot should retreat backwards
+					if !isvector( bot.Goal ) and botWeapon:GetClass() != bot.Melee and enemyDist < 6400 then
+							
+						local ground = navmesh.GetGroundHeight( bot:GetPos() - ( 30.0 * bot:EyeAngles():Forward() ) )
+						
+						-- Don't dodge if we will fall
+						if bot:GetPos().z - ground < bot:GetStepSize() then
+							
+							bot:PressBack()
+							
+						end
+					
+					end
+					
 					bot:SelectBestWeapon()
 				
 				else
