@@ -2742,7 +2742,7 @@ function BOT:ComputeNavmeshVisibility()
 				
 			else
 				
-				self.Path[ currentIndex + 1 ]		=	{ Pos = NextLadder:GetTop(), IsLadder = false, IsDropDown = false }
+				self.Path[ currentIndex + 1 ]		=	{ Pos = NextLadder:GetTop() + NextLadder:GetNormal() * 2.0 * 16, IsLadder = false, IsDropDown = false }
 				self.Path[ currentIndex + 2 ]		=	{ Pos = NextLadder:GetBottom(), IsLadder = true, LadderUp = false }
 				LastVisPos				=	NextLadder:GetBottom()
 				
