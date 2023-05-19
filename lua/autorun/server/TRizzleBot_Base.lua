@@ -442,7 +442,12 @@ hook.Add( "StartCommand" , "TRizzleBotAIHook" , function( bot , cmd )
 	bot:UpdateAim()
 	bot:TBotUpdateMovement( cmd )
 	cmd:SetButtons( bot.buttonFlags )
-	cmd:SelectWeapon( bot.BestWeapon )
+	
+	if IsValid( bot.BestWeapon ) and bot.BestWeapon:IsWeapon() and bot:GetActiveWeapon() != bot.BestWeapon then 
+	
+		cmd:SelectWeapon( bot.BestWeapon )
+		
+	end
 	
 end)
 
