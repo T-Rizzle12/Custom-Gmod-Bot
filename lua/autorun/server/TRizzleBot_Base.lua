@@ -893,22 +893,6 @@ function BOT:PointWithinViewAngle( pos, targetpos, lookdir, fov )
 	return diff * diff > length * fov * fov
 end
 
---[[ This is the old LOS trace checks, until I make a better way to implement this I will just use Visible() instead
-local trace = util.TraceLine( { start = self:GetShootPos(), endpos = pos:WorldSpaceCenter(), filter = self, mask = MASK_VISIBLE_AND_NPCS } )
-	
-	if trace.Entity == pos then
-		return true
-		
-	end
-	
-local trace = util.TraceLine( { start = self:GetShootPos(), endpos = pos, filter = self, mask = MASK_VISIBLE_AND_NPCS } )
-	
-	if trace.Fraction <= 1.0 then
-	
-		return true
-		
-	end]]
-
 -- This filter will ignore Players, NPCS, and NextBots
 function TBotTraceFilter( ent )
 	
@@ -923,7 +907,7 @@ function Ent:TBotVisible( pos )
 	
 	if IsValid( pos ) and IsEntity( pos ) then
 		
-		local trace = util.TraceLine( { start = self:GetShootPos(), endpos = pos:WorldSpaceCenter(), filter = TBotTraceFilter, mask = MASK_VISIBLE_AND_NPCS } )
+		local trace = util.TraceLine( { start = self:EyePos(), endpos = pos:WorldSpaceCenter(), filter = TBotTraceFilter, mask = MASK_VISIBLE_AND_NPCS } )
 	
 		if trace.Fraction <= 1.0 or ( pos:IsPlayer() and trace.Entity == pos:GetVehicle() ) then
 			
@@ -931,7 +915,7 @@ function Ent:TBotVisible( pos )
 
 		end
 		
-		local trace2 = util.TraceLine( { start = self:GetShootPos(), endpos = pos:EyePos(), filter = TBotTraceFilter, mask = MASK_VISIBLE_AND_NPCS } )
+		local trace2 = util.TraceLine( { start = self:EyePos(), endpos = pos:EyePos(), filter = TBotTraceFilter, mask = MASK_VISIBLE_AND_NPCS } )
 	
 		if trace2.Fraction <= 1.0 or ( pos:IsPlayer() and trace2.Entity == pos:GetVehicle() ) then
 			
@@ -939,9 +923,9 @@ function Ent:TBotVisible( pos )
 			
 		end
 		
-	else
+	elseif isvector( pos ) then
 		
-		local trace = util.TraceLine( { start = self:GetShootPos(), endpos = pos, filter = TBotTraceFilter, mask = MASK_VISIBLE_AND_NPCS } )
+		local trace = util.TraceLine( { start = self:EyePos(), endpos = pos, filter = TBotTraceFilter, mask = MASK_VISIBLE_AND_NPCS } )
 		
 		return trace.Fraction <= 1.0
 		
@@ -969,7 +953,7 @@ function BOT:IsAbleToSee( pos )
 		
 		return self:PointWithinViewAngle(self:GetShootPos(), pos:EyePos(), self:GetAimVector(), fov)
 
-	else
+	elseif isvector( pos ) then
 	
 		return self:PointWithinViewAngle(self:GetShootPos(), pos, self:GetAimVector(), fov)
 		
@@ -1632,7 +1616,7 @@ hook.Add( "Think" , "TRizzleBotThink" , function()
 					-- If the bot has finished hiding or its hiding spot is no longer safe, it should clear its selected hiding spot
 					elseif bot.HidingState == WAIT_AT_SPOT then
 						
-						if bot.HideTime < CurTime() or bot.NumVisibleEnemies > 0 then -- !bot:IsSpotSafe( bot.HidingSpot ) doesn’t work here since the bot blocks the trace causing it to return false
+						if bot.HideTime < CurTime() or !bot:IsSpotSafe( bot.HidingSpot ) then -- Is bot.NumVisibleEnemies > 0 more efficent and cheaper?
 							
 							bot.HidingSpot = nil
 							bot.HidingState = FINISHED_HIDING
@@ -2003,7 +1987,7 @@ function BOT:CheckCurrentEnemyStatus()
 		
 		self.Enemy = nil -- Just incase the bot's enemy is set to a player even though the bot should only target NPCS and "hopefully" NEXTBOTS 
 		
-	elseif self:IsTRizzleBotBlind() or !self.Enemy:Visible( self ) or self:IsHiddenByFog( self:GetShootPos():Distance( self.Enemy:EyePos() ) ) then 
+	elseif self:IsTRizzleBotBlind() or !self.Enemy:TBotVisible( self ) or self:IsHiddenByFog( self:GetShootPos():Distance( self.Enemy:EyePos() ) ) then 
 		
 		self.Enemy = nil
 		
@@ -2055,12 +2039,12 @@ function BOT:TBotCheckEnemyList()
 			self.EnemyList[ k ] = nil
 			continue
 			
-		elseif ( self:IsTRizzleBotBlind() or !v.Enemy:Visible( self ) or self:IsHiddenByFog( self:GetShootPos():Distance( v.Enemy:EyePos() ) ) ) and v.LastSeenTime < CurTime() then 
+		elseif ( self:IsTRizzleBotBlind() or !v.Enemy:TBotVisible( self ) or self:IsHiddenByFog( self:GetShootPos():Distance( v.Enemy:EyePos() ) ) ) and v.LastSeenTime < CurTime() then 
 			
 			self.EnemyList[ k ] = nil
 			continue
 		
-		elseif !self:IsTRizzleBotBlind() and v.Enemy:Visible( self ) and !self:IsHiddenByFog( self:GetShootPos():Distance( v.Enemy:EyePos() ) ) then 
+		elseif !self:IsTRizzleBotBlind() and v.Enemy:TBotVisible( self ) and !self:IsHiddenByFog( self:GetShootPos():Distance( v.Enemy:EyePos() ) ) then 
 		
 			self.EnemyList[ k ][ "LastSeenTime" ] = CurTime() + 10.0
 			
@@ -2091,7 +2075,7 @@ function BOT:TBotFindClosestEnemy()
 		if IsValid( v ) and v:IsNPC() and v:IsAlive() and ( v:IsEnemy( self ) or v:IsEnemy( self.TBotOwner ) ) then -- The bot should attack any NPC that is hostile to them or their owner. D_HT means hostile/hate
 			
 			local enemydistsqr = (v:GetPos() - self:GetPos()):LengthSqr()
-			if self:IsAbleToSee( v ) and v:Visible( self ) then
+			if self:IsAbleToSee( v ) and v:TBotVisible( self ) then
 				
 				if !VisibleEnemies[ v:GetCreationID() ] then VisibleEnemies[ v:GetCreationID() ]		=	{ Enemy = v, LastSeenTime = CurTime() + 10.0 } end -- We grab the entity's Creation ID because the will never be the same as any other entity.
 				
@@ -2100,7 +2084,7 @@ function BOT:TBotFindClosestEnemy()
 					targetdistsqr = enemydistsqr
 				end
 				
-			elseif VisibleEnemies[ v:GetCreationID() ] and v:Visible( self ) and !self:IsHiddenByFog( self:GetShootPos():Distance( v:EyePos() ) ) then
+			elseif VisibleEnemies[ v:GetCreationID() ] and v:TBotVisible( self ) and !self:IsHiddenByFog( self:GetShootPos():Distance( v:EyePos() ) ) then
 				
 				if ( !IsValid( target ) or enemydistsqr < 40000 ) and enemydistsqr < targetdistsqr then 
 					target = v
@@ -2128,7 +2112,7 @@ function BOT:TBotFindClosestTeammate()
 
 	for k, v in ipairs( player.GetAll() ) do
 		
-		if IsValid( v ) and v:Alive() and v:Health() < self.HealThreshold and !self:IsTRizzleBotBlind() and v:Visible( self ) then -- The bot will heal any teammate that needs healing that we can actually see and are alive.
+		if IsValid( v ) and v:Alive() and v:Health() < self.HealThreshold and !self:IsTRizzleBotBlind() and v:TBotVisible( self ) then -- The bot will heal any teammate that needs healing that we can actually see and are alive.
 			
 			local teammatedistsqr = (v:GetPos() - self:GetPos()):LengthSqr()
 			
@@ -2587,7 +2571,7 @@ function BOT:IsSpotSafe( pos )
 
 	for k, v in pairs( self.EnemyList ) do
 	
-		if IsValid( v ) and v:VisibleVec( pos ) then return false end -- If one of the bot's enemies its aware of can see it the bot won't use it.
+		if IsValid( v ) and v:TBotVisible( pos ) then return false end -- If one of the bot's enemies its aware of can see it the bot won't use it.
 	
 	end
 
@@ -2605,6 +2589,8 @@ function BOT:FindSpots( tbl )
 	tbl.stepdown	= tbl.stepdown		or 200
 	tbl.stepup		= tbl.stepup		or 64
 	tbl.type		= tbl.type			or "hiding"
+	tbl.checkoccupied	= tbl.checkoccupied		or true
+	tbl.checksafe		= tbl.checksafe			or true
 
 	-- Find a bunch of areas within this distance
 	local areas = navmesh.Find( tbl.pos, tbl.radius, tbl.stepdown, tbl.stepup )
@@ -2629,7 +2615,7 @@ function BOT:FindSpots( tbl )
 			local tempPathLength = GetPathLength( tempPath, startArea, endArea )
 			
 			if tempPathLength < 0 or tbl.radius < tempPathLength then continue -- If the bot can't path to a hiding spot or its further than tbl.range, the bot shouldn't consider it
-			elseif self:IsSpotOccupied( vec ) or !self:IsSpotSafe( vec ) then continue end -- If the spot is already in use by another player or the spot is visible to enemies on the bot's known enemy list, the bot shouldn't consider it
+			elseif ( tbl.checkoccupied and self:IsSpotOccupied( vec ) ) or ( tbl.checksafe and !self:IsSpotSafe( vec ) ) then continue end -- If the spot is already in use by another player or the spot is visible to enemies on the bot's known enemy list, the bot shouldn't consider it
 			table.insert( found, { vector = vec, distance = tempPathLength } )
 
 		end
