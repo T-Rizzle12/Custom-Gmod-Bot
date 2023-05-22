@@ -1104,8 +1104,9 @@ function BOT:PointWithinCursor( targetpos )
 	if diff * diff <= length * fov * fov then return false end
 	
 	-- This checks makes sure the bot won't attempt to shoot if the bullet will possibly hit a player
+	-- This will not activate if the bot's current enemy is a player and the trace hits them
 	local ply = self:GetEyeTrace().Entity
-	if IsValid( ply ) and ply:IsPlayer() then return false end
+	if IsValid( ply ) and ply:IsPlayer() and ply != self.Enemy then return false end
 	
 	-- This check makes sure the bot won't attempt to shoot if the bullet wont hit its target
 	local trace = util.TraceLine( { start = self:GetShootPos(), endpos = targetpos, filter = self, mask = MASK_SHOT } )
@@ -1135,8 +1136,13 @@ function BOT:SelectBestWeapon()
 	
 	-- This will select the best weapon based on the bot's current distance from its enemy
 	local enemydistsqr	=	(self.Enemy:GetPos() - self:GetPos()):LengthSqr() -- Only compute this once, there is no point in recomputing it multiple times as doing so is a waste of computer resources
-	local bestWeapon
-	local oldBestWeapon 	= self.BestWeapon
+	local oldBestWeapon 	= 	self.BestWeapon
+	local minEquipInterval	=	0
+	local pistol		=	self:GetWeapon( self.Pistol )
+	local rifle		=	self:GetWeapon( self.Rifle )
+	local shotgun		=	self:GetWeapon( self.Shotgun )
+	local sniper		=	self:GetWeapon( self.Sniper )
+	local melee		=	self:GetWeapon( self.Melee )
 	
 	if self:HasWeapon( "weapon_medkit" ) and self.CombatHealThreshold > self:Health() then
 		
@@ -1145,41 +1151,44 @@ function BOT:SelectBestWeapon()
 		return
 	else
 		-- I use multiple if statements instead of elseifs
-		if self:HasWeapon( self.Sniper ) and self:GetWeapon( self.Sniper ):HasAmmo() then
+		if IsValid( sniper ) and sniper:HasAmmo() then
 			
 			-- If an enemy is very far away, the bot should use its sniper
-			bestWeapon = self.Sniper
+			self.BestWeapon = sniper
+			minEquipInterval = 5.0
 		end
 		
-		if self:HasWeapon( self.Pistol ) and self:GetWeapon( self.Pistol ):HasAmmo() and ( enemydistsqr < self.PistolDist * self.PistolDist or !bestWeapon ) then
+		if IsValid( pistol ) and pistol:HasAmmo() and ( enemydistsqr < self.PistolDist * self.PistolDist or !IsValid( bestWeapon ) ) then
 			
 			-- If an enemy is far the bot, the bot should use its pistol
-			bestWeapon = self.Pistol
+			self.BestWeapon = pistol
+			minEquipInterval = 5.0
 		end
 		
-		if self:HasWeapon( self.Rifle ) and self:GetWeapon( self.Rifle ):HasAmmo() and ( enemydistsqr < self.RifleDist * self.RifleDist or !bestWeapon ) then
+		if IsValid( rifle ) and rifle:HasAmmo() and ( enemydistsqr < self.RifleDist * self.RifleDist or !IsValid( bestWeapon ) ) then
 		
 			-- If an enemy gets too far but is still close, the bot should use its rifle
-			bestWeapon = self.Rifle
+			self.BestWeapon = rifle
+			minEquipInterval = 5.0
 		end
 		
-		if self:HasWeapon( self.Shotgun ) and self:GetWeapon( self.Shotgun ):HasAmmo() and ( enemydistsqr < self.ShotgunDist * self.ShotgunDist or !bestWeapon ) then
+		if IsValid( shotgun ) and shotgun:HasAmmo() and ( enemydistsqr < self.ShotgunDist * self.ShotgunDist or !IsValid( bestWeapon ) ) then
 			
 			-- If an enemy gets close, the bot should use its shotgun
-			bestWeapon = self.Shotgun
+			self.BestWeapon = shotgun
+			minEquipInterval = 5.0
 		end
 		
-		if self:HasWeapon( self.Melee ) and ( enemydistsqr < self.MeleeDist * self.MeleeDist or !bestWeapon ) then
+		if IsValid( melee ) and ( enemydistsqr < self.MeleeDist * self.MeleeDist or !IsValid( bestWeapon ) ) then
 
 			-- If an enemy gets too close, the bot should use its melee
-			bestWeapon = self.Melee
+			self.BestWeapon = melee
+			minEquipInterval = 2.0
 		end
 		
-		bestWeapon = self:GetWeapon( bestWeapon )
-		if IsValid( bestWeapon ) then 
+		if IsValid( bestWeapon ) and oldBestWeapon != bestWeapon then 
 			
-			self.BestWeapon = bestWeapon
-			self.MinEquipInterval = CurTime() + 5.0
+			self.MinEquipInterval = CurTime() + minEquipInterval
 			
 		end
 		
