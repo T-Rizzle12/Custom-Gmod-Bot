@@ -456,7 +456,7 @@ function BOT:ResetCommand( cmd )
 
 	cmd:ClearButtons() -- Clear the bots buttons. Shooting, Running , jumping etc...
 	cmd:ClearMovement() -- For when the bot is moving around.
-	local buttons		= 0
+	local buttons			= 0
 	local forwardmovement	= 0
 	local strafemovement	= 0
 	
@@ -815,8 +815,8 @@ end
 function BOT:AimAtPos( Pos, Time, Priority )
 	if !isvector( Pos ) or Time < CurTime() or ( self.LookTargetPriority > Priority and CurTime() < self.LookTargetTime ) then return end
 	
-	self.LookTarget			=	Pos
-	self.LookTargetTime		=	Time
+	self.LookTarget				=	Pos
+	self.LookTargetTime			=	Time
 	self.LookTargetPriority		=	Priority
 	
 end
@@ -824,7 +824,7 @@ end
 function BOT:SetEncounterLookAt( Pos, Time )
 	if !isvector( Pos ) or Time < CurTime() and self.NextEncounterTime < CurTime() then return end 
 	
-	self.EncounterSpot		=	Pos
+	self.EncounterSpot			=	Pos
 	self.EncounterSpotLookTime	=	Time
 	self.NextEncounterTime		=	Time + 2.0
 
@@ -909,7 +909,7 @@ function Ent:TBotVisible( pos )
 		
 		local trace = util.TraceLine( { start = self:EyePos(), endpos = pos:WorldSpaceCenter(), filter = TBotTraceFilter, mask = MASK_VISIBLE_AND_NPCS } )
 	
-		if trace.Fraction <= 1.0 or ( pos:IsPlayer() and trace.Entity == pos:GetVehicle() ) then
+		if trace.Fraction >= 1.0 or ( pos:IsPlayer() and trace.Entity == pos:GetVehicle() ) then
 			
 			return true
 
@@ -917,7 +917,7 @@ function Ent:TBotVisible( pos )
 		
 		local trace2 = util.TraceLine( { start = self:EyePos(), endpos = pos:EyePos(), filter = TBotTraceFilter, mask = MASK_VISIBLE_AND_NPCS } )
 	
-		if trace2.Fraction <= 1.0 or ( pos:IsPlayer() and trace2.Entity == pos:GetVehicle() ) then
+		if trace2.Fraction >= 1.0 or ( pos:IsPlayer() and trace2.Entity == pos:GetVehicle() ) then
 			
 			return true
 			
@@ -927,7 +927,7 @@ function Ent:TBotVisible( pos )
 		
 		local trace = util.TraceLine( { start = self:EyePos(), endpos = pos, filter = TBotTraceFilter, mask = MASK_VISIBLE_AND_NPCS } )
 		
-		return trace.Fraction <= 1.0
+		return trace.Fraction >= 1.0
 		
 	end
 	
@@ -1109,7 +1109,7 @@ function BOT:PointWithinCursor( targetpos )
 	
 	-- This check makes sure the bot won't attempt to shoot if the bullet wont hit its target
 	local trace = util.TraceLine( { start = self:GetShootPos(), endpos = targetpos, filter = self, mask = MASK_SHOT } )
-	return trace.Entity == self.Enemy or trace.Fraction <= 1.0
+	return trace.Entity == self.Enemy or trace.Fraction >= 1.0
 
 end
 
@@ -1371,7 +1371,9 @@ hook.Add( "Think" , "TRizzleBotThink" , function()
 				bot:CheckCurrentEnemyStatus()
 				bot:TBotFindClosestEnemy()
 				bot:TBotCheckEnemyList()
-					
+				
+				bot:SetCollisionGroup( 5 ) -- Apparently the bot's default collisiongroup is set to 11 causing the bot not to take damage from melee enemies
+				
 				local botWeapon = bot:GetActiveWeapon()
 				if !IsValid( bot.TBotOwner ) or !bot.TBotOwner:Alive() then	
 					
@@ -1396,9 +1398,8 @@ hook.Add( "Think" , "TRizzleBotThink" , function()
 				
 				if IsValid( bot.Enemy ) then
 					
-					bot:SetCollisionGroup( 5 ) -- Apparently the bot's default collisiongroup is set to 11 causing the bot not to take damage from melee enemies
 					bot.LastCombatTime = CurTime() + 5.0 -- Update combat timestamp
-						
+					
 					local enemyDist = (bot.Enemy:GetPos() - bot:GetPos()):LengthSqr() -- Grab the bot's current distance from their current enemy
 					
 					-- Should I limit how often this runs?
@@ -1458,20 +1459,20 @@ hook.Add( "Think" , "TRizzleBotThink" , function()
 							
 						end
 						
-					end
-					
-					-- If an enemy gets too close and the bot is not using its melee weapon the bot should retreat backwards
-					if !isvector( bot.Goal ) and botWeapon:GetClass() != bot.Melee and enemyDist < 6400 then
+						-- If an enemy gets too close and the bot is not using its melee weapon the bot should retreat backwards
+						if !isvector( bot.Goal ) and botWeapon:GetClass() != bot.Melee and enemyDist < 6400 then
 							
-						local ground = navmesh.GetGroundHeight( bot:GetPos() - ( 30.0 * bot:EyeAngles():Forward() ) )
+							local ground = navmesh.GetGroundHeight( bot:GetPos() - ( 30.0 * bot:EyeAngles():Forward() ) )
+							
+							-- Don't dodge if we will fall
+							if ground and bot:GetPos().z - ground < bot:GetStepSize() then
+								
+								bot:PressBack()
+								
+							end
 						
-						-- Don't dodge if we will fall
-						if bot:GetPos().z - ground < bot:GetStepSize() then
-							
-							bot:PressBack()
-							
 						end
-					
+						
 					end
 					
 					bot:SelectBestWeapon()
@@ -1560,10 +1561,10 @@ hook.Add( "Think" , "TRizzleBotThink" , function()
 						bot.HidingSpot = bot:FindSpot( "far", { pos = bot:GetPos(), radius = 10000, stepdown = 200, stepup = 64 } )
 						
 						if isvector( bot.HidingSpot ) then
-								
+							
 							bot.HidingState = MOVE_TO_SPOT
 							bot.HideTime = 5.0
-								
+							
 						end
 					
 					end
@@ -1576,11 +1577,11 @@ hook.Add( "Think" , "TRizzleBotThink" , function()
 						bot.HidingSpot = bot:FindSpot( "near", { pos = bot:GetPos(), radius = bot.FollowDist, stepdown = 200, stepup = 64 } )
 						
 						if isvector( bot.HidingSpot ) then
-								
+							
 							bot.HidingState = MOVE_TO_SPOT
 							bot.HideTime = 3.0
 							bot.ReturnPos = bot:GetPos()
-								
+							
 						end
 
 					end
@@ -1593,11 +1594,11 @@ hook.Add( "Think" , "TRizzleBotThink" , function()
 						bot.HidingSpot = bot:FindSpot( "near", { pos = bot:GetPos(), radius = bot.FollowDist, stepdown = 200, stepup = 64 } )
 						
 						if isvector( bot.HidingSpot ) then
-								
+							
 							bot.HidingState = MOVE_TO_SPOT
 							bot.HideTime = 3.0
 							bot.ReturnPos = bot:GetPos()
-								
+							
 						end
 
 					end
@@ -3052,11 +3053,10 @@ end
 
 -- Make the bot move.
 function BOT:TBotUpdateMovement( cmd )
-	if !isvector( self.Goal ) then return end
 	
 	local MovementAngle		=	self:EyeAngles()
 	
-	if !istable( self.Path ) or table.IsEmpty( self.Path ) or isbool( self.NavmeshNodes ) then
+	if isvector( self.Goal ) and ( !istable( self.Path ) or table.IsEmpty( self.Path ) or isbool( self.NavmeshNodes ) ) then
 		
 		MovementAngle		=	( self.Goal - self:GetPos() ):GetNormalized():Angle()
 		
@@ -3091,7 +3091,7 @@ function BOT:TBotUpdateMovement( cmd )
 			
 		end
 		
-	elseif self.Path[ 1 ] then
+	elseif isvector( self.Goal ) and self.Path[ 1 ] then
 		
 		MovementAngle		=	( self.Path[ 1 ][ "Pos" ] - self:GetPos() ):GetNormalized():Angle()
 		
