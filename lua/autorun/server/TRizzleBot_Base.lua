@@ -551,11 +551,11 @@ function BOT:HandleButtons()
 		
 			self:PressRun()
 			
-		elseif IsValid( self.TBotOwner ) and self.TBotOwner:Alive() and (self.TBotOwner:GetPos() - self:GetPos()):LengthSqr() > self.DangerDist * self.DangerDist then
+		elseif IsValid( self.TBotOwner ) and self.TBotOwner:Alive() and self.TBotOwner:GetPos():DistToSqr( self:GetPos() ) > self.DangerDist * self.DangerDist then
 		
 			self:PressRun()
 		
-		elseif IsValid( self.GroupLeader ) and self.GroupLeader:Alive() and (self.GroupLeader:GetPos() - self:GetPos()):LengthSqr() > self.DangerDist * self.DangerDist then
+		elseif IsValid( self.GroupLeader ) and self.GroupLeader:Alive() and self.GroupLeader:GetPos():DistToSqr( self:GetPos() ) > self.DangerDist * self.DangerDist then
 		
 			self:PressRun()
 		
