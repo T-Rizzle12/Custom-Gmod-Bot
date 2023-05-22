@@ -570,7 +570,7 @@ function BOT:HandleButtons()
 	
 	end
 	
-	if ShouldJump then 
+	if ShouldJump and self:IsOnGround() then 
 	
 		self:PressJump()
 		
@@ -582,7 +582,7 @@ function BOT:HandleButtons()
 	
 	local door = self:GetEyeTrace().Entity
 	
-	if self.ShouldUse and IsValid( door ) and door:IsDoor() and !door:IsDoorOpen() and (door:GetPos() - self:GetPos()):LengthSqr() < 6400 then 
+	if self.ShouldUse and IsValid( door ) and door:IsDoor() and !door:IsDoorOpen() and door:GetPos():DistToSqr( self:GetPos() ) < 6400 then 
 	
 		self:PressUse()
 		
@@ -1127,7 +1127,7 @@ function BOT:SelectBestWeapon()
 	if self.MinEquipInterval > CurTime() then return end
 	
 	-- This will select the best weapon based on the bot's current distance from its enemy
-	local enemydistsqr	=	(self.Enemy:GetPos() - self:GetPos()):LengthSqr() -- Only compute this once, there is no point in recomputing it multiple times as doing so is a waste of computer resources
+	local enemydistsqr	=	self.Enemy:GetPos():DistToSqr( self:GetPos() ) -- Only compute this once, there is no point in recomputing it multiple times as doing so is a waste of computer resources
 	local oldBestWeapon 	= 	self.BestWeapon
 	local minEquipInterval	=	0
 	local pistol		=	self:GetWeapon( self.Pistol )
@@ -1401,7 +1401,7 @@ hook.Add( "Think" , "TRizzleBotThink" , function()
 					
 					bot.LastCombatTime = CurTime() -- Update combat timestamp
 					
-					local enemyDist = (bot.Enemy:GetPos() - bot:GetPos()):LengthSqr() -- Grab the bot's current distance from their current enemy
+					local enemyDist = bot.Enemy:GetPos():DistToSqr( bot:GetPos() ) -- Grab the bot's current distance from their current enemy
 					
 					-- Should I limit how often this runs?
 					local trace = util.TraceLine( { start = bot:GetShootPos(), endpos = bot.Enemy:EyePos(), filter = bot, mask = MASK_SHOT } )
@@ -1610,7 +1610,7 @@ hook.Add( "Think" , "TRizzleBotThink" , function()
 				if isvector( bot.HidingSpot ) then
 					
 					-- When have reached our destination start the wait timer
-					if bot.HidingState == MOVE_TO_SPOT and (bot:GetPos() - bot.HidingSpot):LengthSqr() < 32 * 32 then
+					if bot.HidingState == MOVE_TO_SPOT and bot:GetPos():DistToSqr( bot.HidingSpot ) < 32 * 32 then
 				
 						bot.HidingState = WAIT_AT_SPOT
 						bot.HideTime = CurTime() + bot.HideTime
@@ -1639,7 +1639,7 @@ hook.Add( "Think" , "TRizzleBotThink" , function()
 						end
 						
 					-- If the bot has a hiding spot it should path there
-					elseif !isvector( bot.Goal ) and (bot:GetPos() - bot.HidingSpot):LengthSqr() > 32 * 32 then
+					elseif !isvector( bot.Goal ) and bot:GetPos():DistToSqr( bot.HidingSpot ) > 32 * 32 then
 					
 						bot:TBotSetNewGoal( bot.HidingSpot )
 						
@@ -1647,7 +1647,7 @@ hook.Add( "Think" , "TRizzleBotThink" , function()
 					
 				elseif IsValid( bot.GroupLeader ) and !bot:IsGroupLeader() then
 				
-					if isvector( bot.Goal ) and (bot.GroupLeader:GetPos() - bot.Goal):LengthSqr() > bot.FollowDist * bot.FollowDist or !isvector( bot.Goal ) and (bot.GroupLeader:GetPos() - bot:GetPos()):LengthSqr() > bot.FollowDist * bot.FollowDist then
+					if isvector( bot.Goal ) and bot.GroupLeader:GetPos():DistToSqr( bot.Goal ) > bot.FollowDist * bot.FollowDist or !isvector( bot.Goal ) and bot.GroupLeader:GetPos():DistToSqr( bot:GetPos() ) > bot.FollowDist * bot.FollowDist then
 			
 						bot:TBotSetNewGoal( bot.GroupLeader:GetPos() )
 						
@@ -1655,7 +1655,7 @@ hook.Add( "Think" , "TRizzleBotThink" , function()
 					
 				elseif IsValid( bot.TBotOwner ) and bot.TBotOwner:Alive() then
 					
-					if isvector( bot.Goal ) and (bot.TBotOwner:GetPos() - bot.Goal):LengthSqr() > bot.FollowDist * bot.FollowDist or !isvector( bot.Goal ) and (bot.TBotOwner:GetPos() - bot:GetPos()):LengthSqr() > bot.FollowDist * bot.FollowDist then
+					if isvector( bot.Goal ) and bot.TBotOwner:GetPos():DistToSqr( bot.Goal ) > bot.FollowDist * bot.FollowDist or !isvector( bot.Goal ) and bot.TBotOwner:GetPos():DistToSqr( bot:GetPos() ) > bot.FollowDist * bot.FollowDist then
 			
 						bot:TBotSetNewGoal( bot.TBotOwner:GetPos() )
 						
@@ -1947,7 +1947,7 @@ hook.Add( "EntityEmitSound" , "TRizzleBotEntityEmitSound" , function( soundTable
 		
 		if !IsValid( bot ) or !bot:IsTRizzleBot() or !IsValid( soundTable.Entity ) or soundTable.Entity:IsPlayer() or soundTable.Entity == bot then continue end
 	
-		if soundTable.Entity:IsNPC() and !bot.EnemyList[ soundTable.Entity:GetCreationID() ] and soundTable.Entity:IsAlive() and ( soundTable.Entity:IsEnemy( bot ) or soundTable.Entity:IsEnemy( bot.TBotOwner ) ) and (soundTable.Entity:GetPos() - bot:GetPos()):LengthSqr() < ( ( 1000 * ( soundTable.SoundLevel / 100 ) ) * ( 1000 * ( soundTable.SoundLevel / 100 ) ) ) then
+		if soundTable.Entity:IsNPC() and !bot.EnemyList[ soundTable.Entity:GetCreationID() ] and soundTable.Entity:IsAlive() and ( soundTable.Entity:IsEnemy( bot ) or soundTable.Entity:IsEnemy( bot.TBotOwner ) ) and soundTable.Entity:GetPos():DistToSqr( bot:GetPos() ) < ( ( 1000 * ( soundTable.SoundLevel / 100 ) ) * ( 1000 * ( soundTable.SoundLevel / 100 ) ) ) then
 			
 			bot.EnemyList[ soundTable.Entity:GetCreationID() ]		=	{ Enemy = soundTable.Entity, LastSeenTime = CurTime() + 10.0 }
 			
@@ -2076,7 +2076,7 @@ function BOT:TBotFindClosestEnemy()
 		
 		if IsValid( v ) and v:IsNPC() and v:IsAlive() and ( v:IsEnemy( self ) or v:IsEnemy( self.TBotOwner ) ) then -- The bot should attack any NPC that is hostile to them or their owner. D_HT means hostile/hate
 			
-			local enemydistsqr = (v:GetPos() - self:GetPos()):LengthSqr()
+			local enemydistsqr = v:GetPos():DistToSqr( self:GetPos() )
 			if self:IsAbleToSee( v ) and v:TBotVisible( self ) then
 				
 				if !VisibleEnemies[ v:GetCreationID() ] then VisibleEnemies[ v:GetCreationID() ]		=	{ Enemy = v, LastSeenTime = CurTime() + 10.0 } end -- We grab the entity's Creation ID because the will never be the same as any other entity.
@@ -2116,7 +2116,7 @@ function BOT:TBotFindClosestTeammate()
 		
 		if IsValid( v ) and v:Alive() and v:Health() < self.HealThreshold and !self:IsTRizzleBotBlind() and v:TBotVisible( self ) then -- The bot will heal any teammate that needs healing that we can actually see and are alive.
 			
-			local teammatedistsqr = (v:GetPos() - self:GetPos()):LengthSqr()
+			local teammatedistsqr = v:GetPos():DistToSqr( self:GetPos() )
 			
 			if teammatedistsqr < targetdistsqr then 
 				target = v
@@ -2138,7 +2138,7 @@ function BOT:FindNearbySeat()
 		
 		if IsValid( v ) and v:IsVehicle() and !IsValid( v:GetDriver() ) then -- The bot should enter the closest vehicle to it
 			
-			local vehicledistsqr = (v:GetPos() - self:GetPos()):LengthSqr()
+			local vehicledistsqr = v:GetPos():DistToSqr( self:GetPos() )
 			
 			if vehicledistsqr < targetdistsqr then 
 				target = v
