@@ -175,8 +175,7 @@ function TBotSetSniper( ply, cmd, args ) -- Command for changing the bots sniper
 		if bot:IsTRizzleBot() and bot:Nick() == targetbot and bot.TBotOwner == ply then
 			
 			bot.Sniper = rifle
-			if hasScope == 0 then bot.SniperScope = false
-			else bot.SniperScope = true end
+			bot.SniperScope = tobool( hasScope )
 			break
 		end
 		
@@ -266,8 +265,7 @@ function TBotSetHealThreshold( ply, cmd, args )
 		
 		if bot:IsTRizzleBot() and bot:Nick() == targetbot and bot.TBotOwner == ply then
 			
-			if healthreshold > bot:GetMaxHealth() then healthreshold = bot:GetMaxHealth() end
-			bot.HealThreshold = healthreshold
+			bot.HealThreshold = math.min( bot:GetMaxHealth(), healthreshold )
 			break
 		end
 		
@@ -285,8 +283,7 @@ function TBotSetCombatHealThreshold( ply, cmd, args )
 		
 		if bot:IsTRizzleBot() and bot:Nick() == targetbot and bot.TBotOwner == ply then
 			
-			if combathealthreshold > bot:GetMaxHealth() then combathealthreshold = bot:GetMaxHealth() end
-			bot.CombatHealThreshold = combathealthreshold
+			bot.CombatHealThreshold = math.min( bot:GetMaxHealth(), combathealthreshold )
 			break
 		end
 		
@@ -325,8 +322,7 @@ function TBotSpawnWithPreferredWeapons( ply, cmd, args )
 		
 		if bot:IsTRizzleBot() and bot:Nick() == targetbot and bot.TBotOwner == ply then
 			
-			if spawnwithweapons == 0 then bot.SpawnWithWeapons = false
-			else bot.SpawnWithWeapons = true end
+			bot.SpawnWithWeapons = tobool( spawnwithweapons )
 			break
 		end
 		
@@ -584,12 +580,6 @@ function BOT:HandleButtons()
 		
 	end
 	
-	if self:Is_On_Ladder() then
-		
-		self:PressForward()
-		
-	end
-	
 	local door = self:GetEyeTrace().Entity
 	
 	if self.ShouldUse and IsValid( door ) and door:IsDoor() and !door:IsDoorOpen() and (door:GetPos() - self:GetPos()):LengthSqr() < 6400 then 
@@ -697,7 +687,7 @@ function BOT:PressJump( holdTime )
 
 	self.buttonFlags = bit.bor( self.buttonFlags, IN_JUMP )
 	self.HoldJump = CurTime() + holdTime
-	self.NextJump = CurTime() + holdTime + 0.5 -- This cooldown is to prevent the bot from pressing and holding its jump button
+	self.NextJump = self.HoldJump + 0.5 -- This cooldown is to prevent the bot from pressing and holding its jump button
 
 end
 
@@ -737,12 +727,13 @@ end)
 function BOT:IsInCombat()
 
 	if IsValid( self.Enemy ) then
-	
+		
+		self.LastCombatTime = CurTime()
 		return true
 		
 	end
 	
-	return self.LastCombatTime > CurTime()
+	return self.LastCombatTime + 5.0 > CurTime()
 	
 end
 
@@ -750,12 +741,13 @@ end
 function BOT:IsSafe()
 
 	if IsValid( self.Enemy ) then
-	
+		
+		self.LastCombatTime = CurTime()
 		return false
 		
 	end
 	
-	return self.LastCombatTime + 10.0 < CurTime()
+	return self.LastCombatTime + 15.0 < CurTime()
 	
 end
 
@@ -1407,7 +1399,7 @@ hook.Add( "Think" , "TRizzleBotThink" , function()
 				
 				if IsValid( bot.Enemy ) then
 					
-					bot.LastCombatTime = CurTime() + 5.0 -- Update combat timestamp
+					bot.LastCombatTime = CurTime() -- Update combat timestamp
 					
 					local enemyDist = (bot.Enemy:GetPos() - bot:GetPos()):LengthSqr() -- Grab the bot's current distance from their current enemy
 					
