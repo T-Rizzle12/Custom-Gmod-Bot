@@ -377,20 +377,20 @@ concommand.Add( "TBotSetDefault" , TBotSetDefault , nil , "Set the specified bot
 function BOT:TBotResetAI()
 	
 	self.buttonFlags				=	0 -- These are the buttons the bot is going to press.
-	self.forwardMovement				=	0 -- This tells the bot to move either forward or backwards.
+	self.forwardMovement			=	0 -- This tells the bot to move either forward or backwards.
 	self.strafeMovement				=	0 -- This tells the bot to move left or right.
 	self.GroupLeader				=	nil -- If the bot's owner is dead, this bot will take charge in combat and leads other bots with the same "owner". 
-	self.Enemy					=	nil -- This is the bot's current enemy.
+	self.Enemy						=	nil -- This is the bot's current enemy.
 	self.EnemyList					=	{} -- This is the list of enemies the bot knows about.
-	self.NumVisibleEnemies				=	0 -- This is how many enemies are on the known enemy list that the bot can currently see.
-	self.EnemyListAverageDistSqr			=	0 -- This is average distance of every enemy on the known enemy list.
+	self.NumVisibleEnemies			=	0 -- This is how many enemies are on the known enemy list that the bot can currently see.
+	self.EnemyListAverageDistSqr	=	0 -- This is average distance of every enemy on the known enemy list.
 	self.AimForHead					=	false -- Should the bot aim for the head?
 	self.TimeInCombat				=	0 -- This is how long the bot has been in combat.
 	self.LastCombatTime				=	0 -- This is the last time the bot was in combat.
 	self.BestWeapon					=	nil -- This is the weapon the bot currently wants to equip.
-	self.MinEquipInterval				=	0 -- Throttles how often equipping is allowed.
+	self.MinEquipInterval			=	0 -- Throttles how often equipping is allowed.
 	self.HealTarget					=	nil -- This is the player the bot is trying to heal.
-	self.TRizzleBotBlindTime			=	0 -- This is how long the bot should be blind
+	self.TRizzleBotBlindTime		=	0 -- This is how long the bot should be blind
 	self.NextJump					=	0 -- This is the next time the bot is allowed to jump.
 	self.HoldAttack					=	0 -- This is how long the bot should hold its attack button.
 	self.HoldAttack2				=	0 -- This is how long the bot should hold its attack2 button.
@@ -406,23 +406,23 @@ function BOT:TBotResetAI()
 	self.HoldUse					=	0 -- This is how long the bot should hold its use button.
 	self.ShouldReset				=	false -- This tells the bot to clear all buttons and movement.
 	self.FullReload					=	false -- This tells the bot not to press its attack button until its current weapon is fully reloaded.
-	self.FireWeaponInterval				=	0 -- Limits how often the bot presses its attack button.
+	self.FireWeaponInterval			=	0 -- Limits how often the bot presses its attack button.
 	self.ReloadInterval				=	0 -- Limits how often the bot can press its reload button.
 	self.ScopeInterval				=	0 -- Limits how often the bot can press its scope button.
-	self.Light					=	false -- Tells the bot if it should have its flashlight on or off.
+	self.Light						=	false -- Tells the bot if it should have its flashlight on or off.
 	self.LookTarget					=	false -- This is the position the bot is currently trying to look at.
 	self.LookTargetTime				=	0 -- This is how long the bot will look at the position the bot is currently trying to look at.
-	self.LookTargetPriority				=	LOW_PRIORITY -- This is how important the position the bot is currently trying to look at is.
+	self.LookTargetPriority			=	LOW_PRIORITY -- This is how important the position the bot is currently trying to look at is.
 	self.EncounterSpot				=	nil -- This is the bots current encounter spot.
-	self.EncounterSpotLookTime			=	0 -- This is how long the bot should look at said encounter spot.
-	self.NextEncounterTime				=	0 -- This is the next time the bot is allowed to look at another encounter spot.
+	self.EncounterSpotLookTime		=	0 -- This is how long the bot should look at said encounter spot.
+	self.NextEncounterTime			=	0 -- This is the next time the bot is allowed to look at another encounter spot.
 	self.HidingSpot					=	nil -- This is the current hiding/sniper spot the bot wants to goto.
 	self.HidingState				=	FINISHED_HIDING -- This is the current hiding state the bot is currently in.
 	self.HideTime					=	0 -- This is how long the bot will stay at its current hiding spot.
 	self.ReturnPos					=	nil -- This is the spot the will back to after hiding, "Example, If the bot went into cover to reload."
-	self.Goal					=	nil -- The vector goal we want to get to.
+	self.Goal						=	nil -- The vector goal we want to get to.
 	self.NavmeshNodes				=	{} -- The nodes given to us by the pathfinder.
-	self.Path					=	nil -- The nodes converted into waypoints by our visiblilty checking.
+	self.Path						=	nil -- The nodes converted into waypoints by our visiblilty checking.
 	self.PathTime					=	CurTime() + 0.5 -- This will limit how often the path gets recreated.
 	
 	--self:TBotCreateThinking() -- Start our AI
@@ -1127,14 +1127,15 @@ function BOT:SelectBestWeapon()
 	if self.MinEquipInterval > CurTime() then return end
 	
 	-- This will select the best weapon based on the bot's current distance from its enemy
-	local enemydistsqr	=	self.Enemy:GetPos():DistToSqr( self:GetPos() ) -- Only compute this once, there is no point in recomputing it multiple times as doing so is a waste of computer resources
+	local enemydistsqr		=	self.Enemy:GetPos():DistToSqr( self:GetPos() ) -- Only compute this once, there is no point in recomputing it multiple times as doing so is a waste of computer resources
 	local oldBestWeapon 	= 	self.BestWeapon
 	local minEquipInterval	=	0
-	local pistol		=	self:GetWeapon( self.Pistol )
-	local rifle		=	self:GetWeapon( self.Rifle )
-	local shotgun		=	self:GetWeapon( self.Shotgun )
-	local sniper		=	self:GetWeapon( self.Sniper )
-	local melee		=	self:GetWeapon( self.Melee )
+	local bestWeapon		=	nil
+	local pistol			=	self:GetWeapon( self.Pistol )
+	local rifle				=	self:GetWeapon( self.Rifle )
+	local shotgun			=	self:GetWeapon( self.Shotgun )
+	local sniper			=	self:GetWeapon( self.Sniper )
+	local melee				=	self:GetWeapon( self.Melee )
 	
 	if self:HasWeapon( "weapon_medkit" ) and self.CombatHealThreshold > self:Health() then
 		
@@ -1143,44 +1144,50 @@ function BOT:SelectBestWeapon()
 		return
 	else
 		-- I use multiple if statements instead of elseifs
+		-- If an enemy is very far away, the bot should use its sniper
 		if IsValid( sniper ) and sniper:HasAmmo() then
 			
-			-- If an enemy is very far away, the bot should use its sniper
-			self.BestWeapon = sniper
+			bestWeapon = sniper
 			minEquipInterval = 5.0
+			
 		end
 		
+		-- If an enemy is far the bot, the bot should use its pistol
 		if IsValid( pistol ) and pistol:HasAmmo() and ( enemydistsqr < self.PistolDist * self.PistolDist or !IsValid( bestWeapon ) ) then
 			
-			-- If an enemy is far the bot, the bot should use its pistol
-			self.BestWeapon = pistol
+			bestWeapon = pistol
 			minEquipInterval = 5.0
+			
 		end
 		
+		-- If an enemy gets too far but is still close, the bot should use its rifle
 		if IsValid( rifle ) and rifle:HasAmmo() and ( enemydistsqr < self.RifleDist * self.RifleDist or !IsValid( bestWeapon ) ) then
 		
-			-- If an enemy gets too far but is still close, the bot should use its rifle
-			self.BestWeapon = rifle
+			bestWeapon = rifle
 			minEquipInterval = 5.0
+			
 		end
 		
+		-- If an enemy gets close, the bot should use its shotgun
 		if IsValid( shotgun ) and shotgun:HasAmmo() and ( enemydistsqr < self.ShotgunDist * self.ShotgunDist or !IsValid( bestWeapon ) ) then
 			
-			-- If an enemy gets close, the bot should use its shotgun
-			self.BestWeapon = shotgun
+			bestWeapon = shotgun
 			minEquipInterval = 5.0
+			
 		end
 		
+		-- If an enemy gets too close, the bot should use its melee
 		if IsValid( melee ) and ( enemydistsqr < self.MeleeDist * self.MeleeDist or !IsValid( bestWeapon ) ) then
 
-			-- If an enemy gets too close, the bot should use its melee
-			self.BestWeapon = melee
+			bestWeapon = melee
 			minEquipInterval = 2.0
+			
 		end
 		
 		if IsValid( bestWeapon ) and oldBestWeapon != bestWeapon then 
 			
-			self.MinEquipInterval = CurTime() + minEquipInterval
+			self.BestWeapon			= bestWeapon
+			self.MinEquipInterval 	= CurTime() + minEquipInterval
 			
 		end
 		
@@ -1573,7 +1580,7 @@ hook.Add( "Think" , "TRizzleBotThink" , function()
 				elseif IsValid( bot.GroupLeader ) and !bot:IsGroupLeader() then
 					
 					-- If the bot needs to reload its active weapon it should find cover nearby and reload there
-					if !isvector( bot.HidingSpot ) and !isvector( bot.Goal ) and IsValid( bot.Enemy ) and IsValid( botWeapon ) and botWeapon:IsWeapon() and botWeapon:GetClass() != bot.Melee and botWeapon:Clip1() == 0 and (bot.GroupLeader:GetPos() - bot:GetPos()):LengthSqr() < bot.FollowDist * bot.FollowDist then
+					if !isvector( bot.HidingSpot ) and !isvector( bot.Goal ) and IsValid( bot.Enemy ) and IsValid( botWeapon ) and botWeapon:IsWeapon() and botWeapon:GetClass() != bot.Melee and botWeapon:Clip1() == 0 and bot.GroupLeader:GetPos():DistToSqr( bot:GetPos() ) < bot.FollowDist * bot.FollowDist then
 
 						bot.HidingSpot = bot:FindSpot( "near", { pos = bot:GetPos(), radius = bot.FollowDist, stepdown = 200, stepup = 64 } )
 						
@@ -1590,7 +1597,7 @@ hook.Add( "Think" , "TRizzleBotThink" , function()
 				elseif IsValid( bot.TBotOwner ) and bot.TBotOwner:Alive() then
 					
 					-- If the bot needs to reload its active weapon it should find cover nearby and reload there
-					if !isvector( bot.HidingSpot ) and !isvector( bot.Goal ) and IsValid( bot.Enemy ) and botWeapon:GetClass() != bot.Melee and botWeapon:Clip1() == 0 and (bot.TBotOwner:GetPos() - bot:GetPos()):LengthSqr() < bot.FollowDist * bot.FollowDist then
+					if !isvector( bot.HidingSpot ) and !isvector( bot.Goal ) and IsValid( bot.Enemy ) and IsValid( botWeapon ) and botWeapon:IsWeapon() and botWeapon:GetClass() != bot.Melee and botWeapon:Clip1() == 0 and bot.TBotOwner:GetPos():DistToSqr( bot:GetPos() ) < bot.FollowDist * bot.FollowDist then
 
 						bot.HidingSpot = bot:FindSpot( "near", { pos = bot:GetPos(), radius = bot.FollowDist, stepdown = 200, stepup = 64 } )
 						
@@ -2109,7 +2116,7 @@ function BOT:TBotFindClosestTeammate()
 	local target				=	nil -- This is the closest teammate to the bot.
 	
 	--The bot should heal its owner and itself before it heals anyone else
-	if IsValid( self.TBotOwner ) and self.TBotOwner:Alive() and self.TBotOwner:Health() < self.HealThreshold and (self.TBotOwner:GetPos() - self:GetPos()):LengthSqr() < 6400 then return self.TBotOwner
+	if IsValid( self.TBotOwner ) and self.TBotOwner:Alive() and self.TBotOwner:Health() < self.HealThreshold and self.TBotOwner:GetPos():DistToSqr( self:GetPos() ) < 6400 then return self.TBotOwner
 	elseif self:Health() < self.HealThreshold then return self end
 
 	for k, v in ipairs( player.GetAll() ) do
@@ -2156,7 +2163,7 @@ end
 function TRizzleBotRangeCheck( FirstNode , SecondNode , Ladder , Height )
 	-- Some helper errors.
 	if !IsValid( FirstNode ) then error( "Bad argument #1 CNavArea expected got " .. type( FirstNode ) ) end
-	if !IsValid( FirstNode ) then error( "Bad argument #2 CNavArea expected got " .. type( SecondNode ) ) end
+	if !IsValid( SecondNode ) then error( "Bad argument #2 CNavArea expected got " .. type( SecondNode ) ) end
 	
 	if Ladder then return Ladder:GetLength() end
 	
@@ -2165,7 +2172,8 @@ function TRizzleBotRangeCheck( FirstNode , SecondNode , Ladder , Height )
 	
 	-- Jumping is slower than ground movement.
 	if isnumber( Height ) and Height > 32 then
-		
+	
+		--print( "Jump Height: " .. Height )
 		EditedCost		=	EditedCost + ( DefaultCost * 5 )
 		
 	end
@@ -2173,6 +2181,7 @@ function TRizzleBotRangeCheck( FirstNode , SecondNode , Ladder , Height )
 	-- Falling is risky if the bot might take fall damage.
 	if isnumber( Height ) and -Height > 32 then
 	
+		--print( "Drop Height: " .. Height )
 		EditedCost		=	EditedCost + ( DefaultCost * GetApproximateFallDamage( math.abs( Height ) ) )
 		
 	end
@@ -2197,6 +2206,9 @@ function TRizzleBotRangeCheck( FirstNode , SecondNode , Ladder , Height )
 		EditedCost		=	EditedCost + ( DefaultCost * 2 )
 		
 	end
+	
+	--print( "DefaultCost: " .. DefaultCost )
+	--print( "EditedCost: " .. EditedCost )
 	
 	return EditedCost
 end
@@ -2557,8 +2569,8 @@ function BOT:IsSpotOccupied( pos )
 		
 		if IsValid( ply ) and ply != self then
 		
-			if ply:GetPos():DistToSqr(pos) < 75 * 75 then return true -- Don't consider spots if a bot or human player is already there
-			elseif ply:IsTRizzleBot() and ply.HidingSpot == pos then return true end -- Don't consider spots already selected by other bots
+			if ply:IsTRizzleBot() and ply.HidingSpot == pos then return true -- Don't consider spots already selected by other bots
+			elseif ply:GetPos():DistToSqr(pos) < 75 * 75 then return true end -- Don't consider spots if a bot or human player is already there
 	
 		end
 		
@@ -2586,11 +2598,11 @@ function BOT:FindSpots( tbl )
 
 	local tbl = tbl or {}
 
-	tbl.pos			= tbl.pos			or self:WorldSpaceCenter()
-	tbl.radius		= tbl.radius		or 1000
-	tbl.stepdown	= tbl.stepdown		or 200
-	tbl.stepup		= tbl.stepup		or 64
-	tbl.type		= tbl.type			or "hiding"
+	tbl.pos				= tbl.pos				or self:WorldSpaceCenter()
+	tbl.radius			= tbl.radius			or 1000
+	tbl.stepdown		= tbl.stepdown			or 200
+	tbl.stepup			= tbl.stepup			or 64
+	tbl.type			= tbl.type				or "hiding"
 	tbl.checkoccupied	= tbl.checkoccupied		or true
 	tbl.checksafe		= tbl.checksafe			or true
 
@@ -2790,7 +2802,7 @@ function BOT:ComputeNavmeshVisibility()
 				
 			else
 				
-				self.Path[ currentIndex + 1 ]		=	{ Pos = NextLadder:GetTop() + NextLadder:GetNormal() * 2.0 * 16, IsLadder = false, IsDropDown = false }
+				self.Path[ currentIndex + 1 ]		=	{ Pos = NextLadder:GetTop() + NextLadder:GetNormal() * 2.0, IsLadder = false, IsDropDown = false }
 				self.Path[ currentIndex + 2 ]		=	{ Pos = NextLadder:GetBottom(), IsLadder = true, LadderUp = false }
 				LastVisPos				=	NextLadder:GetBottom()
 				
@@ -2814,6 +2826,8 @@ function BOT:ComputeNavmeshVisibility()
 		end]]
 		
 		local connection, area = Get_Blue_Connection( CurrentNode, NextNode )
+		
+		connection = AddDirectionVector( connection, NextHow, 5.0 )
 		
 		--print( "Should Drop Down: " .. tostring( self:ShouldDropDown( LastVisPos, connection ) ) )
 		--print( "LastVisPos: " .. tostring( LastVisPos ))
@@ -2864,6 +2878,21 @@ function BOT:ComputeNavmeshVisibility()
 	
 end
 
+function AddDirectionVector( v, dir, amount )
+
+	local NORTH = 0
+	local EAST = 1
+	local SOUTH = 2
+	local WEST = 3
+
+	if dir == NORTH then v.y = v.y - amount
+	elseif dir == SOUTH then v.y = v.y + amount
+	elseif dir == EAST then v.x = v.x + amount
+	elseif dir == WEST then v.x = v.x - amount end
+	
+	return v
+
+end
 
 -- The main navigation code ( Waypoint handler )
 function BOT:TBotNavigation()
