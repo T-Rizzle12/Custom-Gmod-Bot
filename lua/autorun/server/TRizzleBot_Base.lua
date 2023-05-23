@@ -843,6 +843,13 @@ function BOT:GetDeathTimestamp()
 
 end
 
+-- This checks if the bot is currently unhealthy
+function BOT:IsUnhealthy()
+	
+	return self:Health() <= ( self:GetMaxHealth() * 0.4 )
+	
+end
+
 -- This function checks if the player is a TRizzle Bot.
 function BOT:IsTRizzleBot( onlyRealBots )
 	onlyRealBots = onlyRealBots or false
