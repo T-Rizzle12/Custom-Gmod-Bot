@@ -307,13 +307,11 @@ function TBotSetPlayerModel( ply, cmd, args )
 	local targetbot = args[ 1 ]
 	local playermodel = args[ 2 ] or "kleiner"
 	
-	playermodel = player_manager.TranslatePlayerModel( playermodel )
-	
 	for k, bot in ipairs( player.GetAll() ) do
 		
 		if bot:IsTRizzleBot() and ( bot:Nick() == targetbot or string.lower( targetbot ) == "all" ) and bot.TBotOwner == ply then
 			
-			bot:SetModel( playermodel )
+			bot:SetModel( player_manager.TranslatePlayerModel( playermodel ) )
 			bot.PlayerModel = playermodel
 			break
 		end
@@ -776,8 +774,6 @@ end
 
 -- This returns a random encounter spot the bot can see
 function BOT:ComputeEncounterSpot()
-
-	local NewEncounterSpot = self:GetShootPos() + 1000 * Angle( math.random( -30, 30 ), math.random( -180, 180 ), 0 ):Forward()
 	
 	-- Compute encounter spots near the bot
 	if IsValid( self.currentArea ) then
@@ -789,7 +785,6 @@ function BOT:ComputeEncounterSpot()
 			for key2, tbl2 in ipairs( tbl.spots ) do
 			
 				local encounterPos = tbl2.pos
-				encounterPos = encounterPos + HalfHumanHeight
 				
 				if !self:IsAbleToSee( encounterPos ) or !self:TBotVisible( encounterPos ) then
 				
@@ -811,8 +806,15 @@ function BOT:ComputeEncounterSpot()
 			-- BendLineOfSight allows the bot to adjust the encounter spot so the bot can see it.
 			if canSee then
 			
-				NewEncounterSpot = encounterPos
-				break
+				local ground = navmesh.GetGroundHeight( HalfHumanHeight )
+				if ground then 
+				
+					encounterPos.z = ground + HalfHumanHeight.z
+					
+				end
+				
+				
+				return encounterPos
 				
 			else
 			
@@ -824,17 +826,17 @@ function BOT:ComputeEncounterSpot()
 	
 	end
 	
-	return NewEncounterSpot
+	return self:GetShootPos() + 1000 * Angle( math.random( -30, 30 ), math.random( -180, 180 ), 0 ):Forward()
 
 end
 
 function BOT:ComputeAngleLerp( currentAngles, targetAngles )
 
 	local angleDiff = math.AngleDifference( targetAngles.y, currentAngles.y )
-	if math.abs( math.floor( angleDiff ) ) <= 3 then
+	if math.abs( angleDiff ) <= 3 then
 	
 		self.LookYawVel = 0
-		currentAngles.y = LerpAngle( math.Clamp( FrameTime() * math.random(10, 20), 0.0, 1.0 ), currentAngles, targetAngles ).y
+		currentAngles.y = LerpAngle( math.Clamp( FrameTime() * math.random(15, 20), 0.0, 1.0 ), currentAngles, targetAngles ).y
 		
 	else
 	
@@ -1010,6 +1012,24 @@ function BOT:IsBot()
 	
 end
 
+local oldGetInfo = BOT.GetInfo
+-- This allows me to set the bot's client convars.
+function BOT:GetInfo( cVarName )
+
+	if self:IsTRizzleBot( true ) then
+	
+		if cVarName == "cl_playermodel" then
+		
+			return self.PlayerModel
+			
+		end
+		
+	end
+	
+	return oldGetInfo( self, cVarName )
+
+end
+
 -- Got this from CS:GO Source Code, made some changes so it works for Lua
 function BOT:IsActiveWeaponRecoilHigh()
 
@@ -1126,7 +1146,7 @@ function BOT:BendLineOfSight( eye, target, angleLimit )
 	
 		for side = 1, 2 do
 		
-			local actualAngle = Either( side == 1, ( startAngle + angle ), ( startAngle - angle ) )
+			local actualAngle = Either( side == 2, ( startAngle + angle ), ( startAngle - angle ) )
 			
 			local dx = math.cos( 3.141592 * actualAngle / 180 )
 			local dy = math.sin( 3.141592 * actualAngle / 180 )
@@ -1159,6 +1179,8 @@ function BOT:BendLineOfSight( eye, target, angleLimit )
 				
 				if result.Fraction == 1.0 and !result.StartSolid then
 				
+					bendPoint.z = eye.z + bendLength * to.z
+					
 					return true, bendPoint
 					
 				end
@@ -2239,7 +2261,7 @@ hook.Add( "PlayerSpawn" , "TRizzleBotSpawnHook" , function( ply )
 	if ply:IsTRizzleBot() then
 		
 		ply:TBotResetAI() -- For some reason running the a timer for 0.0 seconds works, but if I don't use a timer nothing works at all
-		timer.Simple( 0.0 , function()
+		--[[timer.Simple( 0.0 , function()
 			
 			if IsValid( ply ) and ply:Alive() then
 				
@@ -2247,7 +2269,7 @@ hook.Add( "PlayerSpawn" , "TRizzleBotSpawnHook" , function( ply )
 				
 			end
 			
-		end)
+		end)]]
 		
 		-- This function seems kind of redundant
 		--[[timer.Simple( 0.3 , function()
