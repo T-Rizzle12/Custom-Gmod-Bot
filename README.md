@@ -1,5 +1,5 @@
 # Use
-- Install this addon: Place the Custom Gmod Bot folder (Unzipped) in your gmod addons folder *OR* install the addon with the [Steam](https://steamcommunity.com/sharedfiles/filedetails/?id=2969405101).
+- Install this addon: Place the Custom Gmod Bot folder (Unzipped) in your gmod addons folder *OR* install the addon with [Steam](https://steamcommunity.com/sharedfiles/filedetails/?id=2969405101).
 - Create an (at least) 2-player gmod server. This addon creates a "player" bot so you must have an open player spot because gmod will consider the bot a real player. 
 - Create a bot using the TRizzleCreateBot Command. (See below)
 
