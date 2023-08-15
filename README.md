@@ -1,9 +1,9 @@
 # Use
-- Install this addon: place the Custom Gmod Bot folder (Unzip before use) in your gmod addons folder.
-- Create at least a 2 player gmod server. This addon creates a "player" bot so you must have a open player spot because gmod will consider the bot a real player. 
+- Install this addon: Place the Custom Gmod Bot folder (Unzipped) in your gmod addons folder *OR* install the addon with the [Steam](https://steamcommunity.com/sharedfiles/filedetails/?id=2969405101).
+- Create an (at least) 2-player gmod server. This addon creates a "player" bot so you must have an open player spot because gmod will consider the bot a real player. 
 - Create a bot using the TRizzleCreateBot Command. (See below)
 
-This addon is on steam, you can download it there instead: https://steamcommunity.com/sharedfiles/filedetails/?id=2969405101
+This addon is on Steam, you can download it there instead: https://steamcommunity.com/sharedfiles/filedetails/?id=2969405101
 
 # Important [![contributions welcome](https://img.shields.io/badge/contributions-welcome-brightgreen.svg?style=flat)](https://github.com/dwyl/esta/issues) [![HitCount](https://hits.dwyl.com/T-Rizzle12/start-here.svg)](https://hits.dwyl.com/T-Rizzle12/Custom-Gmod-Bot)
 
@@ -59,21 +59,21 @@ CommandName, CommandParameters, Example
 - The bot can use ladders
 - The bot has "smooth aiming" (Aim won't instantly aim at enemies) 
 - The bot can open doors
-- The bot has an LOS, "Line of Sight," and can't see behind itself
+- The bot has a LOS, "Line of Sight," and can't see behind itself
 - The bot remembers enemies it has seen recently
 - The bot can "hear" noises created by enemies
 - The bot will use its flashlight when in a dark area
-- The bot will attack any NPC that is hostile them and its "owner" (The player that created it)
-- The bot, if it has a medkit, will heal itself and any players nearby it, although the bot's owner is prioritized.
+- The bot will attack any NPC that is hostile to them and its "owner" (The player that created it)
+- The bot, if it has a medkit, will heal itself and any players nearby it, prioritizing its owner.
 - The bot can enter the vehicle the bot's owner is in. This includes most modded vehicles and chairs. See "Issues"
 - Support for most custom/modded weapons. 
 
 ## Bot Cheats
 I know what you are thinking, but these are needed to make the bot fun and easy to use.
-- The bot will slowly regenerate ammo for its weapons when not in combat. This prevents the player from having to "give" the bot ammo or it having to be programed to "find" ammo. (Collect it from dead enemies)     
+- The bot will slowly regenerate ammo for its weapons when not in combat. This prevents the player from having to "give" the bot ammo or it having to be programmed to "find" ammo. (Collect it from dead enemies)     
 
 # Issues
-- The bot doesn't know if a Nextbot is hostile or friendly, wont attack nextbots at all!
+- The bot doesn't know if a Nextbot is hostile or friendly, won't attack nextbots at all!
 - The bot doesn’t know how to drive cars, basic support is planned.
 
 # Planned Features
