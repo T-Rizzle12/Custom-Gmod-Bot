@@ -3,13 +3,13 @@ local Ent					=	FindMetaTable( "Entity" )
 local Npc					=	FindMetaTable( "NPC" )
 local Zone					=	FindMetaTable( "CNavArea" )
 local Lad					=	FindMetaTable( "CNavLadder" )
-local LOW_PRIORITY				=	0
-local MEDIUM_PRIORITY				=	1
-local HIGH_PRIORITY				=	2
-local MAXIMUM_PRIORITY				=	3
-local BotUpdateSkipCount			=	2 -- This is how many upkeep events must be skipped before another update event can be run
-local BotUpdateInterval				=	0
-local LookUpVector				=	Vector( 0, 0, 64 )
+local LOW_PRIORITY			=	0
+local MEDIUM_PRIORITY		=	1
+local HIGH_PRIORITY			=	2
+local MAXIMUM_PRIORITY		=	3
+local BotUpdateSkipCount	=	2 -- This is how many upkeep events must be skipped before another update event can be run
+local BotUpdateInterval		=	0
+local LookUpVector			=	Vector( 0, 0, 64 )
 util.AddNetworkString( "TRizzleBotFlashlight" )
 
 function TBotCreate( ply , cmd , args ) -- This code defines stats of the bot when it is created.  
@@ -31,7 +31,7 @@ function TBotCreate( ply , cmd , args ) -- This code defines stats of the bot wh
 	NewBot.PistolDist				=	tonumber( args[ 10 ] ) or 1300 -- If an enemy is closer than this, the bot will use its pistol
 	NewBot.ShotgunDist				=	tonumber( args[ 11 ] ) or 300 -- If an enemy is closer than this, the bot will use its shotgun
 	NewBot.RifleDist				=	tonumber( args[ 12 ] ) or 900 -- If an enemy is closer than this, the bot will use its rifle
-	NewBot.HealThreshold				=	tonumber( args[ 13 ] ) or 100 -- If the bot's health or a teammate's health drops below this and the bot is not in combat the bot will use its medkit
+	NewBot.HealThreshold			=	tonumber( args[ 13 ] ) or 100 -- If the bot's health or a teammate's health drops below this and the bot is not in combat the bot will use its medkit
 	NewBot.CombatHealThreshold			=	tonumber( args[ 14 ] ) or 25 -- If the bot's health drops below this and the bot is in combat the bot will use its medkit
 	NewBot.PlayerModel				=	args[ 15 ] or "kleiner" -- This is the player model the bot will use
 	
