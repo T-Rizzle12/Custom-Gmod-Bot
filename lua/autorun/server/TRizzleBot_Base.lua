@@ -1,3 +1,7 @@
+-- TRizzleBot_Base.lua
+-- Purpose: This is a base that can be modified to play other gamemodes
+-- Author: T-Rizzle
+
 -- Grab the needed metatables
 local BOT			=	FindMetaTable( "Player" )
 local Ent			=	FindMetaTable( "Entity" )
@@ -5,12 +9,27 @@ local Wep			=	FindMetaTable( "Weapon" )
 local Npc			=	FindMetaTable( "NPC" )
 local Zone			=	FindMetaTable( "CNavArea" )
 local Lad			=	FindMetaTable( "CNavLadder" )
+local Vec			=	FindMetaTable( "Vector" )
+
+-- Setup path types
+local PATH_ON_GROUND			=	0
+local PATH_DROP_DOWN			=	1
+local PATH_CLIMB_UP				=	2
+local PATH_JUMP_OVER_GAP		=	3
+local PATH_LADDER_UP			=	4
+local PATH_LADDER_DOWN			=	5
+--local PATH_LADDER_MOUNT			=	6
 
 -- Setup lookatpriority level variables
 local LOW_PRIORITY			=	0
 local MEDIUM_PRIORITY		=	1
 local HIGH_PRIORITY			=	2
 local MAXIMUM_PRIORITY		=	3
+
+-- Setup lookat states
+--local NOT_LOOKING_AT_SPOT	=	0
+--local LOOK_TOWARDS_SPOT		=	1
+--local LOOK_AT_SPOT			=	2
 
 -- Setup bot hide reasons
 local NONE					=	0
@@ -30,11 +49,21 @@ local BotUpdateInterval		=	0
 -- Setup vectors so they don't have to be created later
 local HalfHumanHeight		=	Vector( 0, 0, 35.5 )
 
+-- Setup ladder states
+local NO_LADDER						=	0
+local APPROACHING_ASCENDING_LADDER	=	1
+local APPROACHING_DESCENDING_LADDER	=	2
+local ASCENDING_LADDER				=	3
+local DESCENDING_LADDER				=	4
+local DISMOUNTING_LADDER_TOP		=	5
+local DISMOUNTING_LADDER_BOTTOM		=	6
+
 -- Setup net messages
 util.AddNetworkString( "TRizzleBotFlashlight" )
 
 -- Setup addon cvars
-local TBotSpawnTime = CreateConVar( "TBotSpawnTime", 6.0, FCVAR_NOTIFY, "This is how long a bot must be dead before it can respawn." )
+local TBotSpawnTime = CreateConVar( "TBotSpawnTime", 6.0, FCVAR_NONE, "This is how long a bot must be dead before it can respawn.", 0 )
+local TBotLookAheadRange = CreateConVar( "TBotLookAheadRange", 300.0, FCVAR_CHEAT, "This is the minimum range a movement goal must be along the bot's path.", 0 )
 
 function TBotCreate( ply , cmd , args ) -- This code defines stats of the bot when it is created.  
 	if !args[ 1 ] then error( "[WARNING] Please give a name for the bot!" ) end 
@@ -76,7 +105,7 @@ function TBotSetFollowDist( ply, cmd, args ) -- Command for changing the bots "F
 		if bot:IsTRizzleBot() and ( bot:Nick() == targetbot or string.lower( targetbot ) == "all" ) and bot.TBotOwner == ply then
 			
 			bot.FollowDist = followdist
-			break
+			
 		end
 		
 	end
@@ -94,7 +123,7 @@ function TBotSetDangerDist( ply, cmd, args ) -- Command for changing the bots "D
 		if bot:IsTRizzleBot() and ( bot:Nick() == targetbot or string.lower( targetbot ) == "all" ) and bot.TBotOwner == ply then
 			
 			bot.DangerDist = dangerdist
-			break
+			
 		end
 		
 	end
@@ -112,7 +141,7 @@ function TBotSetMelee( ply, cmd, args ) -- Command for changing the bots melee t
 		if bot:IsTRizzleBot() and ( bot:Nick() == targetbot or string.lower( targetbot ) == "all" ) and bot.TBotOwner == ply then
 			
 			bot.Melee = melee
-			break
+			
 		end
 		
 	end
@@ -130,7 +159,7 @@ function TBotSetPistol( ply, cmd, args ) -- Command for changing the bots pistol
 		if bot:IsTRizzleBot() and ( bot:Nick() == targetbot or string.lower( targetbot ) == "all" ) and bot.TBotOwner == ply then
 			
 			bot.Pistol = pistol
-			break
+			
 		end
 		
 	end
@@ -148,7 +177,7 @@ function TBotSetShotgun( ply, cmd, args ) -- Command for changing the bots shotg
 		if bot:IsTRizzleBot() and ( bot:Nick() == targetbot or string.lower( targetbot ) == "all" ) and bot.TBotOwner == ply then
 			
 			bot.Shotgun = shotgun
-			break
+			
 		end
 		
 	end
@@ -166,7 +195,7 @@ function TBotSetRifle( ply, cmd, args ) -- Command for changing the bots rifle t
 		if bot:IsTRizzleBot() and ( bot:Nick() == targetbot or string.lower( targetbot ) == "all" ) and bot.TBotOwner == ply then
 			
 			bot.Rifle = rifle
-			break
+			
 		end
 		
 	end
@@ -186,7 +215,7 @@ function TBotSetSniper( ply, cmd, args ) -- Command for changing the bots sniper
 			
 			bot.Sniper = rifle
 			bot.SniperScope = tobool( hasScope )
-			break
+			
 		end
 		
 	end
@@ -204,7 +233,7 @@ function TBotSetMeleeDist( ply, cmd, args )
 		if bot:IsTRizzleBot() and ( bot:Nick() == targetbot or string.lower( targetbot ) == "all" ) and bot.TBotOwner == ply then
 			
 			bot.MeleeDist = meleedist
-			break
+			
 		end
 		
 	end
@@ -222,7 +251,7 @@ function TBotSetPistolDist( ply, cmd, args )
 		if bot:IsTRizzleBot() and ( bot:Nick() == targetbot or string.lower( targetbot ) == "all" ) and bot.TBotOwner == ply then
 			
 			bot.PistolDist = pistoldist
-			break
+			
 		end
 		
 	end
@@ -240,7 +269,7 @@ function TBotSetShotgunDist( ply, cmd, args )
 		if bot:IsTRizzleBot() and ( bot:Nick() == targetbot or string.lower( targetbot ) == "all" ) and bot.TBotOwner == ply then
 			
 			bot.ShotgunDist = shotgundist
-			break
+			
 		end
 		
 	end
@@ -258,7 +287,7 @@ function TBotSetRifleDist( ply, cmd, args )
 		if bot:IsTRizzleBot() and ( bot:Nick() == targetbot or string.lower( targetbot ) == "all" ) and bot.TBotOwner == ply then
 			
 			bot.RifleDist = rifledist
-			break
+			
 		end
 		
 	end
@@ -276,7 +305,7 @@ function TBotSetHealThreshold( ply, cmd, args )
 		if bot:IsTRizzleBot() and ( bot:Nick() == targetbot or string.lower( targetbot ) == "all" ) and bot.TBotOwner == ply then
 			
 			bot.HealThreshold = math.min( bot:GetMaxHealth(), healthreshold )
-			break
+			
 		end
 		
 	end
@@ -294,7 +323,7 @@ function TBotSetCombatHealThreshold( ply, cmd, args )
 		if bot:IsTRizzleBot() and ( bot:Nick() == targetbot or string.lower( targetbot ) == "all" ) and bot.TBotOwner == ply then
 			
 			bot.CombatHealThreshold = math.min( bot:GetMaxHealth(), combathealthreshold )
-			break
+			
 		end
 		
 	end
@@ -313,7 +342,7 @@ function TBotSetPlayerModel( ply, cmd, args )
 			
 			bot:SetModel( player_manager.TranslatePlayerModel( playermodel ) )
 			bot.PlayerModel = playermodel
-			break
+			
 		end
 		
 	end
@@ -331,7 +360,7 @@ function TBotSpawnWithPreferredWeapons( ply, cmd, args )
 		if bot:IsTRizzleBot() and ( bot:Nick() == targetbot or string.lower( targetbot ) == "all" ) and bot.TBotOwner == ply then
 			
 			bot.SpawnWithWeapons = tobool( spawnwithweapons )
-			break
+			
 		end
 		
 	end
@@ -420,12 +449,27 @@ function BOT:TBotResetAI()
 	self.Light						=	false -- Tells the bot if it should have its flashlight on or off.
 	self.LookYawVel					=	0 -- This is the current yaw velocity of the bot.
 	self.LookPitchVel				=	0 -- This is the current pitch velocity of the bot.
-	self.LookTarget					=	false -- This is the position the bot is currently trying to look at.
-	self.LookTargetTime				=	0 -- This is how long the bot will look at the position the bot is currently trying to look at.
+	self.LookTarget					=	vector_origin -- This is the position the bot is currently trying to look at.
+	self.LookTargetSubject			=	nil -- This is the current entity the bot is trying to look at.
+	self.LookTargetVelocity			=	0 -- Used to update subject tracking.
+	self.LookTargetTrackingTimer	=	0 -- Used to update subject tracking.
+	--self.LookTargetState			=	NOT_LOOKING_AT_SPOT -- This is the bot's current look at state.
+	self.IsSightedIn				=	false -- Is the bot looking at its current target.
+	self.HasBeenSightedIn			=	false -- Has the bot looked at the current target.
+	self.AnchorForward				=	vector_origin -- Used to 
+	self.AnchorRepositionTimer		=	nil -- This is used to simulate the bot recentering its vitural mouse.
+	self.PriorAngles				=	angle_zero	-- This was the bot's eye angles last UpdateAim.
+	self.LookTargetExpire			=	0 -- This is how long the bot will look at the position the bot is currently trying to look at.
+	self.LookTargetDuration			=	0 -- This is how long since the bot started looking at the target pos.
+	--self.LookTargetTolerance		=	0 -- This is how close the bot must aim at LookTarget before starting LookTargetTimestamp.
+	--self.LookTargetTimestamp		=	0 -- This is the timestamp the bot started staring at LookTarget.
 	self.LookTargetPriority			=	LOW_PRIORITY -- This is how important the position the bot is currently trying to look at is.
-	self.EncounterSpot				=	nil -- This is the bots current encounter spot.
-	self.EncounterSpotLookTime		=	0 -- This is how long the bot should look at said encounter spot.
+	self.HeadSteadyTimer			=	nil -- This checks if the bot is not rapidly turning to look somehwere else.
+	self.CheckedEncounterSpots		=	{} -- This stores every encounter spot and when the spot was checked.
+	self.PeripheralTimestamp		=	0 -- This limits how often UpdatePeripheralVision is run.
 	self.NextEncounterTime			=	0 -- This is the next time the bot is allowed to look at another encounter spot.
+	self.ApproachViewPosition		=	self:GetPos() -- This is the position used to compute approach points.
+	self.ApproachPoints				=	{} -- This stores all the approach points leading to the bot.
 	self.HidingSpot					=	nil -- This is the current hiding/sniper spot the bot wants to goto.
 	self.HidingState				=	FINISHED_HIDING -- This is the current hiding state the bot is currently in.
 	self.HideReason					=	NONE -- This is the bot's reason for hiding.
@@ -434,11 +478,20 @@ function BOT:TBotResetAI()
 	self.HideTime					=	0 -- This is how long the bot will stay at its current hiding spot.
 	self.ReturnPos					=	nil -- This is the spot the will back to after hiding, "Example, If the bot went into cover to reload."
 	self.Goal						=	nil -- The vector goal we want to get to.
-	self.NavmeshNodes				=	{} -- The nodes given to us by the pathfinder.
 	self.Path						=	nil -- The nodes converted into waypoints by our visiblilty checking.
+	self.CurrentSegment				=	1 -- This is the current segment the bot is on.
+	self.SegmentCount				=	0 -- This is how many nodes the bot's current path has.
+	self.LadderState				=	NO_LADDER -- This is the current ladder state of the bot.
+	self.LadderInfo					=	nil -- This is the current ladder the bot is trying to use.
+	self.LadderDismountGoal			=	nil -- This is the bot's goal once it reaches the end of its selected ladder.
+	self.LadderTimer				=	0 -- This helps the bot leave the ladder state if it somehow gets stuck.
+	self.MotionVector				=	Vector( 1.0, 0, 0 ) -- This is the bot's current movement as a vector.
 	self.PathTime					=	CurTime() + 0.5 -- This will limit how often the path gets recreated.
 	self.AvoidTimer					=	0 -- Limits how often the bot avoid checks are run.
+	self.WiggleTimer				=	0 -- This helps the bot get unstuck.
+	self.StuckJumpInterval			=	0 -- Limits how often the bot jumps when stuck.
 	
+	self:ComputeApproachPoints()
 	--self:TBotCreateThinking() -- Start our AI
 	
 end
@@ -448,9 +501,12 @@ hook.Add( "StartCommand" , "TRizzleBotAIHook" , function( bot , cmd )
 	if !IsValid( bot ) or !bot:Alive() or !bot:IsTRizzleBot() then return end
 	-- Make sure we can control this bot and its not a player.
 	
-	bot:TBotUpdateMovement( cmd )
+	bot:UpdateAim()
 	cmd:SetButtons( bot.buttonFlags )
 	cmd:SetImpulse( bot.impulseFlags )
+	cmd:SetForwardMove( bot.forwardMovement )
+	cmd:SetSideMove( bot.strafeMovement )
+	cmd:SetUpMove( bit.band( bot.buttonFlags, IN_JUMP ) == IN_JUMP and bot:GetJumpPower() or 0 )
 	
 	if IsValid( bot.BestWeapon ) and bot.BestWeapon:IsWeapon() and bot:GetActiveWeapon() != bot.BestWeapon then 
 	
@@ -518,35 +574,37 @@ function BOT:HandleButtons()
 	local ShouldRun		=	false
 	local ShouldWalk	=	false
 	
-	if IsValid( self.currentArea ) then -- If there is no nav_mesh this will not run to prevent the addon from spamming errors
+	if IsValid( self.lastKnownArea ) then -- If there is no nav_mesh this will not run to prevent the addon from spamming errors
 		
-		if self:IsOnGround() and self.currentArea:HasAttributes( NAV_MESH_JUMP ) then
+		local current = self.Path[ self.CurrentSegment ]
+		
+		if self:IsOnGround() and self.lastKnownArea:HasAttributes( NAV_MESH_JUMP ) then
 			
 			ShouldJump		=	true
 			
 		end
 		
-		if self.currentArea:HasAttributes( NAV_MESH_CROUCH ) then
+		if self.lastKnownArea:HasAttributes( NAV_MESH_CROUCH ) and current.Type == PATH_ON_GROUND then
 			
 			ShouldCrouch	=	true
 			
 		end
 		
-		if self.currentArea:HasAttributes( NAV_MESH_RUN ) then
+		if self.lastKnownArea:HasAttributes( NAV_MESH_RUN ) then
 			
 			ShouldRun		=	true
 			ShouldWalk		=	false
 			
 		end
 		
-		if self.currentArea:HasAttributes( NAV_MESH_WALK ) then
+		if self.lastKnownArea:HasAttributes( NAV_MESH_WALK ) then
 			
 			CanRun			=	false
 			ShouldWalk		=	true
 			
 		end
 		
-		if self.currentArea:HasAttributes( NAV_MESH_STAIRS ) then -- The bot shouldn't jump while on stairs
+		if self.lastKnownArea:HasAttributes( NAV_MESH_STAIRS ) then -- The bot shouldn't jump while on stairs
 		
 			ShouldJump		=	false
 		
@@ -584,19 +642,107 @@ function BOT:HandleButtons()
 	
 		self:PressJump()
 		
-	elseif ShouldCrouch or ( !self:IsOnGround() and self:WaterLevel() < 2 ) then 
+	elseif ShouldCrouch or ( !self:IsOnGround() and !self:Is_On_Ladder() and self:WaterLevel() < 2 ) then 
 	
 		self:PressCrouch( 0.3 )
 		
 	end
 	
-	local door = self:GetEyeTrace().Entity
+	--local door = self:GetEyeTrace().Entity
 	
-	if self.ShouldUse and IsValid( door ) and door:IsDoor() and !door:IsDoorOpen() and door:WorldSpaceCenter():DistToSqr( self:WorldSpaceCenter() ) < 6400 then 
+	if IsValid( self.Breakable ) then
 	
-		self:PressUse()
+		if IsValid( self.HealTarget ) or !self.Breakable:IsBreakable() or self.Breakable:Health() < 1 or self.Breakable:WorldSpaceCenter():DistToSqr( self:WorldSpaceCenter() ) > 6400 then 
 		
-		self.ShouldUse = false 
+			self.Breakable = nil
+			return
+			
+		end
+		
+		if self:IsLookingAtPosition( self.Breakable:WorldSpaceCenter() ) then
+		
+			if IsValid( self.BestWeapon ) and self.BestWeapon:IsWeapon() and self.BestWeapon:GetClass() != "weapon_medkit" then
+			
+				if CurTime() > self.FireWeaponInterval and self:GetActiveWeapon() == self.BestWeapon then
+				
+					self:PressPrimaryAttack()
+					self.FireWeaponInterval = CurTime() + math.Rand( 0.15 , 0.25 )
+					
+					if self.BestWeapon:Clip1() > 0 then
+					
+						self.ReloadInterval = CurTime() + 0.5
+						
+					end
+					
+				end
+				
+			else
+			
+				local bestWeapon		=	nil
+				local pistol			=	self:GetWeapon( self.Pistol )
+				local rifle				=	self:GetWeapon( self.Rifle )
+				local shotgun			=	self:GetWeapon( self.Shotgun )
+				local sniper			=	self:GetWeapon( self.Sniper )
+				local melee				=	self:GetWeapon( self.Melee )
+			
+				if IsValid( sniper ) and sniper:HasPrimaryAmmo() then
+			
+					bestWeapon = sniper
+				
+				end
+		
+				if IsValid( pistol ) and pistol:HasPrimaryAmmo() then
+					
+					bestWeapon = pistol
+					
+				end
+				
+				if IsValid( rifle ) and rifle:HasPrimaryAmmo() and !IsValid( bestWeapon ) then
+				
+					bestWeapon = rifle
+					
+				end
+				
+				if IsValid( shotgun ) and shotgun:HasPrimaryAmmo() and !IsValid( bestWeapon ) then
+					
+					bestWeapon = shotgun
+					
+				end
+				
+				if IsValid( melee ) and !IsValid( bestWeapon ) then
+
+					bestWeapon = melee
+					
+				end
+				
+				if IsValid( bestWeapon ) then
+				
+					self.BestWeapon = bestWeapon
+					
+				end
+			
+			end
+			
+		end
+		
+		self:AimAtPos( self.Breakable:WorldSpaceCenter(), 0.1, MAXIMUM_PRIORITY )
+	
+	elseif IsValid( self.Door ) then 
+	
+		if !self.Door:IsDoor() or self.Door:IsDoorOpen() or self.Door:GetPos():DistToSqr( self:GetPos() ) > 6400 then 
+		
+			self.Door = nil
+			return
+			
+		end
+		
+		if self:IsLookingAtPosition( self.Door:WorldSpaceCenter() ) then
+			
+			self:PressUse()
+			
+		end
+		
+		self:AimAtPos( self.Door:WorldSpaceCenter(), 0.1, MAXIMUM_PRIORITY )
 		
 	end
 	
@@ -604,7 +750,7 @@ end
 
 function BOT:PressPrimaryAttack( holdTime )
 	if self.HoldAttack > CurTime() then return end
-	holdTime = holdTime or 0.1
+	holdTime = holdTime or -1.0
 
 	self.buttonFlags = bit.bor( self.buttonFlags, IN_ATTACK )
 	self.HoldAttack = CurTime() + holdTime
@@ -613,7 +759,7 @@ end
 
 function BOT:PressSecondaryAttack( holdTime )
 	if self.HoldAttack2 > CurTime() then return end
-	holdTime = holdTime or 0.1
+	holdTime = holdTime or -1.0
 
 	self.buttonFlags = bit.bor( self.buttonFlags, IN_ATTACK2 )
 	self.HoldAttack2 = CurTime() + holdTime
@@ -622,7 +768,7 @@ end
 
 function BOT:PressReload( holdTime )
 	if self.HoldReload > CurTime() then return end
-	holdTime = holdTime or 0.1
+	holdTime = holdTime or -1.0
 
 	self.buttonFlags = bit.bor( self.buttonFlags, IN_RELOAD )
 	self.HoldReload = CurTime() + holdTime
@@ -631,7 +777,7 @@ end
 
 function BOT:PressForward( holdTime )
 	if self.HoldForward > CurTime() then return end
-	holdTime = holdTime or 0.1
+	holdTime = holdTime or -1.0
 	
 	self.forwardMovement = self:GetRunSpeed()
 
@@ -645,7 +791,7 @@ end
 
 function BOT:PressBack( holdTime )
 	if self.HoldBack > CurTime() then return end
-	holdTime = holdTime or 0.1
+	holdTime = holdTime or -1.0
 	
 	self.forwardMovement = -self:GetRunSpeed()
 	
@@ -659,7 +805,7 @@ end
 
 function BOT:PressLeft( holdTime )
 	if self.HoldLeft > CurTime() then return end
-	holdTime = holdTime or 0.1
+	holdTime = holdTime or -1.0
 	
 	self.strafeMovement = -self:GetRunSpeed()
 
@@ -673,7 +819,7 @@ end
 
 function BOT:PressRight( holdTime )
 	if self.HoldRight > CurTime() then return end
-	holdTime = holdTime or 0.1
+	holdTime = holdTime or -1.0
 	
 	self.strafeMovement = self:GetRunSpeed()
 
@@ -687,7 +833,7 @@ end
 
 function BOT:PressRun( holdTime )
 	if self.HoldRun > CurTime() then return end
-	holdTime = holdTime or 0.1
+	holdTime = holdTime or -1.0
 
 	self.buttonFlags = bit.bor( self.buttonFlags, IN_SPEED )
 	self.HoldRun = CurTime() + holdTime
@@ -696,7 +842,7 @@ end
 
 function BOT:PressWalk( holdTime )
 	if self.HoldWalk > CurTime() then return end
-	holdTime = holdTime or 0.1
+	holdTime = holdTime or -1.0
 
 	self.buttonFlags = bit.bor( self.buttonFlags, IN_WALK )
 	self.HoldWalk = CurTime() + holdTime
@@ -705,17 +851,27 @@ end
 
 function BOT:PressJump( holdTime )
 	if self.NextJump > CurTime() then return end
-	holdTime = holdTime or 0.1
+	holdTime = holdTime or -1.0
 
 	self.buttonFlags = bit.bor( self.buttonFlags, IN_JUMP )
 	self.HoldJump = CurTime() + holdTime
-	self.NextJump = self.HoldJump + 0.5 -- This cooldown is to prevent the bot from pressing and holding its jump button
+	
+	-- This cooldown is to prevent the bot from pressing and holding its jump button
+	if holdTime < 0.0 then
+	
+		self.NextJump = CurTime() + 0.5
+	
+	else
+		
+		self.NextJump = self.HoldJump + 0.5
 
+	end
+	
 end
 
 function BOT:PressCrouch( holdTime )
 	if self.HoldCrouch > CurTime() then return end
-	holdTime = holdTime or 0.1
+	holdTime = holdTime or -1.0
 
 	self.buttonFlags = bit.bor( self.buttonFlags, IN_DUCK )
 	self.HoldCrouch = CurTime() + holdTime
@@ -724,7 +880,7 @@ end
 
 function BOT:PressUse( holdTime )
 	if self.HoldUse > CurTime() then return end
-	holdTime = holdTime or 0.1
+	holdTime = holdTime or -1.0
 
 	self.buttonFlags = bit.bor( self.buttonFlags, IN_USE )
 	self.HoldUse = CurTime() + holdTime
@@ -772,23 +928,186 @@ function BOT:IsSafe()
 	
 end
 
--- This returns a random encounter spot the bot can see
-function BOT:ComputeEncounterSpot()
+--[[
+Got this from CS:GO Source Code, made some changes so it works for Lua
+
+Returns the closest active player on the given team to the given position
+This also returns to the distance the returned player is from said position.
+]]
+function util.GetClosestPlayer( pos, team )
+
+	local closePlayer = nil
+	local closeDistSq = 1000000000000
 	
-	-- Compute encounter spots near the bot
-	if IsValid( self.currentArea ) then
+	for i = 1, game.MaxPlayers() do
 	
-		local EncounterSpots = {}
+		local player = Entity( i )
 		
-		for key1, tbl in ipairs( self.currentArea:GetSpotEncounters() ) do
+		if !IsValid( player ) then
+		
+			continue
+			
+		end
+		
+		if !player:Alive() then
+		
+			continue
+			
+		end
+		
+		if isnumber( team ) and player:Team() != team then
+		
+			continue
+			
+		end
+		
+		local playerOrigin = player:GetPos()
+		local distSq = playerOrigin:DistToSqr( pos )
+		if distSq < closeDistSq then
+		
+			closeDistSq = distSq
+			closePlayer = player
+			
+		end
+		
+	end
+	
+	return closePlayer, math.sqrt( closeDistSq )
+	
+end
+
+function BOT:UpdatePeripheralVision()
+
+	if self:IsTRizzleBotBlind() then
+	
+		return
+		
+	end
+
+	local peripheralUpdateInterval = 0.29
+	if CurTime() - self.PeripheralTimestamp < peripheralUpdateInterval then
+	
+		return
+		
+	end
+	
+	self.PeripheralTimestamp = CurTime()
+	
+	if IsValid( self.lastKnownArea ) then
+	
+		for key1, tbl in ipairs( self.lastKnownArea:GetSpotEncounters() ) do
 		
 			for key2, tbl2 in ipairs( tbl.spots ) do
 			
 				local encounterPos = tbl2.pos
+				encounterPos.z = encounterPos.z + HalfHumanHeight.z
 				
 				if !self:IsAbleToSee( encounterPos ) or !self:TBotVisible( encounterPos ) then
 				
-					table.insert( EncounterSpots, encounterPos )
+					continue
+					
+				end
+				
+				self:SetEncounterSpotCheckTimestamp( encounterPos )
+				
+			end
+			
+		end
+		
+	end
+	
+end
+
+-- Determine approach points from eye position and approach areas of current area
+function BOT:ComputeApproachPoints()
+	
+	local NORTH = 0
+	local EAST = 1
+	local SOUTH = 2
+	local WEST = 3
+	
+	-- Compute encounter spots near the bot
+	if IsValid( self.lastKnownArea ) then
+	
+		self.ApproachPoints = {}
+		-- For some reason if there is only once adjacent area no encounter spots will be created
+		-- So I grab the single adjacent area instead and use its encounter and approach spots instead
+		local spotEncounter = Either( self.lastKnownArea:GetAdjacentCount() == 1, self.lastKnownArea:GetAdjacentAreas()[ 1 ]:GetSpotEncounters(), self.lastKnownArea:GetSpotEncounters() )
+		local eye = self:GetShootPos()
+		
+		local ap = Vector()
+		local halfWidth = nil
+		
+		for k, info in ipairs( spotEncounter ) do
+			
+			if !IsValid( info.to ) or !IsValid( info.from ) then
+				
+				continue
+				
+			end
+				
+			if info.from_dir <= WEST then
+			
+				ap, halfWidth = info.from:ComputePortal( info.to, info.from_dir )
+				ap.z = info.to:GetZ( ap )
+				
+			else
+				
+				ap = info.to:GetCenter()
+				
+			end
+			
+			local canSee, approachPoint = self:BendLineOfSight( eye, ap + HalfHumanHeight )
+		
+			if canSee then
+				
+				local ground = navmesh.GetGroundHeight( approachPoint )
+				if ground then
+					
+					approachPoint.z = ground
+					
+				else
+					
+					approachPoint.z = ap.z
+					
+				end
+				
+				table.insert( self.ApproachPoints, { Pos = approachPoint, Area = info.to } )
+				
+			end
+			
+		end
+	
+	end
+
+end
+
+-- This returns a random encounter spot the bot can see
+function BOT:ComputeEncounterSpot()
+	
+	-- Compute encounter spots near the bot
+	if IsValid( self.lastKnownArea ) then
+	
+		local EncounterSpots = {}
+		-- For some reason if there is only once adjacent area no encounter spots will be created
+		-- So I grab the single adjacent area instead and use its encounter and approach spots instead
+		local spotEncounter = Either( self.lastKnownArea:GetAdjacentCount() == 1, self.lastKnownArea:GetAdjacentAreas()[ 1 ]:GetSpotEncounters(), self.lastKnownArea:GetSpotEncounters() )
+		
+		if istable( spotEncounter ) then
+		
+			for key, info in ipairs( spotEncounter ) do
+			
+				for key2, tbl in ipairs( info.spots ) do
+				
+					-- If we have seen this spot recently, we don't need to look at it.
+					local checkTime = 10.0
+					if CurTime() - self:GetEncounterSpotCheckTimestamp( tbl.pos ) <= checkTime then
+					
+						continue
+						
+					end
+					
+					table.insert( EncounterSpots, tbl.pos )
 					
 				end
 				
@@ -801,18 +1120,19 @@ function BOT:ComputeEncounterSpot()
 		
 			local spotIndex = math.random( #EncounterSpots )
 			
-			local canSee, encounterPos = self:BendLineOfSight( self:EyePos(), EncounterSpots[ spotIndex ] )
+			local canSee, encounterPos = self:BendLineOfSight( self:GetShootPos(), EncounterSpots[ spotIndex ] )
 			
 			-- BendLineOfSight allows the bot to adjust the encounter spot so the bot can see it.
 			if canSee then
 			
-				local ground = navmesh.GetGroundHeight( HalfHumanHeight )
+				local ground = navmesh.GetGroundHeight( encounterPos )
 				if ground then 
 				
 					encounterPos.z = ground + HalfHumanHeight.z
 					
 				end
 				
+				self:SetEncounterSpotCheckTimestamp( encounterPos )
 				
 				return encounterPos
 				
@@ -830,13 +1150,73 @@ function BOT:ComputeEncounterSpot()
 
 end
 
+-- Return time when given spot was last checked
+function BOT:GetEncounterSpotCheckTimestamp( spot )
+
+	for k, spotTbl in ipairs( self.CheckedEncounterSpots ) do
+	
+		if spotTbl.Pos == spot then
+		
+			return spotTbl.TimeStamp
+			
+		end
+		
+	end
+	
+	return -999999.9
+	
+end
+
+local MAX_CHECKED_SPOTS = 64
+-- Set the timestamp of the given spot to now.
+-- If the spot is not in the set, overwrite the least recently checked spot.
+function BOT:SetEncounterSpotCheckTimestamp( spot )
+
+	local leastRecent = 0
+	local leastRecentTime = CurTime() + 1.0
+	
+	for k, spotTbl in ipairs( self.CheckedEncounterSpots ) do
+	
+		-- If the spot is in the set, just update the timestamp.
+		if spotTbl.Pos == spot then
+		
+			spotTbl.TimeStamp = CurTime()
+			return
+			
+		end
+		
+		-- Keep track of least recent spot
+		if spotTbl.TimeStamp < leastRecentTime then
+		
+			leastRecentTime = spotTbl.TimeStamp
+			leastRecent = k
+			
+		end
+		
+	end
+	
+	-- If there is room for more spots, append this one
+	if #self.CheckedEncounterSpots < MAX_CHECKED_SPOTS then
+	
+		table.insert( self.CheckedEncounterSpots, { Pos = spot, TimeStamp = CurTime() } )
+		
+	else
+	
+		-- Replace the least recent spot.
+		self.CheckedEncounterSpots[ leastRecent ].Pos = spot
+		self.CheckedEncounterSpots[ leastRecent ].TimeStamp = CurTime()
+	
+	end
+	
+end
+
 function BOT:ComputeAngleLerp( currentAngles, targetAngles )
 
 	local angleDiff = math.AngleDifference( targetAngles.y, currentAngles.y )
 	if math.abs( angleDiff ) <= 3 then
 	
 		self.LookYawVel = 0
-		currentAngles.y = LerpAngle( math.Clamp( FrameTime() * math.random(15, 20), 0.0, 1.0 ), currentAngles, targetAngles ).y
+		currentAngles.y = LerpAngle( math.Clamp( FrameTime() * math.random(18, 20), 0.0, 1.0 ), currentAngles, targetAngles ).y
 		
 	else
 	
@@ -884,16 +1264,27 @@ function BOT:ComputeAngleLerp( currentAngles, targetAngles )
 
 end
 
+-- Returns how often we should sample our target's position and
+-- velocity to update our aim tracking, to allow realistic slop in tracking
+-- NOTE: This can be used to make bots have better or worse aim tracking
+function BOT:GetHeadAimTrackingInterval()
+	
+	return 0.0
+	
+end
+
+-- NOTE: This can be used to make bots have different aim speeds
+function BOT:GetMaxHeadAngularVelocity()
+
+	return 1000
+	
+end
+
 -- This where the bot updates its current aim angles
 function BOT:UpdateAim()
-	if !IsValid( self.Enemy ) and ( !isvector( self.EncounterSpot ) or self.EncounterSpotLookTime < CurTime() ) and ( !isvector( self.LookTarget ) or self.LookTargetTime < CurTime() ) then return end
-	
-	local currentAngles = self:EyeAngles() + self:GetViewPunchAngles()
-	local angles = currentAngles -- This is a backup just incase
-	--local lerp = math.Clamp( FrameTime() * math.random(8, 10), 0, 1 ) -- I clamp the value so the bot doesn't aim past where it is trying to look at. Is math.random at a good number?
 	
 	-- Turn and face our enemy if we have one.
-	if !self:IsTRizzleBotBlind() and IsValid( self.Enemy ) and ( self.LookTargetPriority != MAXIMUM_PRIORITY or self.LookTargetTime < CurTime() ) then
+	--[[if !self:IsTRizzleBotBlind() and IsValid( self.Enemy ) and ( self.LookTargetPriority != MAXIMUM_PRIORITY or self.LookTargetState == NOT_LOOKING_AT_SPOT ) then
 		
 		local AimPos = nil
 		
@@ -913,49 +1304,343 @@ function BOT:UpdateAim()
 		-- This sometimes causes the bot to aim weirdly for some reason, would GetAbsVelocity or GetBaseVelocity be better?
 		AimPos = AimPos + ( self.Enemy:GetVelocity() * FrameTime() )
 		
-		local targetPos = AimPos - self:GetShootPos()
+		local angles = self:ComputeAngleLerp( self:EyeAngles() + self:GetViewPunchAngles(), ( AimPos - self:GetShootPos() ):Angle() )
 		
-		angles = self:ComputeAngleLerp( currentAngles, targetPos:Angle() )
+		-- back out "punch angle"
+		angles = angles - self:GetViewPunchAngles()
 		
-	-- The bot will only look at encounter spots if its current look at priority is set to low
-	elseif !self:IsTRizzleBotBlind() and ( self.LookTargetPriority == LOW_PRIORITY or self.LookTargetTime < CurTime() ) and isvector( self.EncounterSpot ) and self.EncounterSpotLookTime > CurTime() then
-	
-		local targetPos = self.EncounterSpot - self:GetShootPos()
+		self:SetEyeAngles( angles )
 		
-		angles = self:ComputeAngleLerp( currentAngles, targetPos:Angle() )
-	
 	-- The bot will look at its current look target
-	elseif isvector( self.LookTarget ) and self.LookTargetTime > CurTime() then
-	
-		local targetPos = self.LookTarget - self:GetShootPos()
+	elseif isvector( self.LookTarget ) and self.LookTargetState != NOT_LOOKING_AT_SPOT then
 		
-		angles = self:ComputeAngleLerp( currentAngles, targetPos:Angle() )
-
+		if self.LookTargetState == LOOK_TOWARDS_SPOT then
+		
+			if self:IsLookingAtPosition( self.LookTarget, self.LookTargetTolerance ) then
+			
+				self.LookTargetState = LOOK_AT_SPOT
+				self.LookTargetTimestamp = CurTime()
+				
+			end
+			
+		elseif self.LookTargetState == LOOK_AT_SPOT then
+		
+			if self.LookTargetDuration >= 0.0 and CurTime() - self.LookTargetTimestamp > self.LookTargetDuration then
+			
+				self.LookTargetState = NOT_LOOKING_AT_SPOT
+				self.LookTargetDuration = 0.0
+				
+			end
+			
+		end
+		
+		local angles = self:ComputeAngleLerp( self:EyeAngles() + self:GetViewPunchAngles(), ( self.LookTarget - self:GetShootPos() ):Angle() )
+		
+		-- back out "punch angle"
+		angles = angles - self:GetViewPunchAngles()
+		
+		self:SetEyeAngles( angles )
+	
+	elseif isvector( self.Goal ) then
+	
+		local AimPos = nil
+	
+		if self.Path[ self.CurrentSegment ] then
+			
+			AimPos = self.Path[ self.CurrentSegment ][ "Pos" ] + self:GetCurrentViewOffset()
+			
+		else
+		
+			AimPos = self.Goal + self:GetCurrentViewOffset()
+		
+		end
+		
+		local angles = self:ComputeAngleLerp( self:EyeAngles() + self:GetViewPunchAngles(), ( AimPos - self:GetShootPos() ):Angle() )
+		
+		-- back out "punch angle"
+		angles = angles - self:GetViewPunchAngles()
+		
+		self:SetEyeAngles( angles )
+		
+	end]]
+	
+	local deltaT = FrameTime()
+	if deltaT < 0.00001 then
+	
+		return
+		
 	end
+	
+	local currentAngles = self:EyeAngles() + self:GetViewPunchAngles()
+	
+	-- track when our head is "steady"
+	local isSteady = true
+	
+	local actualPitchRate = math.AngleDifference( currentAngles.x, self.PriorAngles.x )
+	if math.abs( actualPitchRate ) > 100 * deltaT then
+	
+		isSteady = false
+		
+	else
+	
+		local actualYawRate = math.AngleDifference( currentAngles.y, self.PriorAngles.y )
+		if math.abs( actualYawRate ) > 100 * deltaT then
+		
+			isSteady = false
+			
+		end
+		
+	end
+	
+	if isSteady then
+	
+		if !self.HeadSteadyTimer then
+		
+			self.HeadSteadyTimer = CurTime()
+			
+		end
+		
+	else
+	
+		self.HeadSteadyTimer = nil
+		
+	end
+	
+	self.PriorAngles = currentAngles
+	
+	-- if our current look-at has expired, don't change our aim further
+	if self.HasBeenSightedIn and self.LookTargetExpire <= CurTime() then
+	
+		return
+		
+	end
+	
+	-- simulate limited range of mouse movements
+	-- compute the angle change from center
+	local forward = self:EyeAngles():Forward()
+	local deltaAngle = math.deg( math.acos( forward:Dot( self.AnchorForward ) ) )
+	if deltaAngle > 100 then
+	
+		self.AnchorRepositionTimer = CurTime() + ( math.Rand( 0.9, 1.1 ) * 0.3 )
+		self.AnchorForward = forward
+		
+	end
+	
+	if self.AnchorRepositionTimer and self.AnchorRepositionTimer > CurTime() then
+	
+		return
+		
+	end
+	
+	self.AnchorRepositionTimer = nil
+	
+	local Subject = self.LookTargetSubject
+	if IsValid( Subject ) then
+	
+		if self.LookTargetTrackingTimer <= CurTime() then
+		
+			local desiredLookTargetPos = nil
+			
+			if self.AimForHead and !self:IsActiveWeaponRecoilHigh() then
+			
+				desiredLookTargetPos = Subject:GetHeadPos()
+				
+			else
+			
+				desiredLookTargetPos = Subject:WorldSpaceCenter()
+				
+			end
+			
+			local errorVector = desiredLookTargetPos - self.LookTarget
+			local Error = errorVector:Length()
+			errorVector:Normalize()
+			
+			local trackingInterval = self:GetHeadAimTrackingInterval()
+			if trackingInterval < deltaT then
+			
+				trackingInterval = deltaT
+				
+			end
+			
+			local errorVel = Error / trackingInterval
+			
+			self.LookTargetVelocity = ( errorVel * errorVector ) + Subject:GetVelocity()
+			
+			self.LookTargetTrackingTimer = CurTime() + ( math.Rand( 0.8, 1.2 ) * trackingInterval )
+			
+		end
+		
+		self.LookTarget = self.LookTarget + deltaT * self.LookTargetVelocity
+		
+	end
+	
+	local to = self.LookTarget - self:GetShootPos()
+	to:Normalize()
+	
+	local desiredAngles = to:Angle()
+	local angles = Angle()
+	
+	local onTargetTolerance = 0.98
+	local dot = forward:Dot( to )
+	if dot > onTargetTolerance then
+	
+		self.IsSightedIn = true
+		
+		if !self.HasBeenSightedIn then
+		
+			self.HasBeenSightedIn = true
+			
+		end
+		
+	else
+	
+		self.IsSightedIn = true
+		
+	end
+	
+	-- rotate view at a rate proportional to how far we have to turn
+	-- max rate if we need to turn around
+	-- want first derivative continuity of rate as our aim hits to avoid pop
+	local approachRate = self:GetMaxHeadAngularVelocity()
+	
+	local easeOut = 0.7
+	if dot > easeOut then
+	
+		local t = math.Remap( dot, easeOut, 1.0, 1.0, 0.02 )
+		approachRate = approachRate * math.sin( 1.57 * t )
+		
+	end
+	
+	local targetDuration = CurTime() - self.LookTargetDuration
+	if targetDuration < 0.25 then
+	
+		approachRate = approachRate * ( targetDuration / 0.25 )
+		
+	end
+	
+	--print( approachRate * deltaT )
+	angles.y = math.ApproachAngle( currentAngles.y, desiredAngles.y, approachRate * deltaT )
+	angles.x = math.ApproachAngle( currentAngles.x, desiredAngles.x, 0.5 * approachRate * deltaT )
+	angles.z = 0
 	
 	-- back out "punch angle"
 	angles = angles - self:GetViewPunchAngles()
+	
+	angles.x = math.NormalizeAngle( angles.x )
+	angles.y = math.NormalizeAngle( angles.y )
 	
 	self:SetEyeAngles( angles )
 
 end
 
-function BOT:AimAtPos( Pos, Time, Priority )
-	if !isvector( Pos ) or Time < CurTime() or ( self.LookTargetPriority > Priority and CurTime() < self.LookTargetTime ) then return end
+-- Rotate body to face towards "target"
+function BOT:FaceTowards( target )
+
+	if !isvector( target ) then
 	
-	self.LookTarget				=	Pos
-	self.LookTargetTime			=	Time
-	self.LookTargetPriority		=	Priority
+		return
+		
+	end
+	
+	self:AimAtPos( Vector( target.x, target.y, self:GetShootPos().z ), 0.1, LOW_PRIORITY )
 	
 end
 
-function BOT:SetEncounterLookAt( Pos, Time )
-	if !isvector( Pos ) or Time < CurTime() and self.NextEncounterTime > CurTime() then return end 
+function BOT:AimAtPos( Pos, Time, Priority )
 	
-	self.EncounterSpot			=	Pos
-	self.EncounterSpotLookTime	=	Time
-	self.NextEncounterTime		=	Time + 2.0
+	if !isvector( Pos ) or !isnumber( Time ) or !isnumber( Priority ) then
+	
+		return
+		
+	end
+	
+	if Time <= 0.0 then
+	
+		Time = 0.1
+		
+	end
+	
+	if self.LookTargetPriority == Priority then
+	
+		if !self.HeadSteadyTimer or CurTime() - self.HeadSteadyTimer < 0.3 then
+		
+			return
+			
+		end
+		
+	end
+	
+	if self.LookTargetPriority > Priority and self.LookTargetExpire > CurTime() then
+	
+		return
+		
+	end
+	
+	self.LookTargetExpire = CurTime() + Time
+	
+	if ( self.LookTarget - Pos ):IsLengthLessThan( 1.0 ) then
+	
+		self.LookTargetPriority = Priority
+		return
+		
+	end
+	
+	self.LookTarget				=	Pos
+	self.LookTargetSubject		=	nil
+	--self.LookTargetState		=	LOOK_TOWARDS_SPOT
+	self.LookTargetDuration		=	CurTime()
+	self.LookTargetPriority		=	Priority
+	self.HasBeenSightedIn		=	false
+	--self.LookTargetTolerance	=	angleTolerance
+	
+end
 
+function BOT:AimAtEntity( Subject, Time, Priority )
+	
+	if !IsValid( Subject ) or !isnumber( Time ) or !isnumber( Priority ) then
+	
+		return
+		
+	end
+	
+	if Time <= 0.0 then
+	
+		Time = 0.1
+		
+	end
+	
+	if self.LookTargetPriority == Priority then
+	
+		if !self.HeadSteadyTimer or CurTime() - self.HeadSteadyTimer < 0.3 then
+		
+			return
+			
+		end
+		
+	end
+	
+	if self.LookTargetPriority > Priority and self.LookTargetExpire > CurTime() then
+	
+		return
+		
+	end
+	
+	self.LookTargetExpire = CurTime() + Time
+	
+	if Subject == self.LookTargetSubject then
+	
+		self.LookTargetPriority = Priority
+		return
+		
+	end
+	
+	self.LookTargetSubject		=	Subject
+	--self.LookTargetState		=	LOOK_TOWARDS_SPOT
+	self.LookTargetDuration		=	CurTime()
+	self.LookTargetPriority		=	Priority
+	self.HasBeenSightedIn		=	false
+	--self.LookTargetTolerance	=	angleTolerance
+	
 end
 
 -- Checks if the bot is currently using the scope of their active weapon
@@ -979,6 +1664,46 @@ function BOT:GetDeathTimestamp()
 
 end
 
+-- Width of bot's collision hull in XY plane
+function BOT:GetHullWidth()
+
+	local bottom, top = self:GetHull()
+
+	return ( top.x * self:GetModelScale() ) - ( bottom.x * self:GetModelScale() )
+	
+end
+
+-- Height of bot's collision hull based on posture
+function BOT:GetHullHeight()
+
+	if self:Crouching() then
+	
+		return self:GetCrouchHullHeight()
+		
+	end
+	
+	return self:GetStandHullHeight()
+	
+end
+
+-- Height of bot's collision hull when standing
+function BOT:GetStandHullHeight()
+
+	local bottom, top = self:GetHull()
+	
+	return ( top.z * self:GetModelScale() ) - ( bottom.z * self:GetModelScale() )
+	
+end
+
+-- Height of bot's collision hull when crouched
+function BOT:GetCrouchHullHeight()
+
+	local bottom, top = self:GetHullDuck()
+	
+	return ( top.z * self:GetModelScale() ) - ( bottom.z * self:GetModelScale() )
+	
+end
+
 -- This checks if the bot is currently unhealthy
 function BOT:IsUnhealthy()
 	
@@ -986,7 +1711,21 @@ function BOT:IsUnhealthy()
 	
 end
 
+-- This is only needed for some gamemodes as said gamemodes may do certain things with bots.
 local oldIsBot = BOT.IsBot
+-- This makes the game and other addons think the player being controled is a bot.
+--[[function BOT:IsBot()
+
+	if oldIsBot( self ) or self:IsTRizzleBot() then
+	
+		return true
+		
+	end
+	
+	return false
+	
+end]]
+
 -- This function checks if the player is a TRizzle Bot.
 function BOT:IsTRizzleBot( onlyRealBots )
 	onlyRealBots = onlyRealBots or false
@@ -996,19 +1735,6 @@ function BOT:IsTRizzleBot( onlyRealBots )
 	end
 	
 	return !onlyRealBots and self.TRizzleBot
-	
-end
-
--- This makes the game and other addons think the player being controled is a bot.
-function BOT:IsBot()
-
-	if oldIsBot( self ) or self:IsTRizzleBot() then
-	
-		return true
-		
-	end
-	
-	return false
 	
 end
 
@@ -1056,7 +1782,7 @@ function BOT:PointWithinViewAngle( pos, targetpos, lookdir, fov )
 	if diff < 0 then return false end
 	
 	local length = pos:LengthSqr()
-	if self:IsHiddenByFog( length ) then return false end
+	if self:IsHiddenByFog( math.sqrt( length ) ) then return false end
 	
 	return diff * diff >= length * fov * fov
 end
@@ -1070,6 +1796,34 @@ function TBotTraceFilter( ent )
 	
 end
 
+-- This filter will ignore Players, NPCS, NextBots, Breakable Props, and Doors
+function TBotTraversableFilter( ent )
+
+	if ent:IsBreakable() or ent:IsDoor() then return false end
+	
+	return TBotTraceFilter( ent )
+	
+end
+
+function BOT:IsLookingAtPosition( pos, angleTolerance )
+	angleTolerance = angleTolerance or 20
+	
+	local idealAngles = ( pos - self:GetShootPos() ):Angle()
+	local viewAngles = self:EyeAngles()
+	
+	local deltaYaw = math.NormalizeAngle( idealAngles.y - viewAngles.y )
+	local deltaPitch = math.NormalizeAngle( idealAngles.x - viewAngles.x )
+	
+	if math.abs( deltaYaw ) < angleTolerance and math.abs( deltaPitch ) < angleTolerance then
+	
+		return true
+		
+	end
+	
+	return false
+	
+end
+
 -- Checks if the current position or entity can be seen by the target entity
 function Ent:TBotVisible( pos )
 	
@@ -1077,7 +1831,7 @@ function Ent:TBotVisible( pos )
 		
 		local trace = util.TraceLine( { start = self:EyePos(), endpos = pos:WorldSpaceCenter(), filter = TBotTraceFilter, mask = MASK_VISIBLE_AND_NPCS } )
 	
-		if trace.Fraction == 1.0 or ( pos:IsPlayer() and trace.Entity == pos:GetVehicle() ) then
+		if trace.Fraction == 1.0 or trace.Entity == pos or ( pos:IsPlayer() and trace.Entity == pos:GetVehicle() ) then
 			
 			return true
 
@@ -1085,7 +1839,7 @@ function Ent:TBotVisible( pos )
 		
 		local trace2 = util.TraceLine( { start = self:EyePos(), endpos = pos:EyePos(), filter = TBotTraceFilter, mask = MASK_VISIBLE_AND_NPCS } )
 	
-		if trace2.Fraction == 1.0 or ( pos:IsPlayer() and trace2.Entity == pos:GetVehicle() ) then
+		if trace2.Fraction == 1.0 or trace.Entity == pos or ( pos:IsPlayer() and trace2.Entity == pos:GetVehicle() ) then
 			
 			return true
 			
@@ -1233,7 +1987,7 @@ function BOT:TBotBlind( time )
 	if !IsValid( self ) or !self:Alive() or !self:IsTRizzleBot() or time < ( self.TRizzleBotBlindTime - CurTime() ) then return end
 	
 	self.TRizzleBotBlindTime = CurTime() + time
-	self:AimAtPos( self:GetShootPos() + 1000 * Angle( math.random( -30, 30 ), math.random( -180, 180 ), 0 ):Forward(), CurTime() + 0.5, MAXIMUM_PRIORITY ) -- Make the bot fling its aim in a random direction upon becoming blind
+	self:AimAtPos( self:GetShootPos() + 1000 * Angle( math.random( -30, 30 ), math.random( -180, 180 ), 0 ):Forward(), 0.1, MAXIMUM_PRIORITY ) -- Make the bot fling its aim in a random direction upon becoming blind
 end
 
 -- Is the bot currently blind?
@@ -1280,15 +2034,15 @@ function BOT:GetFogObscuredRatio( range )
 		return 0.0
 	end
 
-	if range <= startDist * startDist then
+	if range <= startDist then
 		return 0.0
 	end
 
-	if range >= endDist * endDist then
+	if range >= endDist then
 		return 1.0
 	end
 
-	local ratio = (range - startDist * startDist) / (endDist * endDist - startDist * startDist)
+	local ratio = (range - startDist) / (endDist - startDist)
 	ratio = math.min( ratio, maxdensity )
 	return ratio
 end
@@ -1345,7 +2099,7 @@ function BOT:GetFogTrigger()
 	
 		if IsValid( fogTrigger ) then
 		
-			local dist = self:WorldSpaceCenter():DistToSqr( fogTrigger:WorldSpaceCenter() )
+			local dist = self:GetPos():DistToSqr( fogTrigger:GetPos() )
 			if dist < bestDist then
 				bestDist = dist
 				bestTrigger = fogTrigger
@@ -1387,7 +2141,7 @@ function BOT:PointWithinCursor( targetpos )
 		
 			return true
 			
-		elseif traceEntity:GetClass() == "func_breakable_surf" then
+		elseif traceEntity:GetClass() == "func_breakable" or traceEntity:GetClass() == "func_breakable_surf" then
 		
 			return true
 			
@@ -1402,14 +2156,14 @@ end
 function BOT:IsCursorOnTarget()
 
 	if IsValid( self.Enemy ) then
-		-- we must check eyepos and worldspacecenter
-		-- I should make the bot pick a spot and only check there instead
-
-		if self:PointWithinCursor( self.Enemy:WorldSpaceCenter() ) then
-			return true
+		
+		if self.AimForHead and !self:IsActiveWeaponRecoilHigh() then
+		
+			return self:PointWithinCursor( self.Enemy:GetHeadPos() )
+		
 		end
 
-		return self:PointWithinCursor( self.Enemy:GetHeadPos() )
+		return self:PointWithinCursor( self.Enemy:WorldSpaceCenter() )
 	
 	end
 	
@@ -1420,7 +2174,7 @@ end
 function BOT:SelectBestWeapon()
 	if self.MinEquipInterval > CurTime() then return end
 	
-	local enemydistsqr		=	self.Enemy:WorldSpaceCenter():DistToSqr( self:WorldSpaceCenter() ) -- Only compute this once, there is no point in recomputing it multiple times as doing so is a waste of computer resources
+	local enemydistsqr		=	self.Enemy:GetPos():DistToSqr( self:GetPos() ) -- Only compute this once, there is no point in recomputing it multiple times as doing so is a waste of computer resources
 	local oldBestWeapon 	= 	self.BestWeapon
 	local minEquipInterval	=	0
 	local bestWeapon		=	nil
@@ -1471,7 +2225,7 @@ function BOT:SelectBestWeapon()
 		end
 		
 		-- If an enemy gets too close, the bot should use its melee
-		if IsValid( melee ) and ( enemydistsqr < self.MeleeDist * self.MeleeDist or !IsValid( bestWeapon ) ) then
+		if IsValid( melee ) and ( ( enemydistsqr < self.MeleeDist * self.MeleeDist and self.NumVisibleEnemies < 5 ) or !IsValid( bestWeapon ) ) then
 
 			bestWeapon = melee
 			minEquipInterval = 2.0
@@ -1700,6 +2454,26 @@ function Ent:GetHeadPos()
 	
 end
 
+function Ent:IsBreakable()
+	if self:Health() < 1 then return false end
+
+	local DAMAGE_YES = 2
+	local BreakableList = { func_breakable = true, func_breakable_surf = true, func_physbox = true, prop_physics = true, prop_physics_multiplayer = true, func_pushable = true, prop_dynamic = true }
+
+	if self:GetInternalVariable( "m_takedamage" ) == DAMAGE_YES then
+		
+		if BreakableList[ self:GetClass() ] then
+		
+			return true
+			
+		end
+		
+	end
+	
+	return false
+
+end
+
 function Ent:IsDoor()
 
 	if (self:GetClass() == "func_door") or (self:GetClass() == "prop_door_rotating") or (self:GetClass() == "func_door_rotating") then
@@ -1744,6 +2518,44 @@ function BOT:FindGroupLeader()
 	end
 
 	return CurrentLeader
+	
+end
+
+-- Returns true if the bot is trying to hide
+function BOT:IsHiding()
+
+	if !isvector( self.HidingSpot ) or self.HideReason == NONE then
+	
+		return false
+		
+	end
+
+	return self.HidingState != FINISHED_HIDING
+	
+end
+
+-- Returns true if the bot is hiding and at its hiding spot.
+function BOT:IsAtHidingSpot()
+
+	if !self:IsHiding() then
+	
+		return false
+		
+	end
+	
+	return self.HidingState == WAIT_AT_SPOT
+
+end
+
+function BOT:IsNotMoving( minDuration )
+
+	if !self.StillTimer then
+	
+		return false
+		
+	end
+
+	return CurTime() - self.StillTimer >= minDuration
 	
 end
 
@@ -1804,8 +2616,6 @@ hook.Add( "Think" , "TRizzleBotThink" , function()
 	
 		if IsValid( bot ) and bot:IsTRizzleBot() then
 			
-			bot:UpdateAim()
-			
 			if ( ( engine:TickCount() + bot:EntIndex() ) % BotUpdateSkipCount ) == 0 then
 			
 				bot:ResetCommand() -- Clear all movement and buttons
@@ -1832,20 +2642,32 @@ hook.Add( "Think" , "TRizzleBotThink" , function()
 				bot:TBotFindClosestEnemy()
 				bot:TBotCheckEnemyList()
 				
+				local speed = bot:GetVelocity():Length()
+	
+				if speed > 10.0 then
+				
+					bot.MotionVector = bot:GetVelocity() / speed
+					
+				end
+				
 				if bot:GetCollisionGroup() != 5 then bot:SetCollisionGroup( 5 ) end -- Apparently the bot's default collisiongroup is set to 11 causing the bot not to take damage from melee enemies
 				
 				local botWeapon = bot:GetActiveWeapon()
-				if ( !IsValid( bot.TBotOwner ) or !bot.TBotOwner:Alive() ) and ( ( engine:TickCount() + self:EntIndex() ) % 7 ) == 0 then	
+				if ( !IsValid( bot.TBotOwner ) or !bot.TBotOwner:Alive() ) then	
 					
-					local CurrentLeader = bot:FindGroupLeader()
-					if IsValid( CurrentLeader ) then
-					
-						bot.GroupLeader = CurrentLeader
+					if ( ( engine:TickCount() + bot:EntIndex() ) % 7 ) == 0 then
 						
-					else
-					
-						bot.GroupLeader = bot
-					
+						local CurrentLeader = bot:FindGroupLeader()
+						if IsValid( CurrentLeader ) then
+						
+							bot.GroupLeader = CurrentLeader
+							
+						else
+						
+							bot.GroupLeader = bot
+						
+						end
+						
 					end
 				
 				elseif IsValid( bot.GroupLeader ) then -- If the bot's owner is alive, the bot should clear its group leader and the hiding spot it was trying to goto
@@ -1857,11 +2679,13 @@ hook.Add( "Think" , "TRizzleBotThink" , function()
 					
 				end
 				
+				bot:UpdatePeripheralVision()
+				
 				if IsValid( bot.Enemy ) then
 					
 					bot.LastCombatTime = CurTime() -- Update combat timestamp
 					
-					local enemyDist = bot.Enemy:WorldSpaceCenter():DistToSqr( bot:WorldSpaceCenter() ) -- Grab the bot's current distance from their current enemy
+					local enemyDist = bot.Enemy:GetPos():DistToSqr( bot:GetPos() ) -- Grab the bot's current distance from their current enemy
 					
 					-- Should I limit how often this runs?
 					local trace = util.TraceLine( { start = bot:GetShootPos(), endpos = bot.Enemy:GetHeadPos(), filter = bot, mask = MASK_SHOT } )
@@ -1876,6 +2700,8 @@ hook.Add( "Think" , "TRizzleBotThink" , function()
 						
 					end
 					
+					bot:AimAtEntity( bot.Enemy, 1.0, HIGH_PRIORITY )
+					
 					if IsValid( botWeapon ) and botWeapon:IsWeapon() then
 					
 						if bot.FullReload and ( !botWeapon:UsesPrimaryAmmo() or !botWeapon:UsesClipsForAmmo1() or botWeapon:Clip1() >= botWeapon:GetMaxClip1() or bot:GetAmmoCount( botWeapon:GetPrimaryAmmoType() ) <= botWeapon:Clip1() or botWeapon:GetClass() != bot.Shotgun ) then bot.FullReload = false end -- Fully reloaded :)
@@ -1888,7 +2714,7 @@ hook.Add( "Think" , "TRizzleBotThink" , function()
 						
 						end
 						
-						if CurTime() > bot.FireWeaponInterval and !bot:IsReloading() and !bot.FullReload and botWeapon:GetClass() != "weapon_medkit" and bot:IsCursorOnTarget() then
+						if CurTime() > bot.FireWeaponInterval and !bot:IsReloading() and !bot.FullReload and botWeapon:GetClass() != "weapon_medkit" and ( botWeapon:GetClass() != bot.Melee or enemyDist <= bot.MeleeDist * bot.MeleeDist ) and bot:IsCursorOnTarget() then
 							
 							bot:PressPrimaryAttack()
 							
@@ -1951,7 +2777,7 @@ hook.Add( "Think" , "TRizzleBotThink" , function()
 					if !bot:IsInCombat() then
 					
 						-- If the bot is not in combat then the bot should check if any of its teammates need healing
-						bot.HealTarget = bot:TBotFindClosestTeammate()
+						bot.HealTarget = bot:TBotFindHealTarget()
 						
 						if IsValid( bot.HealTarget ) and bot:HasWeapon( "weapon_medkit" ) then
 						
@@ -1971,20 +2797,13 @@ hook.Add( "Think" , "TRizzleBotThink" , function()
 									
 								end
 								
-								if bot.HealTarget != bot then bot:AimAtPos( bot.HealTarget:WorldSpaceCenter(), CurTime() + 0.1, MEDIUM_PRIORITY ) end
+								if bot.HealTarget != bot then bot:AimAtPos( bot.HealTarget:WorldSpaceCenter(), 0.1, MEDIUM_PRIORITY ) end
 								
 							end
 							
 						else
 						
 							bot:ReloadWeapons()
-							
-						end
-						
-						-- If the bot doen't feel safe it should look around for possible enemies
-						if !bot:IsSafe() and bot.NextEncounterTime < CurTime() then
-							
-							bot:SetEncounterLookAt( bot:ComputeEncounterSpot(), CurTime() + 1.0 )
 							
 						end
 						
@@ -2006,7 +2825,7 @@ hook.Add( "Think" , "TRizzleBotThink" , function()
 							
 						end
 						
-						-- The bot should slowly regenerate ammo it has lost when not in combat
+						-- The bot will slowly regenerate ammo it has lost when not in combat
 						-- The bot will quickly regenerate ammo once it is safe
 						if bot:IsSafe() or ( ( engine:TickCount() + bot:EntIndex() ) % math.floor( 1 / engine.TickInterval() ) == 0 ) then
 						
@@ -2048,14 +2867,14 @@ hook.Add( "Think" , "TRizzleBotThink" , function()
 						
 						elseif !isvector( bot.HidingSpot ) and !isvector( bot.Goal ) and bot.HidingSpotInterval < CurTime() and bot:IsSafe() and bot.NextHuntTime < CurTime() then
 						
-							bot.HidingSpot = bot:FindSpot( "random", { pos = bot:GetPos(), radius = math.random( 1000, 10000 ), stepdown = 1000, stepup = 64, spotType = "sniper", checksafe = 0, checkoccupied = 1, checklineoffire = 0 } )
+							bot.HidingSpot = bot:FindSpot( "random", { pos = bot:GetPos(), radius = math.random( 5000, 10000 ), stepdown = 1000, stepup = 64, spotType = "sniper", checksafe = 0, checkoccupied = 1, checklineoffire = 0 } )
 							bot.HidingSpotInterval = CurTime() + 0.5
 							
 							if isvector( bot.HidingSpot ) then
 								
 								bot.HidingState = MOVE_TO_SPOT
 								bot.HideReason	= SEARCH_AND_DESTORY
-								bot.HideTime	= 20.0
+								bot.HideTime	= 30.0
 								
 							end
 						
@@ -2107,7 +2926,7 @@ hook.Add( "Think" , "TRizzleBotThink" , function()
 					if bot.HidingState == MOVE_TO_SPOT then
 						
 						-- When have reached our destination start the wait timer
-						if bot:GetPos():DistToSqr( bot.HidingSpot ) < 1024 then
+						if bot:GetPos():DistToSqr( bot.HidingSpot ) <= 1024 then
 							
 							bot.HidingState = WAIT_AT_SPOT
 							bot.HideTime = CurTime() + bot.HideTime
@@ -2121,12 +2940,11 @@ hook.Add( "Think" , "TRizzleBotThink" , function()
 						elseif bot.HideReason == SEARCH_AND_DESTORY and bot:IsInCombat() then
 						
 							bot.NextHuntTime = CurTime() + 10
-							bot.Goal = nil
-							bot.Path = {}
+							bot:TBotClearPath()
 							bot:ClearHidingSpot()
 						
 						-- If the bot has a hiding spot it should path there
-						elseif !isvector( bot.Goal ) and bot:GetPos():DistToSqr( bot.HidingSpot ) >= 1024 then
+						elseif !isvector( bot.Goal ) and bot:GetPos():DistToSqr( bot.HidingSpot ) > 1024 then
 					
 							bot:TBotSetNewGoal( bot.HidingSpot )
 							
@@ -2151,7 +2969,7 @@ hook.Add( "Think" , "TRizzleBotThink" , function()
 							bot.NextHuntTime = CurTime() + 20.0
 							bot:ClearHidingSpot()
 						
-						elseif !IsValid( bot.currentArea ) or !bot.currentArea:HasAttributes( NAV_MESH_STAND ) then
+						elseif !IsValid( bot.lastKnownArea ) or !bot.lastKnownArea:HasAttributes( NAV_MESH_STAND ) then
 							
 							-- The bot should crouch once it reaches its selected hiding spot
 							bot:PressCrouch()
@@ -2164,10 +2982,6 @@ hook.Add( "Think" , "TRizzleBotThink" , function()
 					
 						bot:PressReload()
 						bot.ReloadInterval = CurTime() + 0.5
-					
-					elseif bot.HideReason == SEARCH_AND_DESTORY and bot:IsSafe() and bot.NextEncounterTime < CurTime() then
-					
-						bot:SetEncounterLookAt( bot:ComputeEncounterSpot(), CurTime() + 1.0 )
 					
 					end
 					
@@ -2192,8 +3006,59 @@ hook.Add( "Think" , "TRizzleBotThink" , function()
 				-- The check CNavArea we are standing on.
 				if !IsValid( bot.currentArea ) or !bot.currentArea:Contains( bot:GetPos() ) then
 				
-					bot.currentArea			=	navmesh.GetNearestNavArea( bot:GetPos() )
+					bot.currentArea			=	navmesh.GetNearestNavArea( bot:GetPos(), true, 50, true )
 					
+				end
+				
+				if IsValid( bot.currentArea ) and bot.currentArea != bot.lastKnownArea then
+				
+					bot.lastKnownArea = bot.currentArea
+					
+				end
+				
+				local stillSpeed = 10.0
+				if bot:GetVelocity():IsLengthLessThan( stillSpeed ) then
+				
+					if !bot.StillTimer then
+					
+						bot.StillTimer = CurTime()
+						
+					end
+					
+				else
+				
+					bot.StillTimer = nil
+					
+				end
+				
+				-- Update the bot's encounter and approach points
+				if ( ( !bot:IsInCombat() and !bot:IsSafe() ) or bot:IsHiding() ) and bot.NextEncounterTime < CurTime() then
+				
+					local minStillTime = 2.0
+					if bot:IsAtHidingSpot() or bot:IsNotMoving( minStillTime ) then
+						
+						local recomputeApproachPointTolerance = 50.0
+						if ( bot.ApproachViewPosition - bot:GetPos() ):IsLengthGreaterThan( recomputeApproachPointTolerance ) then
+						
+							bot:ComputeApproachPoints()
+							bot.ApproachViewPosition = bot:GetPos()
+						
+						end
+					
+						if istable( bot.ApproachPoints ) and #bot.ApproachPoints > 0 then
+					
+							bot:AimAtPos( bot.ApproachPoints[ math.random( #bot.ApproachPoints ) ].Pos + HalfHumanHeight, 1.0, MEDIUM_PRIORITY )
+							bot.NextEncounterTime = CurTime() + 2.0
+							
+						end
+					
+					else
+					
+						bot:AimAtPos( bot:ComputeEncounterSpot(), 1.0, MEDIUM_PRIORITY )
+						bot.NextEncounterTime = CurTime() + 2.0
+					
+					end
+				
 				end
 				
 				-- Update the bot movement if they are pathing to a goal
@@ -2201,8 +3066,9 @@ hook.Add( "Think" , "TRizzleBotThink" , function()
 			
 					bot:TBotNavigation()
 					bot:TBotDebugWaypoints()
-					
-					--bot:DoorCheck()
+					bot:TBotUpdateMovement()
+					bot:DoorCheck()
+					bot:BreakableCheck()
 					
 				end
 				
@@ -2214,7 +3080,7 @@ hook.Add( "Think" , "TRizzleBotThink" , function()
 				
 				end
 				
-				if !bot.TBotOwner:InVehicle() and bot:InVehicle() then
+				if !bot.TBotOwner:InVehicle() and bot:InVehicle() and !bot:KeyPressed( IN_USE ) and !bot:KeyDown( IN_USE ) then
 				
 					bot:PressUse()
 				
@@ -2265,7 +3131,7 @@ hook.Add( "PlayerSpawn" , "TRizzleBotSpawnHook" , function( ply )
 			
 			if IsValid( ply ) and ply:Alive() then
 				
-				ply:SetModel( ply.PlayerModel )
+				ply:SetModel( player_manager.TranslatePlayerModel( ply.PlayerModel ) )
 				
 			end
 			
@@ -2464,8 +3330,8 @@ hook.Add( "PlayerHurt" , "TRizzleBotPlayerHurt" , function( victim, attacker )
 	
 	if attacker:IsNPC() and !victim.EnemyList[ attacker:GetCreationID() ] and attacker:IsAlive() and ( attacker:IsEnemy( victim ) or attacker:IsEnemy( victim.TBotOwner ) ) then
 
-		victim.EnemyList[ attacker:GetCreationID() ]		=	{ Enemy = attacker, LastSeenTime = CurTime() + 3.0, ReactionTime = CurTime() + math.Rand( 0.15, 0.30 ) }
-		if !victim:IsInCombat() and victim:IsSafe() then victim.LastCombatTime = CurTime() + 5.0 end
+		victim.EnemyList[ attacker:GetCreationID() ]		=	{ Enemy = attacker, LastSeenTime = CurTime() + 3.0 }
+		if !victim:IsInCombat() and victim:IsSafe() then victim.LastCombatTime = CurTime() + 5.1 end
 		
 	end
 
@@ -2482,8 +3348,8 @@ hook.Add( "EntityEmitSound" , "TRizzleBotEntityEmitSound" , function( soundTable
 	
 		if soundTable.Entity:IsNPC() and !bot.EnemyList[ soundTable.Entity:GetCreationID() ] and soundTable.Entity:IsAlive() and ( soundTable.Entity:IsEnemy( bot ) or soundTable.Entity:IsEnemy( bot.TBotOwner ) ) and soundTable.Entity:GetPos():DistToSqr( bot:GetPos() ) < ( ( 2500 * ( soundTable.SoundLevel / 100 ) ) * ( 2500 * ( soundTable.SoundLevel / 100 ) ) ) then
 			
-			bot.EnemyList[ soundTable.Entity:GetCreationID() ]		=	{ Enemy = soundTable.Entity, LastSeenTime = CurTime() + 2.0, ReactionTime = CurTime() + math.Rand( 0.15, 0.30 ) }
-			if !bot:IsInCombat() and bot:IsSafe() then bot.LastCombatTime = CurTime() + 5.0 end
+			bot.EnemyList[ soundTable.Entity:GetCreationID() ]		=	{ Enemy = soundTable.Entity, LastSeenTime = CurTime() + 2.0 }
+			if !bot:IsInCombat() and bot:IsSafe() then bot.LastCombatTime = CurTime() + 5.1 end
 			
 		end
 		
@@ -2523,7 +3389,7 @@ function BOT:CheckCurrentEnemyStatus()
 		
 		self.Enemy = nil -- Just incase the bot's enemy is set to a player even though the bot should only target NPCS and "hopefully" NEXTBOTS 
 		
-	elseif self:IsTRizzleBotBlind() or !self:TBotVisible( self.Enemy ) or self:IsHiddenByFog( self:GetShootPos():DistToSqr( self.Enemy:EyePos() ) ) then 
+	elseif self:IsTRizzleBotBlind() or !self:TBotVisible( self.Enemy ) or self:IsHiddenByFog( self:GetShootPos():Distance( self.Enemy:EyePos() ) ) then 
 		
 		self.Enemy = nil
 		
@@ -2600,12 +3466,22 @@ function BOT:TBotFindClosestEnemy()
 		
 		if IsValid( v ) and v:IsNPC() and v:IsAlive() and ( v:IsEnemy( self ) or v:IsEnemy( self.TBotOwner ) ) then -- The bot should attack any NPC that is hostile to them or their owner. D_HT means hostile/hate
 			
-			local enemydistsqr = v:WorldSpaceCenter():DistToSqr( self:WorldSpaceCenter() )
+			local enemydistsqr = v:GetPos():DistToSqr( self:GetPos() )
 			if self:IsAbleToSee( v ) then
 				
 				if self:TBotVisible( v ) then
 					
-					if !KnownEnemies[ v:GetCreationID() ] then KnownEnemies[ v:GetCreationID() ] = { Enemy = v, LastSeenTime = CurTime() + 10.0, ReactionTime = CurTime() + math.Rand( 0.15, 0.30 ) } end -- We grab the entity's Creation ID because the will never be the same as any other entity.
+					if !KnownEnemies[ v:GetCreationID() ] then 
+					
+						KnownEnemies[ v:GetCreationID() ] = { Enemy = v, LastSeenTime = CurTime() + 10.0, ReactionTime = CurTime() + math.Rand( 0.15, 0.30 ) } -- We grab the entity's Creation ID because the will never be the same as any other entity.
+					
+					elseif !KnownEnemies[ v:GetCreationID() ].ReactionTime then
+					
+						KnownEnemies[ v:GetCreationID() ].ReactionTime = CurTime() + math.Rand( 0.15, 0.30 )
+					
+					end
+					
+					KnownEnemies[ v:GetCreationID() ].LastSeenTime = CurTime() + 10.0
 					
 					if enemydistsqr < targetdistsqr and KnownEnemies[ v:GetCreationID() ].ReactionTime < CurTime() then 
 						target = v
@@ -2617,7 +3493,13 @@ function BOT:TBotFindClosestEnemy()
 					
 				end
 				
-			elseif KnownEnemies[ v:GetCreationID() ] and self:TBotVisible( v ) and !self:IsHiddenByFog( enemydistsqr ) then
+			elseif KnownEnemies[ v:GetCreationID() ] and self:TBotVisible( v ) and !self:IsHiddenByFog( math.sqrt( enemydistsqr ) ) then
+				
+				if !KnownEnemies[ v:GetCreationID() ].ReactionTime then
+				
+					KnownEnemies[ v:GetCreationID() ].ReactionTime = CurTime() + math.Rand( 0.15, 0.30 )
+				
+				end
 				
 				KnownEnemies[ v:GetCreationID() ].LastSeenTime = CurTime() + 10.0
 				
@@ -2631,11 +3513,6 @@ function BOT:TBotFindClosestEnemy()
 			
 			end
 		
-		elseif IsValid( v ) and !v:IsNPC() and !v:IsPlayer() and !v:IsNextBot() and v:Health() > 0 and ( v:GetClass() == "func_breakable" or v:GetClass() == "func_breakable_surf" ) and v:WorldSpaceCenter():DistToSqr( self:WorldSpaceCenter() ) < 6400 then
-		
-			target = v
-			targetdistsqr = v:WorldSpaceCenter():DistToSqr( self:WorldSpaceCenter() )
-		
 		end
 		
 	end
@@ -2648,7 +3525,7 @@ function BOT:TBotFindClosestEnemy()
 end
 
 -- Heal any player or bot that is visible to us.
-function BOT:TBotFindClosestTeammate()
+function BOT:TBotFindHealTarget()
 	if ( ( engine:TickCount() + self:EntIndex() ) % 7 ) != 0 then return self.HealTarget end -- This shouldn't run as often
 	
 	local targetdistsqr			=	6400 -- This will allow the bot to select the closest teammate to it.
@@ -2687,7 +3564,7 @@ function BOT:FindNearbySeat()
 		
 		if IsValid( v ) and v:IsVehicle() and !IsValid( v:GetDriver() ) then -- The bot should enter the closest vehicle to it
 			
-			local vehicledistsqr = v:WorldSpaceCenter():DistToSqr( self:WorldSpaceCenter() )
+			local vehicledistsqr = v:GetPos():DistToSqr( self:GetPos() )
 			
 			if vehicledistsqr < targetdistsqr then 
 				target = v
@@ -2702,16 +3579,56 @@ function BOT:FindNearbySeat()
 	
 end
 
-function TRizzleBotRangeCheck( area , fromArea , Ladder , Height )
-	-- Some helper errors.
-	if !IsValid( area ) then error( "Bad argument #1 CNavArea expected got " .. type( area ) ) end
+function BOT:DoorCheck()
+	
+	-- ents.FindInSphere returns a list with the closest entities first and the furthest last automatically
+	-- ents.FindInSphere does have a limit of 1024 entities......
+	-- I will adjust this if any issues occur from it.
+	for k, door in ipairs( ents.FindInSphere( self:GetPos(), 20 ) ) do
+	
+		if IsValid( door ) and door:IsDoor() and !door:IsDoorOpen() then
+		
+			self.Door = door
+			break
+			
+		end
+		
+	end
+	
+end
+
+function BOT:BreakableCheck()
+
+	-- This could be unreliable in certain situations
+	for k, breakable in ipairs( ents.FindInSphere( self:GetPos(), 30 ) ) do
+	
+		if IsValid( breakable ) and breakable:IsBreakable() then 
+		
+			self.Breakable = breakable
+			break
+			
+		end
+	
+	end
+	
+end
+
+function TRizzleBotRangeCheck( area , fromArea , Ladder , bot )
+	if !IsValid( area ) then return -1 end
 	
 	if !IsValid( fromArea ) then
 	
+		-- first area in path, no cost
 		return 0
 		
+	elseif fromArea:HasAttributes( NAV_MESH_JUMP ) and area:HasAttributes( NAV_MESH_JUMP ) then
+	
+		-- cannot actually walk in jump areas - disallow moving from jump area to jump area
+		return -1.0
+	
 	else
 	
+		-- compute distance traveled along path so far
 		local dist = 0
 		
 		if IsValid( Ladder ) then 
@@ -2727,8 +3644,9 @@ function TRizzleBotRangeCheck( area , fromArea , Ladder , Height )
 		local cost = dist + fromArea:GetCostSoFar()
 		
 		local Height	=	fromArea:ComputeAdjacentConnectionHeightChange( area )
+		local stepHeight = Either( IsValid( bot ), bot:GetStepSize(), 18 )
 		-- Jumping is slower than ground movement.
-		if !IsValid( Ladder ) and isnumber( Height ) and !area:IsUnderwater() and Height >= 18 then
+		if !IsValid( Ladder ) and isnumber( Height ) and !fromArea:IsUnderwater() and Height > stepHeight then
 			
 			if Height > 64 then
 			
@@ -2737,10 +3655,10 @@ function TRizzleBotRangeCheck( area , fromArea , Ladder , Height )
 			end
 			
 			--print( "Jump Height: " .. Height )
-			cost		=	cost + ( dist * 5 )
+			cost		=	cost + ( dist * 2 )
 			
 		-- Falling is risky if the bot might take fall damage.
-		elseif !IsValid( Ladder ) and isnumber( Height ) and !area:IsUnderwater() and Height <= -18 then
+		elseif !IsValid( Ladder ) and isnumber( Height ) and !area:IsUnderwater() and Height < -stepHeight then
 		
 			if Height < -1000 then
 			
@@ -2749,14 +3667,54 @@ function TRizzleBotRangeCheck( area , fromArea , Ladder , Height )
 			end
 			
 			--print( "Drop Height: " .. Height )
-			cost		=	cost + ( dist * GetApproximateFallDamage( math.abs( Height ) ) )
+			local fallDamage = GetApproximateFallDamage( math.abs( Height ) )
+			
+			if fallDamage > 0.0 and IsValid( bot ) then
+			
+				-- if the fall would kill us, don't use it
+				local deathFallMargin = 10.0
+				if fallDamage + deathFallMargin >= bot:Health() then
+				
+					return -1.0
+					
+				end
+				
+				local painTolerance = 25.0
+				if fallDamage > painTolerance then
+				
+					-- cost is proportional to how much it hurts when we fall
+					-- 10 points - not a big deal, 50 points - ouch
+					fallDamage = 100 * fallDamage * fallDamage
+					
+				end
+			
+			end
+			
+			cost		=	cost + fallDamage
 			
 		end
 		
+		-- This isn't really needed for sandbox, but since this is a bot base I will leave this here.
+		--[[
+		local preference = 1.0
+		
+		-- This will have certain cases where its not used.
+		if true then
+		
+			-- this term causes the same bot to choose different routes over time,
+			-- but keep the same route for a period in case of repaths
+			local timeMod = ( CurTime() / 10 ) + 1
+			preference = 1.0 + 50.0 * ( 1.0 + math.cos( bot:EntIndex() * area:GetID() * timeMod ) )
+			
+		end]]
+		
 		-- Crawling through a vent is very slow.
+		-- NOTE: The cost is determined by the bot's crouch speed
 		if area:HasAttributes( NAV_MESH_CROUCH ) then 
 			
-			cost	=	cost + ( dist * 5 )
+			local crouchPenalty = Either( IsValid( bot ), math.floor( 1 / bot:GetCrouchedWalkSpeed() ), 5 )
+			
+			cost	=	cost + ( dist * crouchPenalty )
 			
 		end
 		
@@ -2808,26 +3766,206 @@ function GetApproximateFallDamage( height )
 end
 
 -- This is a hybrid version of pathfollower, it can use ladders and is very optimized
-function TRizzleBotPathfinderCheap( StartNode , GoalNode )
-	if !IsValid( StartNode ) or !IsValid( GoalNode ) or GoalNode:IsBlocked() then return false end
-	if StartNode == GoalNode then return true end
+function TRizzleBotPathfinderCheap( bot, goal )
 	
-	StartNode:ClearSearchLists()
+	local NUM_TRAVERSE_TYPES = 9
+	local start = bot:GetPos()
+	local startArea = bot.lastKnownArea
+	if !IsValid( startArea ) then
 	
-	StartNode:AddToOpenList()
-	
-	StartNode:SetCostSoFar( 0 )
-	
-	StartNode:SetTotalCost( TRizzleBotRangeCheck( StartNode , GoalNode ) )
-	
-	StartNode:UpdateOnOpenList()
-	
-	local Trys			=	0 -- Backup! Prevent crashing.
-	
-	while ( !StartNode:IsOpenListEmpty() and Trys < 50000 ) do
-		Trys	=	Trys + 1
+		return false
 		
-		local Current	=	StartNode:PopOpenList()
+	end
+	
+	local maxDistanceToArea = 200
+	local goalArea = navmesh.GetNearestNavArea( goal, true, maxDistanceToArea, true )
+	
+	if startArea == goalArea then
+	
+		BuildTrivialPath( bot, goal )
+		return true
+		
+	end
+	
+	local pathEndPosition = goal
+	if IsValid( goalArea ) then
+	
+		pathEndPosition.z = goalArea:GetZ( pathEndPosition )
+		
+	else
+		
+		local ground = navmesh.GetGroundHeight( pathEndPosition )
+		if ground then pathEndPosition.z = ground end
+		
+	end
+	
+	local pathResult, closestArea = NavAreaBuildPath( startArea, goalArea, goal, bot )
+	
+	-- Failed?
+	if !IsValid( closestArea ) then
+	
+		return false
+		
+	end
+	
+	--
+	-- Build actual path by following parent links back from goal area
+	--
+	
+	-- get count
+	local count = 0
+	local area = closestArea
+	while IsValid( area ) do
+	
+		count = count + 1
+		
+		if area == startArea then
+		
+			-- startArea can be re-evaluated during the pathfind and given a parent
+			break
+			
+		end
+		
+		area = area:GetParent()
+		
+	end
+	
+	if count == 0 then
+	
+		return false
+		
+	end
+	
+	if count == 1 then
+	
+		BuildTrivialPath( bot, goal )
+		return pathResult
+		
+	end
+	
+	-- assemble path
+	bot.SegmentCount = count
+	bot.CurrentSegment = 1
+	area = closestArea
+	while IsValid( area ) and count > 0 do
+	
+		bot.Path[ count ] = {}
+		bot.Path[ count ].Area = area
+		bot.Path[ count ].How = area:GetParentHow()
+		bot.Path[ count ].Type = PATH_ON_GROUND
+		
+		area = area:GetParent()
+		count = count - 1
+		
+	end
+	
+	-- append actual goal position
+	bot.SegmentCount = bot.SegmentCount + 1
+	bot.Path[ bot.SegmentCount ] = {}
+	bot.Path[ bot.SegmentCount ].Area = closestArea
+	bot.Path[ bot.SegmentCount ].Pos = pathEndPosition
+	bot.Path[ bot.SegmentCount ].How = NUM_TRAVERSE_TYPES
+	bot.Path[ bot.SegmentCount ].Type = PATH_ON_GROUND
+	
+	--[[for k,v in ipairs( bot.Path ) do
+	
+		if v.Area == startArea then
+		
+			print( "StartArea at " .. tostring( k ) )
+		
+		elseif v.Area == closestArea then
+		
+			print( "EndArea at " .. tostring( k ) )
+			
+		end
+		
+	end
+	
+	print( "SegmentCount: " .. tostring( bot.SegmentCount ) )
+	print( "Bot Path Length: " .. tostring( #bot.Path ) )]]
+	
+	-- compute path positions
+	if bot:ComputeNavmeshVisibility() == false then
+	
+		bot.Path = nil
+		bot.SegmentCount = 0
+		bot.CurrentSegment = 1
+		return false
+		
+	end
+	
+	PostProccess( bot )
+	
+	return pathResult
+	
+end
+
+--[[
+Got this from CS:GO Source Code, made some changes so it works for Lua
+
+Find path from startArea to goalArea via an A* search, using supplied cost heuristic.
+If cost functor returns -1 for an area, that area is considered a dead end.
+This doesn't actually build a path, but the path is defined by following parent
+pointers back from goalArea to startArea.
+If 'goalArea' is NULL, will compute a path as close as possible to 'goalPos'.
+If 'goalPos' is NULL, will use the center of 'goalArea' as the goal position.
+If 'maxPathLength' is nonzero, path building will stop when this length is reached.
+Returns true if a path exists.	
+]]
+function NavAreaBuildPath( startArea, goalArea, goalPos, bot )
+	
+	local closestArea = startArea
+	
+	if !IsValid( startArea ) then
+	
+		return false, closestArea
+		
+	end
+	
+	startArea:SetParent( nil, 9 )
+	
+	if IsValid( goalArea ) and goalArea:IsBlocked() then
+	
+		goalArea = nil
+		
+	end
+	
+	if !IsValid( goalArea ) and !isvector( goalPos ) then
+	
+		return false, closestArea
+		
+	end
+	
+	if startArea == goalArea then
+	
+		return true, closestArea
+		
+	end
+	
+	local actualGoalPos = Either( isvector( goalPos ), goalPos, goalArea:GetCenter() )
+	
+	startArea:ClearSearchLists()
+	
+	startArea:SetTotalCost( startArea:GetCenter():Distance( actualGoalPos ) )
+	
+	local initCost = TRizzleBotRangeCheck( startArea, nil, nil, bot )
+	if initCost < 0.0 then
+	
+		return false, closestArea
+		
+	end
+	
+	startArea:SetCostSoFar( initCost )
+	
+	startArea:AddToOpenList()
+	
+	local closestAreaDist = startArea:GetTotalCost()
+	
+	startArea:UpdateOnOpenList()
+	
+	while !startArea:IsOpenListEmpty() do
+		
+		local Current	=	startArea:PopOpenList()
 		
 		if Current:IsBlocked() then
 			
@@ -2835,9 +3973,12 @@ function TRizzleBotPathfinderCheap( StartNode , GoalNode )
 			
 		end
 		
-		if Current == GoalNode then
+		if Current == goalArea or ( !IsValid( goalArea ) and isvector( goalPos ) and Current:Contains( goalPos ) ) then
 			
-			return TRizzleBotRetracePathCheap( StartNode , GoalNode )
+			closestArea = Current
+			
+			return true, closestArea
+			
 		end
 		
 		local searchWhere = 0
@@ -2975,29 +4116,76 @@ function TRizzleBotPathfinderCheap( StartNode , GoalNode )
 				
 			end
 		
-			if newArea == Current or newArea:IsBlocked() then 
+			-- don't backtrack
+			if newArea == Current:GetParent() then
 			
 				continue
 				
 			end
 			
-			local NewCostSoFar		=	TRizzleBotRangeCheck( newArea , Current , ladder )
+			-- self neighbor?
+			if newArea == Current then
 			
+				continue
+				
+			end
+			
+			-- don't consider blocked areas
+			if newArea:IsBlocked() then
+			
+				continue
+				
+			end
+			
+			local NewCostSoFar		=	TRizzleBotRangeCheck( newArea , Current , ladder , bot )
+			
+			-- inf really mess up this function up causing tough to track down hangs. If
+			--  we get inf back, clamp it down to a really high number.
+			if NewCostSoFar == math.huge then
+			
+				NewCostSoFar = 2^1023
+				
+			end
+			
+			-- check if the cost functor says this area is a dead-end
 			if NewCostSoFar < 0 then
 				
 				continue
 				
 			end
 			
+			-- Safety check against a bogus functor. The cost of the path
+			-- A...B, C should always be at least as big as the path A...B
+			assert( NewCostSoFar >= Current:GetCostSoFar() )
+			
+			-- And now that we've asserted, let's be a bit more defensive.
+			-- Make sure that any jump to a new area incurs some pathfinsing
+			-- cost, to avoid us spinning our wheels over insignificant cost
+			-- benefit, floating point precision bug, or busted cost functor.
+			local minNewCostSoFar = Current:GetCostSoFar() * 1.00001 + 0.00001
+			NewCostSoFar = math.max( NewCostSoFar, minNewCostSoFar )
 			
 			if ( newArea:IsOpen() or newArea:IsClosed() ) and newArea:GetCostSoFar() <= NewCostSoFar then
 				
+				-- this is a worse path - skip it
 				continue
 				
 			else
 				
+				-- compute estimate of distance left to go 
+				local distSq = ( newArea:GetCenter() - actualGoalPos ):LengthSqr()
+				local newCostRemaining = Either( distSq > 0.0, math.sqrt( distSq ), 0.0 )
+				
+				-- track closest area to goal in case path fails
+				if newCostRemaining < closestAreaDist then
+				
+					closestArea = newArea
+					closestAreaDist = newCostRemaining
+					
+				end
+				
 				newArea:SetCostSoFar( NewCostSoFar )
-				newArea:SetTotalCost( NewCostSoFar + TRizzleBotRangeCheck( newArea , GoalNode ) )
+				newArea:SetTotalCost( NewCostSoFar + newCostRemaining )
 				
 				if newArea:IsClosed() then
 					
@@ -3007,6 +4195,7 @@ function TRizzleBotPathfinderCheap( StartNode , GoalNode )
 				
 				if newArea:IsOpen() then
 					
+					-- area already on open list, update the list order to keep costs sorted
 					newArea:UpdateOnOpenList()
 					
 				else
@@ -3022,12 +4211,66 @@ function TRizzleBotPathfinderCheap( StartNode , GoalNode )
 			
 		end
 		
+		-- we have searched this area
 		Current:AddToClosedList()
 		
 	end
 	
+	return false, closestArea
+
+end
+
+--[[
+Got this from CS:GO Source Code, made some changes so it works for Lua
+
+Compute distance between two areas. Return -1 if can't reach 'endArea' from 'startArea'.
+]]
+function NavAreaTravelDistance( startArea, endArea, bot )
+
+	if !IsValid( startArea ) then
 	
-	return false
+		return -1.0
+		
+	end
+	
+	if !IsValid( endArea ) then
+	
+		return -1.0
+		
+	end
+	
+	if startArea == endArea then
+	
+		return 0.0
+		
+	end
+	
+	-- compute path between areas using given cost heuristic
+	if NavAreaBuildPath( startArea, endArea, nil, bot ) == false then
+	
+		return -1.0
+		
+	end
+	
+	-- compute distance along path
+	local distance = 0.0
+	local area = endArea
+	while IsValid( area:GetParent() ) do
+	
+		distance = distance + area:GetCenter():Distance( area:GetParent():GetCenter() )
+		
+		area = area:GetParent()
+		
+		if area == startArea then
+		
+			break
+			
+		end
+		
+	end
+	
+	return distance
+	
 end
 
 function TRizzleBotRetracePathCheap( StartNode , GoalNode )
@@ -3040,9 +4283,7 @@ function TRizzleBotRetracePathCheap( StartNode , GoalNode )
 	local NUM_TRAVERSE_TYPES = 9
 	
 	local Trys			=	0 -- Backup! Prevent crashing.
-	-- I need to check if this works
 	local NewPath	=	{}
-	--local NewPath	=	{ GoalNode }
 	
 	local Current	=	GoalNode
 	local Parent 	=	GoalNode:GetParentHow()
@@ -3064,14 +4305,14 @@ function TRizzleBotRetracePathCheap( StartNode , GoalNode )
 		
 			local list = Current:GetParent():GetLaddersAtSide( LADDER_UP )
 			--print( "Ladders: " .. #list )
-			for k, Ladder in ipairs( list ) do
-				--print( "Top Area: " .. tostring( Ladder:GetTopForwardArea() ) )
-				--print( "TopLeft Area: " .. tostring( Ladder:GetTopLeftArea() ) )
-				--print( "TopRight Area: " .. tostring( Ladder:GetTopRightArea() ) )
-				--print( "TopBehind Area: " .. tostring( Ladder:GetTopBehindArea() ) )
-				if Ladder:GetTopForwardArea() == Current or Ladder:GetTopLeftArea() == Current or Ladder:GetTopRightArea() == Current or Ladder:GetTopBehindArea() == Current then
+			for k, ladder in ipairs( list ) do
+				--print( "Top Area: " .. tostring( ladder:GetTopForwardArea() ) )
+				--print( "TopLeft Area: " .. tostring( ladder:GetTopLeftArea() ) )
+				--print( "TopRight Area: " .. tostring( ladder:GetTopRightArea() ) )
+				--print( "TopBehind Area: " .. tostring( ladder:GetTopBehindArea() ) )
+				if ladder:GetTopForwardArea() == Current or ladder:GetTopLeftArea() == Current or ladder:GetTopRightArea() == Current or ladder:GetTopBehindArea() == Current then
 					
-					NewPath[ #NewPath + 1 ] = { area = Current, how = Parent, ladder = Ladder }
+					NewPath[ #NewPath + 1 ] = { Area = Current, How = Parent, Ladder = ladder }
 					break
 					
 				end
@@ -3081,11 +4322,11 @@ function TRizzleBotRetracePathCheap( StartNode , GoalNode )
 		
 			local list = Current:GetParent():GetLaddersAtSide( LADDER_DOWN )
 			--print( "Ladders: " .. #list )
-			for k, Ladder in ipairs( list ) do
-				--print( "Bottom Area: " .. tostring( Ladder:GetBottomArea() ) )
-				if Ladder:GetBottomArea() == Current then
+			for k, ladder in ipairs( list ) do
+				--print( "Bottom Area: " .. tostring( ladder:GetBottomArea() ) )
+				if ladder:GetBottomArea() == Current then
 					
-					NewPath[ #NewPath + 1 ] = { area = Current, how = Parent, ladder = Ladder }
+					NewPath[ #NewPath + 1 ] = { Area = Current, How = Parent, Ladder = ladder }
 					break
 					
 				end
@@ -3093,7 +4334,7 @@ function TRizzleBotRetracePathCheap( StartNode , GoalNode )
 		
 		else
 			
-			NewPath[ #NewPath + 1 ] = { area = Current, how = Parent }
+			NewPath[ #NewPath + 1 ] = { Area = Current, How = Parent }
 			
 		end
 		
@@ -3115,11 +4356,18 @@ function BOT:TBotSetNewGoal( NewGoal )
 		local ground = navmesh.GetGroundHeight( NewGoal )
 		if ground then NewGoal.z = ground end
 		
-		self.Goal				=	NewGoal
-		self.Path				=	{}
+		self:TBotClearPath()
+		self.Goal 				= 	NewGoal
 		self.PathTime			=	CurTime() + 0.5
 		self:TBotCreateNavTimer()
 	end
+	
+end
+
+function BOT:TBotClearPath()
+
+	self.Path = {}
+	self.Goal = nil
 	
 end
 
@@ -3131,9 +4379,9 @@ function GetPathLength( tbl, startArea, endArea )
 	local totalDist = 0
 	for k, v in ipairs( tbl ) do
 		if !tbl[ k + 1 ] then break
-		elseif !IsValid( v.area ) or !IsValid( tbl[ k + 1 ].area ) then return -1 end -- The table is either not a path or is corrupted
+		elseif !IsValid( v.Area ) or !IsValid( tbl[ k + 1 ].Area ) then return -1 end -- The table is either not a path or is corrupted
 		
-		totalDist = totalDist + v.area:GetCenter():Distance( tbl[ k + 1 ].area:GetCenter() )
+		totalDist = totalDist + v.Area:GetCenter():Distance( tbl[ k + 1 ].Area:GetCenter() )
 	end
 	
 	return totalDist
@@ -3239,15 +4487,13 @@ end
 -- Checks if a hiding spot is already in use
 function BOT:IsSpotOccupied( pos )
 
-	for k, ply in ipairs( player.GetAll() ) do
-		
-		if IsValid( ply ) and ply != self then
-		
-			if ply:IsTRizzleBot() and ply.HidingSpot == pos then return true -- Don't consider spots already selected by other bots
-			elseif ply:GetPos():DistToSqr(pos) < 5625 then return true end -- Don't consider spots if a bot or human player is already there
+	local ply, distance = util.GetClosestPlayer( pos )
 	
-		end
-		
+	if IsValid( ply ) and ply != self then
+	
+		if ply:IsTRizzleBot() and ply.HidingSpot == pos then return true -- Don't consider spots already selected by other bots
+		elseif distance < 75 then return true end -- Don't consider spots if a bot or human player is already there
+
 	end
 
 	return false
@@ -3305,6 +4551,11 @@ function BOT:FindSpots( tbl, secondAttempt )
 	local found = {}
 	
 	local startArea = navmesh.GetNearestNavArea( tbl.pos )
+	if !IsValid( startArea ) then
+	
+		return
+		
+	end
 
 	-- In each area
 	for _, area in ipairs( areas ) do
@@ -3334,8 +4585,19 @@ function BOT:FindSpots( tbl, secondAttempt )
 
 		for k, vec in ipairs( spots ) do
 			
+			-- NOTE: NavAreaTravelDistance and NavAreaBuildPath is very expensive
+			-- when called multiple times per frame, I need to find a better way to implement this.
+			--local pathLength = NavAreaTravelDistance( startArea, area, self )
+			local pathLength = tbl.pos:Distance( vec )
+			--print("Path Length: " .. pathLength )
+			
+			-- If the hiding spot is further than tbl.range, the bot shouldn't consider it
+			if tbl.radius < pathLength then 
+			
+				continue
+			
 			-- If the spot is already in use by another player the bot shouldn't consider it
-			if tobool( tbl.checkoccupied ) and self:IsSpotOccupied( vec ) then 
+			elseif tobool( tbl.checkoccupied ) and self:IsSpotOccupied( vec ) then 
 			
 				continue
 			
@@ -3349,14 +4611,9 @@ function BOT:FindSpots( tbl, secondAttempt )
 			
 				continue 
 			
-			end 
+			end
 			
-			local tempPath = TRizzleBotPathfinderCheap( startArea, area )
-			local tempPathLength = GetPathLength( tempPath, startArea, area )
-			--print("Path Length: " .. tempPathLength )
-			
-			if tempPathLength < 0 or tbl.radius < tempPathLength then continue end -- If the bot can't path to a hiding spot or its further than tbl.range, the bot shouldn't consider it
-			table.insert( found, { vector = vec, distance = tempPathLength } ) -- Should I use startArea:GetCenter():Distance( endArea:GetCenter() ) instead?
+			table.insert( found, { vector = vec, distance = pathLength } ) -- Should I use startArea:GetCenter():Distance( endArea:GetCenter() ) instead?
 
 		end
 
@@ -3392,7 +4649,7 @@ function BOT:FindSpot( type, options )
 
 	local spots = self:FindSpots( options )
 	if ( !spots or #spots == 0 ) then return end
-
+	
 	if ( type == "near" ) then
 
 		table.SortByMember( spots, "distance", true )
@@ -3510,162 +4767,218 @@ end
 local dir			=	Vector()
 -- Creates waypoints using the nodes.
 function BOT:ComputeNavmeshVisibility()
-	
+
 	local NORTH = 0
 	local EAST = 1
 	local SOUTH = 2
 	local WEST = 3
+	local LADDER_UP = 0
+	local LADDER_DOWN = 1
 	local GO_LADDER_UP = 4
 	local GO_LADDER_DOWN = 5
+	local NUM_TRAVERSE_TYPES = 9
 	
-	self.Path				=	{}
-	
-	local LastVisPos		=	self:GetPos()
-	local ground = navmesh.GetGroundHeight( LastVisPos )
-	if ground then LastVisPos.z = ground end
 	dir:Zero()
 	
-	for k, v in ipairs( self.NavmeshNodes ) do
-		-- I should also make sure that the nodes exist as this is called 0.03 seconds after the pathfind.
+	if self.Path[ 1 ].Area:Contains( self:GetPos() ) then
+	
+		self.Path[ 1 ].Pos = self:GetPos()
 		
-		local CurrentNode	=	v.area
-		local currentIndex	=	#self.Path
+	else
+	
+		self.Path[ 1 ].Pos = self.Path[ 1 ].Area:GetCenter()
 		
-		if !self.NavmeshNodes[ k + 1 ] or !self.NavmeshNodes[ k + 1 ].area or !self.NavmeshNodes[ k + 1 ].how then
+	end
+	
+	self.Path[ 1 ].How = NUM_TRAVERSE_TYPES
+	self.Path[ 1 ].Type = PATH_ON_GROUND
+	
+	local index = 2
+	while index < #self.Path do
+		
+		local from = self.Path[ index - 1 ]
+		local to = self.Path[ index ]
+		
+		if to.How <= WEST then
+		
+			local CurrentNode	=	from.Area
+			local NextNode		=	to.Area
+			local NextHow		=	to.How
 			
-			self.Path[ #self.Path + 1 ]		=	{ Pos = self.Goal, IsLadder = false, IsDropDown = false }
+			to.Pos = CurrentNode:ComputeClosestPointInPortal( NextNode, from.Pos, NextHow )
 			
-			break
-		end
-		
-		local NextNode		=	self.NavmeshNodes[ k + 1 ].area
-		local NextHow		=	self.NavmeshNodes[ k + 1 ].how
-		
-		if self.NavmeshNodes[ k + 1 ].ladder then
-		
-			local NextLadder = self.NavmeshNodes[ k + 1 ].ladder
-			-- May not need this anymore
-			--local LadderNode, ClimbUp		=	self.NavmeshNodes[ k + 1 ].ladder:Get_Closest_Point_Next( LastVisPos )
+			--to.Pos = AddDirectionVector( to.Pos, NextHow, 5.0 )
+			to.Pos.z = CurrentNode:GetZ( to.Pos )
 			
-			if NextHow == GO_LADDER_UP then 
+			--local expectedHeightDrop = CurrentNode:GetZ( from.Pos ) - NextNode:GetZ( to.Pos )
+			
+			local fromPos = Vector( from.Pos )
+			fromPos.z = from.Area:GetZ( fromPos )
+			
+			local toPos = Vector( to.Pos )
+			toPos.z = to.Area:GetZ( toPos )
+			
+			local groundNormal = from.Area:ComputeNormal()
+			local alongPath = toPos - fromPos
+			local expectedHeightDrop = -alongPath:Dot( groundNormal )
+			--print( "Should Drop Down: " .. tostring( expectedHeightDrop > self:GetStepSize() ) )
+			--print( "From Position: " .. tostring( from.Pos ))
+			--print( "PathIndex: " .. tostring( index ) )
+			--print( "To Position: " .. tostring( to.Pos ) )
+			
+			if expectedHeightDrop > self:GetStepSize() then
+			
+				--print("DROP")
+				dir:Zero() -- This resets dir to Vector( 0, 0, 0 )
 				
-				self.Path[ currentIndex + 1 ]		=	{ Pos = NextLadder:GetBottom() + NextLadder:GetNormal() * 2.0 * 16, IsLadderMount = true, IsLadder = false, IsDropDown = false }
-				self.Path[ currentIndex + 2 ]		=	{ Pos = self:ComputeLadderEndpoint( NextLadder, true ), IsLadder = NextLadder, LadderUp = true }
-				LastVisPos				=	NextLadder:GetTop()
+				if NextHow == NORTH then 
+					dir.x = 0 
+					dir.y = -1
+				elseif NextHow == SOUTH then 
+					dir.x = 0 
+					dir.y = 1
+				elseif NextHow == EAST then 
+					dir.x = 1 
+					dir.y = 0
+				elseif NextHow == WEST then 
+					dir.x = -1 
+					dir.y = 0 
+				end
 				
-			else
+				local inc = 10
+				local maxPushDist = 2.0 * self:GetHullWidth()
+				local halfWidth = self:GetHullWidth() / 2.0
+				local hullHeight = self:GetCrouchHullHeight()
 				
-				self.Path[ currentIndex + 1 ]		=	{ Pos = NextLadder:GetTop() + NextLadder:GetNormal() * 1.50 * 16, IsLadderMount = true, IsLadder = false, IsDropDown = false }
-				self.Path[ currentIndex + 2 ]		=	{ Pos = self:ComputeLadderEndpoint( NextLadder, false ), IsLadder = NextLadder, LadderUp = false }
-				LastVisPos				=	NextLadder:GetBottom()
+				local pushDist = 0
+				while pushDist <= maxPushDist do
 				
-			end
-			
-			
-			
-			continue
-		end
-		
-		--[[if v.ladder then
-		
-			local CloseToEnd, LadderNode, ClimbUp		=	v.ladder:Get_Closest_Point_Current( NextNode:GetCenter() )
-			
-			LastVisPos		=	CloseToEnd
-			
-			self.Path[ currentIndex + 1 ]		=	{ Pos = CloseToEnd, IsLadder = true, LadderUp = ClimbUp }
-			self.Path[ currentIndex + 2 ]		=	{ Pos = LadderNode, IsLadder = true, LadderUp = ClimbUp }
-			
-			continue
-		end]]
-		
-		local connection = CurrentNode:ComputeClosestPointInPortal( NextNode, LastVisPos, NextHow )
-		
-		connection = AddDirectionVector( connection, NextHow, 5.0 )
-		connection.z = CurrentNode:GetZ( connection )
-		
-		--print( "Should Drop Down: " .. tostring( self:ShouldDropDown( LastVisPos, connection ) ) )
-		--print( "LastVisPos: " .. tostring( LastVisPos ))
-		--print( "PathIndex: " .. tostring( currentIndex ) )
-		--print( "Connection: " .. tostring( connection ) )
-		
-		-- We don't need to compute the dropdown points if the next area is marked as a jump area
-		-- as it causes the bot to get stuck.
-		if self:ShouldDropDown( LastVisPos, connection ) and !NextNode:HasAttributes( NAV_MESH_JUMP ) then
-		
-			--print("DROP")
-			dir:Zero() -- This resets dir to Vector( 0, 0, 0 )
-			
-			if NextHow == NORTH then 
-				dir.x = 0 
-				dir.y = -1
-			elseif NextHow == SOUTH then 
-				dir.x = 0 
-				dir.y = 1
-			elseif NextHow == EAST then 
-				dir.x = 1 
-				dir.y = 0
-			elseif NextHow == WEST then 
-				dir.x = -1 
-				dir.y = 0 
-			end
-			
-			local inc = 0.25 * ( 16 + 5 )
-			local maxPushDist = 75
-			local halfWidth = 8
-			local hullHeight = 36
-			
-			local pushDist = 0
-			while pushDist <= maxPushDist do
-			
-				local pos = connection + Vector( pushDist * dir.x, pushDist * dir.y, 0 )
-				local ground = util.TraceHull( { start = pos, endpos = pos + Vector( 0, 0, -self:GetStepSize() ), maxs = Vector( halfWidth, halfWidth, hullHeight ), mins = Vector( -halfWidth, -halfWidth, 0 ), mask = MASK_PLAYERSOLID_BRUSHONLY, filter = self } )
-				
-				--print( "Ground Fraction: " .. tostring( ground.Fraction ) )
-				if ground.Fraction >= 1.0 then
-				
-					break
+					local pos = to.Pos + Vector( pushDist * dir.x, pushDist * dir.y, 0 )
+					local ground = util.TraceHull( { start = pos, endpos = pos + Vector( 0, 0, -self:GetStepSize() ), mins = Vector( -halfWidth, -halfWidth, 0 ), maxs = Vector( halfWidth, halfWidth, hullHeight ), mask = MASK_PLAYERSOLID, filter = TBotTraversableFilter } )
+					
+					--print( "Ground Fraction: " .. tostring( ground.Fraction ) )
+					--print( "Started Solid: " .. tostring( ground.StartSolid ) )
+					--print( "Hit Entity: " .. tostring( ground.Entity ) )
+					--print( "Hit World: " .. tostring( ground.HitWorld ) )
+					--print( "Hit NonWorld: " .. tostring( ground.HitNonWorld ) )
+					--print( "Hit NoDraw: " .. tostring( ground.HitNoDraw ) )
+					if ground.Fraction >= 1.0 then
+					
+						break
+						
+					end
+					
+					pushDist = pushDist + inc
 					
 				end
 				
-				pushDist = pushDist + inc
+				--print( "Push Distance: " .. tostring ( pushDist ) )
+				local startDrop = Vector( to.Pos.x + ( pushDist * dir.x ), to.Pos.y + ( pushDist * dir.y ), to.Pos.z )
+				local endDrop = Vector( startDrop.x, startDrop.y, NextNode:GetZ( to.Pos ) )
+				
+				local ground = navmesh.GetGroundHeight( startDrop )
+				if ground and startDrop.z > ground + self:GetStepSize() then
+				
+					to.Pos = startDrop
+					to.Type = PATH_DROP_DOWN
+					
+					endDrop.z = ground
+					
+					table.insert( self.Path, index + 1, { Pos = endDrop, Area = to.Area, How = to.How, Type = PATH_ON_GROUND } )
+					self.SegmentCount = self.SegmentCount + 1
+					index = index + 2
+					continue
+				end
 				
 			end
 			
-			--print( "Push Distance: " .. tostring ( pushDist ) )
-			local startDrop = Vector( connection.x + ( pushDist * dir.x ), connection.y + ( pushDist * dir.y ), connection.z )
-			local endDrop = Vector( startDrop.x, startDrop.y, NextNode:GetZ( connection ) )
+			index = index + 1
 			
-			local ground = navmesh.GetGroundHeight( startDrop )
-			if ground and startDrop.z > ground + self:GetStepSize() then
-			
-				self.Path[ currentIndex + 1 ]			=	{ Pos = startDrop, Area = CurrentNode, IsLadder = false, IsDropDown = true }
-				
-				endDrop.z = ground
-				
-				self.Path[ currentIndex + 2 ]			=	{ Pos = endDrop, Area = CurrentNode, IsLadder = false, IsDropDown = true }
-			
-				LastVisPos							=	endDrop
-			
-				continue
+		elseif to.How == GO_LADDER_UP then
+		
+			local list = from.Area:GetLaddersAtSide( LADDER_UP )
+			--print( "Ladders: " .. #list )
+			local i = 1
+			while i <= #list do
+				local ladder = list[ i ]
+				--print( "Top Area: " .. tostring( ladder:GetTopForwardArea() ) )
+				--print( "TopLeft Area: " .. tostring( ladder:GetTopLeftArea() ) )
+				--print( "TopRight Area: " .. tostring( ladder:GetTopRightArea() ) )
+				--print( "TopBehind Area: " .. tostring( ladder:GetTopBehindArea() ) )
+				if IsValid( ladder ) and ( ladder:GetTopForwardArea() == to.Area or ladder:GetTopLeftArea() == to.Area or ladder:GetTopRightArea() == to.Area or ladder:GetTopBehindArea() == to.Area ) then
+					
+					to.Pos = self:ComputeLadderEndpoint( ladder, true )
+					to.Type = PATH_LADDER_UP
+					to.Ladder = ladder
+					--table.insert( self.Path, index, { Pos = ladder:GetBottom() + ladder:GetNormal() * 2.0 * 16, How = GO_LADDER_UP, Type = PATH_LADDER_MOUNT } )
+					--self.SegmentCount = self.SegmentCount + 1
+					break
+					
+				end
+				i = i + 1
 			end
+			
+			-- for some reason we couldn't find the ladder
+			if i > #list then
+			
+				return false
+				
+			end
+			
+			index = index + 1
+			continue
+			
+		elseif to.How == GO_LADDER_DOWN then
+		
+			local list = from.Area:GetLaddersAtSide( LADDER_DOWN )
+			--print( "Ladders: " .. #list )
+			local i = 1
+			while i <= #list do
+				local ladder = list[ i ]
+				--print( "Bottom Area: " .. tostring( ladder:GetBottomArea() ) )
+				if IsValid( ladder ) and ladder:GetBottomArea() == to.Area then
+					
+					to.Pos = self:ComputeLadderEndpoint( ladder, false )
+					to.Type = PATH_LADDER_DOWN
+					to.Ladder = ladder
+					--table.insert( self.Path, index, { Pos = ladder:GetTop() + ladder:GetNormal() * 2.0 * 16, How = GO_LADDER_DOWN, Type = PATH_LADDER_MOUNT } )
+					--self.SegmentCount = self.SegmentCount + 1
+					break
+					
+				end
+				i = i + 1
+			end
+			
+			-- for some reason we couldn't find the ladder
+			if i > #list then
+			
+				return false
+				
+			end
+			
+			index = index + 1
+			continue
 			
 		end
-		
-		self.Path[ #self.Path + 1 ]			=	{ Pos = connection, Area = CurrentNode, IsLadder = false, IsDropDown = false }
-		
-		LastVisPos							=	connection
 		
 	end
 	
 	local index = 1
-	while self.Path[ index + 1 ] and IsValid( self.Path[ index + 1 ].Area ) do
+	while self.Path[ index + 1 ] do
 		
 		local from = self.Path[ index ]
 		local to = self.Path[ index + 1 ]
 		local CurrentNode = from.Area
 		local NextNode = to.Area
 		
-		if to[ "IsLadder" ] or to[ "IsDropDown" ] then
+		if from.How != NUM_TRAVERSE_TYPES and from.How > WEST then
+		
+			index = index + 1
+			continue
+			
+		end
+		
+		if to.How > WEST or to.Type != PATH_ON_GROUND then
 		
 			index = index + 1
 			continue
@@ -3675,15 +4988,28 @@ function BOT:ComputeNavmeshVisibility()
 		local closeTo = NextNode:GetClosestPointOnArea( from.Pos )
 		local closeFrom = CurrentNode:GetClosestPointOnArea( closeTo )
 		
-		if ( closeFrom - closeTo ):Length2D() > 1.9 * 25 and ( closeTo - closeFrom ):Length2D() > 0.5 * math.abs( closeTo.z - closeFrom.z ) then
+		if ( closeFrom - closeTo ):AsVector2D():IsLengthGreaterThan( 1.9 * 25 ) and ( closeTo - closeFrom ):AsVector2D():IsLengthGreaterThan( 0.5 * math.abs( closeTo.z - closeFrom.z ) ) then
 		
 			local landingPos = NextNode:GetClosestPointOnArea( to.Pos )
 			local launchPos = CurrentNode:GetClosestPointOnArea( landingPos )
-			local forward = ( landingPos - launchPos ):GetNormalized()
-			local halfWidth = 8
+			local forward = landingPos - launchPos
+			forward:Normalize()
+			local halfWidth = self:GetHullWidth() / 2.0
 			
-			self.Path[ index + 1 ].Pos = landingPos + forward * halfWidth
-			table.insert( self.Path, index + 1, { Pos = launchPos - forward * halfWidth, Area = CurrentNode, IsLadder = false, IsDropDown = false, IsGapJump = true } )
+			to.Pos = landingPos + forward * halfWidth
+			table.insert( self.Path, index + 1, { Pos = launchPos - forward * halfWidth, Type = PATH_JUMP_OVER_GAP } )
+			self.SegmentCount = self.SegmentCount + 1
+			index = index + 1
+			--print( "GapJump" )
+			
+		
+		elseif self:ShouldJump( closeFrom, closeTo ) then
+		
+			to.Pos = NextNode:GetCenter()
+			
+			local launchPos = CurrentNode:GetClosestPointOnArea( to.Pos )
+			table.insert( self.Path, index + 1, { Pos = launchPos, Type = PATH_CLIMB_UP } )
+			self.SegmentCount = self.SegmentCount + 1
 			index = index + 1
 			
 		end
@@ -3691,6 +5017,102 @@ function BOT:ComputeNavmeshVisibility()
 		index = index + 1
 		
 	end
+	
+	--table.insert( self.Path, { Pos = self.Goal, Type = PATH_ON_GROUND } )
+	
+end
+
+-- Build trivial path when start and goal are in the same area
+function BuildTrivialPath( bot, goal )
+
+	local NUM_TRAVERSE_TYPES = 9
+	local start = bot:GetPos()
+	
+	bot.SegmentCount = 0
+	
+	local startArea = navmesh.GetNearestNavArea( start )
+	if !IsValid( startArea ) then
+	
+		return false
+		
+	end
+	
+	local goalArea = navmesh.GetNearestNavArea( goal )
+	if !IsValid( goalArea ) then
+	
+		return false
+		
+	end
+	
+	bot.SegmentCount = 2
+	
+	bot.Path[ 1 ].Area = startArea
+	bot.Path[ 1 ].Pos.x = start.x
+	bot.Path[ 1 ].Pos.y = start.y
+	bot.Path[ 1 ].Pos.z = startArea:GetZ( start )
+	bot.Path[ 1 ].How = NUM_TRAVERSE_TYPES
+	bot.Path[ 1 ].Type = PATH_ON_GROUND
+	
+	bot.Path[ 2 ].Area = goalArea
+	bot.Path[ 2 ].Pos.x = goal.x
+	bot.Path[ 2 ].Pos.y = goal.y
+	bot.Path[ 2 ].Pos.z = goalArea:GetZ( goal )
+	bot.Path[ 2 ].How = NUM_TRAVERSE_TYPES
+	bot.Path[ 2 ].Type = PATH_ON_GROUND
+	
+	bot.Path[ 1 ].Forward = bot.Path[ 2 ].Pos - bot.Path[ 1 ].Pos
+	bot.Path[ 1 ].Length = bot.Path[ 1 ].Forward:Length()
+	bot.Path[ 1 ].Forward:Normalize()
+	bot.Path[ 1 ].DistanceFromStart = 0.0
+	
+	bot.Path[ 2 ].Forward = bot.Path[ 1 ].Forward
+	bot.Path[ 2 ].Length = 0.0
+	bot.Path[ 2 ].DistanceFromStart = bot.Path[ 1 ].Length
+	
+	return true
+	
+end
+
+-- This is the post proccess of the path
+function PostProccess( bot )
+	
+	if bot.SegmentCount == 0 then 
+	
+		return 
+		
+	end
+	
+	if bot.SegmentCount == 1 then
+	
+		bot.Path[ 1 ].Forward = vector_origin
+		bot.Path[ 1 ].Length = 0.0
+		bot.Path[ 1 ].DistanceFromStart = 0.0
+		return
+		
+	end
+
+	local distanceSoFar = 0.0
+	index = 1
+	while bot.Path[ index + 1 ] do
+	
+		from = bot.Path[ index ]
+		to = bot.Path[ index + 1 ]
+		
+		from.Forward = to.Pos - from.Pos
+		from.Length = from.Forward:Length()
+		from.Forward:Normalize()
+		
+		from.DistanceFromStart = distanceSoFar
+		
+		distanceSoFar = distanceSoFar + from.Length
+		
+		index = index + 1
+		
+	end
+	
+	bot.Path[ index ].Forward = bot.Path[ index - 1 ].Forward
+	bot.Path[ index ].Length = 0.0
+	bot.Path[ index ].DistanceFromStart = distanceSoFar
 	
 end
 
@@ -3710,142 +5132,347 @@ function AddDirectionVector( v, dir, amount )
 
 end
 
+function Vec:AsVector2D()
+
+	return Vector( self.x, self.y, 0 )
+	
+end
+
+function Vec:IsLengthGreaterThan( val )
+
+	return self:LengthSqr() > val * val
+	
+end
+
+function Vec:IsLengthLessThan( val )
+
+	return self:LengthSqr() < val * val
+	
+end
+
 -- The main navigation code ( Waypoint handler )
 function BOT:TBotNavigation()
 	if !isvector( self.Goal ) then return end -- A double backup!
-	if !IsValid( self.currentArea ) then return end -- The map has no navmesh.
+	if !IsValid( self.lastKnownArea ) then return end -- The map has no navmesh.
 	
 	
-	if !istable( self.Path ) or !istable( self.NavmeshNodes ) or table.IsEmpty( self.Path ) or table.IsEmpty( self.NavmeshNodes ) then
+	if !istable( self.Path ) or table.IsEmpty( self.Path ) then
 		
 		
 		if self.BlockPathFind != true then
 			
 			
-			-- Get the nav area that is closest to our goal.
-			local TargetArea		=	navmesh.GetNearestNavArea( self.Goal )
-			
 			self.Path				=	{} -- Reset that.
 			
 			-- Pathfollower is not only cheaper, but it can use ladders.
-			self.NavmeshNodes		=	TRizzleBotPathfinderCheap( self.currentArea , TargetArea )
+			TRizzleBotPathfinderCheap( self , self.Goal )
 			
-			-- There is no way we can get there! Remove our goal.
-			if self.NavmeshNodes == false then
-				
-				-- In case we fail. A* will search the whole map to find out there is no valid path.
-				-- This can cause major lag if the bot is doing this almost every think.
-				-- To prevent this, We block the bots pathfinding completely for a while before allowing them to pathfind again.
-				-- So its not as bad.
-				self.BlockPathFind		=	true
-				self.Goal				=	nil
-				
-				timer.Simple( 1.0 , function() -- Prevent spamming the path finder.
+			-- Prevent spamming the pathfinder.
+			self.BlockPathFind		=	true
+			timer.Simple( 0.50 , function()
+			
+				if IsValid( self ) then
 					
-					if IsValid( self ) then
-						
-						self.BlockPathFind		=	false
-						
-					end
+					self.BlockPathFind		=	false
+				
+				end
+			
+			end)
+			
+			
+		end
+		
+		
+	end
+	
+	self:CheckProgress()
+	
+end
+
+function BOT:GetMotionVector()
+	
+	return self.MotionVector
+	
+end
+
+function BOT:IsPotentiallyTraversable( from, to )
+
+	if to.z - from.z > 64.1 then
+	
+		local along = to - from
+		along:Normalize()
+		if along.z > 0.6 then
+		
+			return false, 0.0
+			
+		end
+		
+	end
+	
+	local probeSize = 0.25 * self:GetHullWidth()
+	local probeZ = self:GetStepSize()
+	
+	local hullMin = Vector( -probeSize, -probeSize, probeZ )
+	local hullMax = Vector( probeSize, probeSize, self:GetCrouchHullHeight() )
+	
+	local result = util.TraceHull( { start = from, endpos = to, maxs = hullMax, mins = hullMin, filter = TBotTraversableFilter, mask = MASK_PLAYERSOLID } )
+
+	return result.Fraction >= 1.0 and !result.StartSolid, result.Fraction
+	
+end
+
+function BOT:IsGap( pos, forward )
+
+	local halfWidth = 1.0
+	local hullHeight = 1.0
+	
+	local ground = util.TraceHull( { start = pos + Vector( 0, 0, self:GetStepSize() ), endpos = pos + Vector( 0, 0, -64 ), maxs = Vector( halfWidth, halfWidth, hullHeight ), mins = Vector( -halfWidth, -halfWidth, 0 ), filter = TBotTraceFilter, mask = MASK_PLAYERSOLID } )
+	
+	--debugoverlay.SweptBox( pos + Vector( 0, 0, self:GetStepSize() ), pos + Vector( 0, 0, -64 ), Vector( -halfWidth, -halfWidth, 0 ), Vector( halfWidth, halfWidth, hullHeight ), Angle(), 5.0, Color( 255, 0, 0 ) )
+	
+	return ground.Fraction >= 1.0 and !ground.StartSolid
+	
+end
+
+function BOT:HasPotentialGap( from, desiredTo )
+
+	local _, traversableFraction = self:IsPotentiallyTraversable( from, desiredTo )
+	
+	local to = from + ( desiredTo - from ) * traversableFraction
+	
+	local forward = to - from
+	local length = forward:Length()
+	forward:Normalize()
+	
+	local step = self:GetHullWidth() / 2.0
+	local pos = Vector( from )
+	local delta = step * forward
+	local t = 0.0
+	while t < length + step do
+		
+		if self:IsGap( pos, forward ) then
+		
+			return true
+			
+		end
+		
+		t = t + step
+		pos = pos + delta
+		
+	end
+	
+	return false
+	
+end
+
+function BOT:CheckProgress()
+
+	-- skip nearby goal points that are redundant to smooth path following motion
+	local pSkipToGoal = nil
+	local index = self.CurrentSegment
+	if TBotLookAheadRange:GetFloat() > 0 then
+	
+		pSkipToGoal = self.Path[ self.CurrentSegment ]
+		local myFeet = self:GetPos()
+		while pSkipToGoal and pSkipToGoal[ "Type" ] == PATH_ON_GROUND and self:IsOnGround() do
+		
+			if ( pSkipToGoal[ "Pos" ] - myFeet ):IsLengthLessThan( TBotLookAheadRange:GetFloat() ) then
+			
+				-- goal is too close - step to next segment
+				local nextSegment = self.Path[ index + 1 ]
+				
+				if !nextSegment or nextSegment[ "Type" ] != PATH_ON_GROUND then
 					
-				end)
+					-- can't skip ahead to next segment - head towards current goal
+					break
+					
+				end
+				
+				if IsValid( nextSegment[ "Area" ] ) and nextSegment[ "Area" ]:HasAttributes( NAV_MESH_PRECISE ) then
+				
+					-- We are being told to be precise here, so don't skip ahead here
+					break
+					
+				end
+				
+				if nextSegment[ "Pos" ].z > myFeet.z + self:GetStepSize() then
+				
+					-- going uphill or up stairs tends to cause problems if we skip ahead, so don't
+					break
+					
+				end
+				
+				--[[if self:GetMotionVector():Dot( nextSegment[ "Forward" ] ) <= 0.1 then
+					
+					-- don't skip sharp turns
+					print( self:GetMotionVector():Dot( nextSegment[ "Forward" ] ) )
+					
+					break
+					
+				end]]
+				
+				--print( "IsPotentiallyTraversable: " .. tostring( self:IsPotentiallyTraversable( myFeet, nextSegment[ "Pos" ] ) ) )
+				--print( "HasPotentialGap: " .. tostring( !self:HasPotentialGap( myFeet, nextSegment[ "Pos" ] ) ) )
+				
+				-- can we reach the next path segment directly
+				if self:IsPotentiallyTraversable( myFeet, nextSegment[ "Pos" ] ) and !self:HasPotentialGap( myFeet, nextSegment[ "Pos" ] ) then
+				
+					pSkipToGoal = nextSegment
+					index = index + 1
+					
+					--print( pSkipToGoal )
+					--print( index )
+					
+				else
+					
+					-- can't directly reach next segment - keep heading towards current goal
+					break
+					
+				end
 				
 			else
 			
-				-- Prevent spamming the pathfinder.
-				self.BlockPathFind		=	true
-				timer.Simple( 0.50 , function()
-					
-					if IsValid( self ) then
-						
-						self.BlockPathFind		=	false
-						
-					end
-					
-				end)
-				
-				
-				-- Give the computer some time before it does more expensive checks.
-				timer.Simple( 0.03 , function()
-					
-					-- If we can get there and is not already there, Then we will compute the visiblilty.
-					if IsValid( self ) and istable( self.NavmeshNodes ) then
-						
-						self.NavmeshNodes	=	table.Reverse( self.NavmeshNodes )
-						
-						self:ComputeNavmeshVisibility()
-						
-					end
-					
-				end)
+				-- goal is farther than min lookahead
+				break
 				
 			end
 			
 		end
 		
+		-- didn't find any goal to skip to
+		if pSkipToGoal == self.Path[ self.CurrentSegment ] then
+		
+			pSkipToGoal = nil
+			index = self.CurrentSegment
+			
+		end
 		
 	end
 	
+	if self:IsAtGoal() then
 	
+		local nextSegment = Either( istable( pSkipToGoal ), pSkipToGoal, self.Path[ self.CurrentSegment + 1 ] )
+	
+		if !nextSegment then
+			
+			if self:IsOnGround() then
+			
+				self.CurrentSegment = #self.Path + 1
+				
+			end
+			
+		else
+		
+			--print( self.CurrentSegment )
+			--print( index )
+			self.CurrentSegment = Either( self.CurrentSegment == index, self.CurrentSegment + 1, index )
+		
+		end
+		
+	end
+	
+end
+
+function BOT:IsAtGoal()
+
 	if istable( self.Path ) then
 		
-		if self.Path[ 1 ] then
+		if self.Path[ self.CurrentSegment ] then
 			
-			local Waypoint2D		=	Vector( self.Path[ 1 ][ "Pos" ].x , self.Path[ 1 ][ "Pos" ].y , self:GetPos().z )
+			local current		=	self.Path[ self.CurrentSegment - 1 ]
+			local toGoal		=	self.Path[ self.CurrentSegment ][ "Pos" ] - self:GetPos()
 			-- ALWAYS: Use 2D navigation, It helps by a large amount.
 			
-			if !self.Path[ 1 ][ "IsLadder" ] and !self.Path[ 1 ][ "IsDropDown" ] and !self.Path[ 1 ][ "IsLadderMount" ] and IsVecCloseEnough( self:GetPos() , Waypoint2D , 24 ) then
-				
-				table.remove( self.Path , 1 )
-				
-			elseif !self.Path[ 1 ][ "IsLadder" ] and !self.Path[ 1 ][ "IsDropDown" ] and self.Path[ 1 ][ "IsLadderMount" ] and ( self:Is_On_Ladder() or IsVecCloseEnough( self:GetPos() , Waypoint2D , 8 ) ) then
+			if !current then
 			
-				table.remove( self.Path , 1 )
-				
-			elseif !self.Path[ 1 ][ "IsLadder" ] and self.Path[ 1 ][ "IsDropDown" ] and self:GetPos().z <= self.Path[ 1 ][ "Pos" ].z + self:GetStepSize() then
-				
-				table.remove( self.Path , 1 )
-				
-			elseif self.Path[ 1 ][ "IsLadder" ] and self.Path[ 1 ][ "LadderUp" ] and self:GetPos().z >= self.Path[ 1 ][ "Pos" ].z then
-				
-				timer.Simple( 1.0 , function()
+				-- passed goal
+				return true
 			
-					if IsValid( self ) and self:Alive() and self.Path[ 1 ] and !self.Path[ 1 ][ "IsLadder" ] and !self.Path[ 1 ][ "IsLadderMount" ] and self:Is_On_Ladder() then
+			elseif self.Path[ self.CurrentSegment ][ "Type" ] == PATH_DROP_DOWN then
+				
+				if !self.Path[ self.CurrentSegment + 1 ] then
+				
+					-- passed goal or corrupt path
+					return true
+				
+				-- did we reach the ground
+				elseif self:GetPos().z - self.Path[ self.CurrentSegment + 1 ][ "Pos" ].z < self:GetStepSize() then
+					
+					-- reached goal
+					return true
+					
+				end
+				
+			elseif self.Path[ self.CurrentSegment ][ "Type" ] == PATH_CLIMB_UP then
+				
+				if !self.Path[ self.CurrentSegment + 1 ] then
+				
+					-- passed goal or corrupt path
+					return true
+				
+				elseif self:GetPos().z > self.Path[ self.CurrentSegment ][ "Pos" ].z + self:GetStepSize() then
+				
+					return true
+					
+				end
+			
+			else
+				
+				local nextSegment = self.Path[ self.CurrentSegment + 1 ]
+				
+				if nextSegment then
+				
+					-- because the bot may be off the path, check if it crossed the plane of the goal
+					-- check against average of current and next forward vectors
+					local dividingPlane = nil
+					
+					if current[ "Ladder" ] then
+					
+						dividingPlane = self.Path[ self.CurrentSegment ][ "Forward" ]:AsVector2D()
 						
+					else
+					
+						dividingPlane = current[ "Forward" ]:AsVector2D() + self.Path[ self.CurrentSegment ][ "Forward" ]:AsVector2D()
+					
+					end
+					
+					if toGoal:AsVector2D():Dot( dividingPlane ) < 0.0001 and math.abs( toGoal.z ) < 72 then
+					
+						if toGoal.z < self:GetStepSize() and ( self:IsPotentiallyTraversable( self:GetPos(), nextSegment[ "Pos" ] ) and !self:HasPotentialGap( self:GetPos(), nextSegment[ "Pos" ] ) ) then
+						
+							return true
+							
+						end
+						
+					end
+					
+				end
+				
+				-- Is 10 too small of a goal tolerance?
+				if ( self.Path[ self.CurrentSegment ][ "Type" ] == PATH_ON_GROUND or self.Path[ self.CurrentSegment ][ "Type" ] == PATH_JUMP_OVER_GAP ) and toGoal:AsVector2D():IsLengthLessThan( 10 ) then
+					
+					if self.Path[ self.CurrentSegment ][ "Type" ] == PATH_JUMP_OVER_GAP then
+					
+						if self.Path[ self.CurrentSegment + 1 ] then
+						
+							self:AimAtPos( self.Path[ CurrentSegment + 1 ][ "Pos" ] + self:GetCurrentViewOffset(), 0.1, MAXIMUM_PRIORITY )
+							
+						end
+				
 						self:PressJump()
 						
 					end
 					
-				end)
-				
-				table.remove( self.Path , 1 )
-				
-			elseif self.Path[ 1 ][ "IsLadder" ] and !self.Path[ 1 ][ "LadderUp" ] and self:GetPos().z <= self.Path[ 1 ][ "Pos" ].z + self:GetStepSize() then
-			
-				timer.Simple( 1.0 , function()
-			
-					if IsValid( self ) and self:Alive() and self.Path[ 1 ] and !self.Path[ 1 ][ "IsLadder" ] and !self.Path[ 1 ][ "IsLadderMount" ] and self:Is_On_Ladder() then
-						
-						self:PressJump()
-						
-					end
+					return true
 					
-				end)
+				end
 				
-				table.remove( self.Path , 1 )
-			
 			end
-			--[[elseif IsVecCloseEnough( self:GetPos() , Waypoint2D , 8 ) then -- This is a backup this should never happen
-			
-				table.remove( self.Path , 1 )
-			
-			end]]
 			
 		end
 		
 	end
-	
-	
+
 end
 
 -- The navigation and navigation debugger for when a bot is stuck.
@@ -3853,28 +5480,98 @@ function BOT:TBotCreateNavTimer()
 	
 	local index			=	self:EntIndex()
 	local Attempts		=	0
+	local LastBotPos	=	self:GetPos()
 	
 	
 	timer.Create( "trizzle_bot_nav" .. index , 0.09 , 0 , function()
 		
-		if IsValid( self ) and self:Alive() and isvector( self.Goal ) then
+		if IsValid( self ) and self:Alive() and self:IsTRizzleBot() and isvector( self.Goal ) then
 			
 			if self:Is_On_Ladder() then return end
 			
-			if self:GetVelocity():Length2DSqr() <= 225 then
+			if self:GetVelocity():Length2DSqr() <= 225 or IsVecCloseEnough( LastBotPos:AsVector2D(), self:GetPos():AsVector2D(), 4 ) then
 				
-				self.ShouldUse	=	true
-				
-				if Attempts >= 5 then self:PressJump() end
+				if Attempts >= 5 then 
+					
+					self.AvoidTimer = CurTime() + 0.5
+					if self.WiggleTimer > CurTime() then
+					
+						return
+						
+					end
+					
+					local wiggleDirection = math.random( 2 )
+					self.WiggleTimer = CurTime() + math.Rand( 0.3, 0.5 )
+					if wiggleDirection == 1 then
+					
+						local ground = navmesh.GetGroundHeight( self:GetPos() - ( 30.0 * self:EyeAngles():Right() ) )
+						
+						-- Don't move left if we will fall
+						if ground and self:GetPos().z - ground < self:GetStepSize() then
+						
+							self:PressLeft( 0.3 )
+						
+						end
+					
+					elseif wiggleDirection == 2 then
+					
+						local ground = navmesh.GetGroundHeight( self:GetPos() + ( 30.0 * self:EyeAngles():Right() ) )
+						
+						-- Don't move right if we will fall
+						if ground and self:GetPos().z - ground < self:GetStepSize() then
+						
+							self:PressRight( 0.3 )
+						
+						end
+					
+					--[[elseif wiggleDirection == 3 then
+					
+						local ground = navmesh.GetGroundHeight( self:GetPos() + ( 30.0 * self:EyeAngles():Forward() ) )
+						
+						-- Don't move forward if we will fall
+						if ground and self:GetPos().z - ground < self:GetStepSize() then
+						
+							self:PressForward( 0.3 )
+						
+						end
+					
+					elseif wiggleDirection == 4 then
+					
+						local ground = navmesh.GetGroundHeight( self:GetPos() - ( 30.0 * self:EyeAngles():Forward() ) )
+						
+						-- Don't move back if we will fall
+						if ground and self:GetPos().z - ground < self:GetStepSize() then
+						
+							self:PressBack( 0.3 )
+						
+						end]]
+					
+					end
+					
+					if self.StuckJumpInterval <= CurTime() then
+					
+						self:PressJump()
+						self.StuckJumpInterval = CurTime() + math.Rand( 1.0, 2.0 )
+					
+					end
+					
+				end
 				if Attempts == 10 then self.Path	=	nil end
-				if Attempts > 20 then self.Goal 	=	nil end
+				if Attempts > 20 then 
+				
+					self:TBotClearPath()
+					self:ClearHidingSpot()
+					
+				end
 				Attempts = Attempts + 1
 				
 			else
 				
-				Attempts = 0
+				if Attempts > 0 then Attempts = Attempts - 1 end
 				
 			end
+			
+			LastBotPos = self:GetPos()
 			
 		else
 			
@@ -3886,7 +5583,123 @@ function BOT:TBotCreateNavTimer()
 	
 end
 
+function VectorVectors( forward, right, up )
+	
+	local tmp = Vector()
+	
+	if math.abs( forward[ 1 ] ) < 1e-6 and math.abs( forward[ 2 ] ) < 1e-6 then
+	
+		right[ 1 ] = 0
+		right[ 2 ] = -1
+		right[ 3 ] = 0
+		up[ 1 ] = -forward[ 3 ]
+		up[ 2 ] = 0
+		up[ 3 ] = 0
+		
+	else
+	
+		tmp[ 1 ] = 0
+		tmp[ 2 ] = 0
+		tmp[ 3 ] = 1.0
+		right = forward:Cross( tmp )
+		right:Normalize()
+		up = right:Cross( forward )
+		up:Normalize()
+		
+	end
+	
+end
 
+-- Purpose: Draw a vertical arrow at a position
+-- Got this from CS:GO Source Code, made some changes so it works for Lua
+function debugoverlay.VertArrow( startPos, endPos, width, r, g, b, a, noDepthTest, flDuration )
+	if !GetConVar( "developer" ):GetBool() then return end
+	
+	local lineDir = endPos - startPos
+	lineDir:Normalize()
+	local upVec = Vector()
+	local sideDir = Vector()
+	local radius = width / 2.0
+	local arrowColor = Color( r, g, b, a )
+	
+	VectorVectors( lineDir, sideDir, upVec )
+	
+	local p1 = startPos - upVec * radius
+	local p2 = endPos - lineDir * width - upVec * radius
+	local p3 = endPos - lineDir * width - upVec * width
+	local p4 = endPos
+	local p5 = endPos - lineDir * width + upVec * width
+	local p6 = endPos - lineDir * width + upVec * radius
+	local p7 = startPos + upVec * radius
+	
+	-- Outline the arrow
+	debugoverlay.Line( p1, p2, flDuration, arrowColor, noDepthTest )
+	debugoverlay.Line( p2, p3, flDuration, arrowColor, noDepthTest )
+	debugoverlay.Line( p3, p4, flDuration, arrowColor, noDepthTest )
+	debugoverlay.Line( p4, p5, flDuration, arrowColor, noDepthTest )
+	debugoverlay.Line( p5, p6, flDuration, arrowColor, noDepthTest )
+	debugoverlay.Line( p6, p7, flDuration, arrowColor, noDepthTest )
+	
+	if a > 0 then
+	
+		-- Fill us in with triangles
+		debugoverlay.Triangle( p5, p4, p3, flDuration, arrowColor, noDepthTest )
+		debugoverlay.Triangle( p1, p7, p6, flDuration, arrowColor, noDepthTest )
+		debugoverlay.Triangle( p6, p2, p1, flDuration, arrowColor, noDepthTest )
+		
+		-- And backfaces
+		debugoverlay.Triangle( p3, p4, p5, flDuration, arrowColor, noDepthTest )
+		debugoverlay.Triangle( p6, p7, p1, flDuration, arrowColor, noDepthTest )
+		debugoverlay.Triangle( p1, p2, p6, flDuration, arrowColor, noDepthTest )
+		
+	end
+	
+end
+
+-- Purpose: Draw a horizontal arrow pointing in the specified direction
+-- Got this from CS:GO Source Code, made some changes so it works for Lua
+function debugoverlay.HorzArrow( startPos, endPos, width, r, g, b, a, noDepthTest, flDuration )
+	if !GetConVar( "developer" ):GetBool() then return end
+
+	local lineDir = endPos - startPos
+	lineDir:Normalize()
+	local sideDir
+	local radius = width / 2.0
+	local arrowColor = Color( r, g, b, a )
+	
+	sideDir = lineDir:Cross( vector_up )
+	
+	local p1 = startPos - sideDir * radius
+	local p2 = endPos - lineDir * width - sideDir * radius
+	local p3 = endPos - lineDir * width - sideDir * width
+	local p4 = endPos
+	local p5 = endPos - lineDir * width + sideDir * width
+	local p6 = endPos - lineDir * width + sideDir * radius
+	local p7 = startPos + sideDir * radius
+	
+	-- Outline the arrow
+	debugoverlay.Line( p1, p2, flDuration, arrowColor, noDepthTest )
+	debugoverlay.Line( p2, p3, flDuration, arrowColor, noDepthTest )
+	debugoverlay.Line( p3, p4, flDuration, arrowColor, noDepthTest )
+	debugoverlay.Line( p4, p5, flDuration, arrowColor, noDepthTest )
+	debugoverlay.Line( p5, p6, flDuration, arrowColor, noDepthTest )
+	debugoverlay.Line( p6, p7, flDuration, arrowColor, noDepthTest )
+	
+	if a > 0 then
+	
+		-- Fill us in with triangles
+		debugoverlay.Triangle( p5, p4, p3, flDuration, arrowColor, noDepthTest )
+		debugoverlay.Triangle( p1, p7, p6, flDuration, arrowColor, noDepthTest )
+		debugoverlay.Triangle( p6, p2, p1, flDuration, arrowColor, noDepthTest )
+		
+		-- And backfaces
+		debugoverlay.Triangle( p3, p4, p5, flDuration, arrowColor, noDepthTest )
+		debugoverlay.Triangle( p6, p7, p1, flDuration, arrowColor, noDepthTest )
+		debugoverlay.Triangle( p1, p2, p6, flDuration, arrowColor, noDepthTest )
+		
+	end
+	
+end
 
 -- A handy debugger for the waypoints.
 -- Requires developer set to 1 in console
@@ -3895,7 +5708,7 @@ function BOT:TBotDebugWaypoints()
 	if table.IsEmpty( self.Path ) then return end
 	if !GetConVar( "developer" ):GetBool() then return end
 	
-	debugoverlay.Line( self.Path[ 1 ][ "Pos" ] , self:GetPos() + Vector( 0 , 0 , 44 ) , 0.08 , Color( 0 , 255 , 255 ) )
+	--[[debugoverlay.Line( self.Path[ 1 ][ "Pos" ] , self:GetPos() + Vector( 0 , 0 , 44 ) , 0.08 , Color( 0 , 255 , 255 ) )
 	debugoverlay.Sphere( self.Path[ 1 ][ "Pos" ] , 8 , 0.08 , Color( 0 , 255 , 255 ) , true )
 	
 	for k, v in ipairs( self.Path ) do
@@ -3908,20 +5721,752 @@ function BOT:TBotDebugWaypoints()
 		
 		debugoverlay.Sphere( v[ "Pos" ] , 8 , 0.08 , Color( 255 , 200 , 0 ) , true )
 		
+	end]]
+	
+	for k, s in ipairs( self.Path ) do
+		
+		local nextNode = self.Path[ k + 1 ]
+		if !nextNode then
+		
+			break
+			
+		end
+		
+		local to = nextNode.Pos - s.Pos
+		local horiz = math.max( math.abs( to.x ), math.abs( to.y ) )
+		local vert = math.abs( to.z )
+		
+		-- PATH_ON_GROUND and PATH_LADDER_MOUNT
+		local r, g, b = 255, 77, 0
+		
+		if s.Type == PATH_DROP_DOWN then
+		
+			r = 255
+			g = 0
+			b = 255
+			
+		elseif s.Type == PATH_CLIMB_UP then 
+		
+			r = 0
+			g = 0
+			b = 255
+			
+		elseif s.Type == PATH_JUMP_OVER_GAP then 
+		
+			r = 0
+			g = 255
+			b = 255
+			
+		elseif s.Type == PATH_LADDER_UP then 
+		
+			r = 0
+			g = 255
+			b = 0
+			
+		elseif s.Type == PATH_LADDER_DOWN then 
+		
+			r = 0
+			g = 100
+			b = 0
+			
+		end
+		
+		if IsValid( s.Ladder ) then
+		
+			debugoverlay.VertArrow( s.Ladder:GetBottom(), s.Ladder:GetTop(), 5.0, r, g, b, 255, true, 0.1 )
+			
+		else
+		
+			debugoverlay.Line( s.Pos, nextNode.Pos, 0.1, Color( r, g, b ), true )
+			
+		end
+		
+		local nodeLength = 25.0
+		if horiz > vert then
+		
+			debugoverlay.HorzArrow( s.Pos, s.Pos + nodeLength * s.Forward, 5.0, r, g, b, 255, true, 0.1 )
+			
+		else
+		
+			debugoverlay.VertArrow( s.Pos, s.Pos + nodeLength * s.Forward, 5.0, r, g, b, 255, true, 0.1 )
+			
+		end
+		
+		debugoverlay.Text( s.Pos, tostring( k ), 0.1, true )
+		
 	end
 	
 end
 
+function BOT:LadderUpdate()
+
+	if self.LadderState != NO_LADDER then
+	
+		return true
+		
+	end
+	
+	if !IsValid( self.Path[ self.CurrentSegment ][ "Ladder" ] ) then
+	
+		return false
+		
+	end
+	
+	local mountRange = 25
+	
+	if self.Path[ self.CurrentSegment ][ "Type" ] == PATH_LADDER_UP then
+	
+		if self.LadderState == NO_LADDER and self:GetPos().z > self.Path[ self.CurrentSegment ][ "Ladder" ]:GetTop().z - self:GetStepSize() then
+		
+			self.CurrentSegment = self.CurrentSegment + 1
+			return false
+			
+		end
+		
+		local to = ( self.Path[ self.CurrentSegment ][ "Ladder" ]:GetBottom() - self:GetPos() ):AsVector2D()
+		
+		self:AimAtPos( self.Path[ self.CurrentSegment ][ "Ladder" ]:GetTop() - 50 * self.Path[ self.CurrentSegment ][ "Ladder" ]:GetNormal() + Vector( 0, 0, 36 ), 2.0, MAXIMUM_PRIORITY )
+		
+		local range = to:Length()
+		to:Normalize()
+		if range < 50 then
+		
+			local ladderNormal2D = self.Path[ self.CurrentSegment ][ "Ladder" ]:GetNormal():AsVector2D()
+			local dot = ladderNormal2D:Dot( to )
+			
+			if dot < -0.9 then
+			
+				self:Approach( self.Path[ self.CurrentSegment ][ "Ladder" ]:GetBottom() )
+			
+				if range < mountRange then
+				
+					self.LadderState = APPROACHING_ASCENDING_LADDER
+					self.LadderInfo = self.Path[ self.CurrentSegment ][ "Ladder" ]
+					self.LadderDismountGoal = self.Path[ self.CurrentSegment ][ "Area" ]
+					
+				end
+				
+			else
+			
+				local myPerp = Vector( -to.y, to.x, 0 )
+				local ladderPerp2D = Vector( -ladderNormal2D.y, ladderNormal2D.x )
+				
+				local goal = self.Path[ self.CurrentSegment ][ "Ladder" ]:GetBottom()
+				local alignRange = 50
+				
+				if dot < 0.0 then
+				
+					alignRange = mountRange + ( 1.0 + dot ) * ( alignRange - mountRange )
+					
+				end
+				
+				goal.x = goal.x - alignRange * to.x
+				goal.y = goal.y - alignRange * to.y
+				
+				if to:Dot( ladderPerp2D ) < 0.0 then
+				
+					goal = goal + 10 * myPerp
+					
+				else
+				
+					goal = goal - 10 * myPerp
+					
+				end
+				
+				self:Approach( goal )
+				
+			end
+			
+			
+		else
+		
+			return false
+			
+		end
+		
+	else
+	
+		if self:GetPos().z < self.Path[ self.CurrentSegment ][ "Ladder" ]:GetBottom().z + self:GetStepSize() then
+		
+			self.CurrentSegment = self.CurrentSegment + 1
+			
+		else
+		
+			local mountPoint = self.Path[ self.CurrentSegment ][ "Ladder" ]:GetTop() + 0.5 * self:GetHullWidth() * self.Path[ self.CurrentSegment ][ "Ladder" ]:GetNormal()
+			local to = ( mountPoint - self:GetPos() ):AsVector2D()
+			
+			self:AimAtPos( self.Path[ self.CurrentSegment ][ "Ladder" ]:GetBottom() + 50 * self.Path[ self.CurrentSegment ][ "Ladder" ]:GetNormal() + Vector( 0, 0, 36 ), 1.0, MAXIMUM_PRIORITY )
+			
+			local range = to:Length()
+			to:Normalize()
+			
+			if range < mountRange or self:Is_On_Ladder() then
+			
+				self.LadderState = APPROACHING_DESCENDING_LADDER
+				self.LadderInfo = self.Path[ self.CurrentSegment ][ "Ladder" ]
+				self.LadderDismountGoal = self.Path[ self.CurrentSegment ][ "Area" ]
+			
+			else
+			
+				return false
+				
+			end
+			
+		end
+		
+	end
+	
+	return true
+	
+end
+
+function BOT:AdjustPosture( moveGoal )
+
+	local hullMin = self:GetHull()
+	hullMin.z = hullMin.z + self:GetStepSize()
+	
+	local halfSize = self:GetHullWidth() / 2.0
+	local standMaxs = Vector( halfSize, halfSize, self:GetStandHullHeight() )
+	
+	local groundNormal = Vector( 0, 0, 1.0 )
+	local moveDir = moveGoal - self:GetPos()
+	local moveLength = moveDir:Length()
+	moveDir:Normalize()
+	local left = Vector( -moveDir.y, moveDir.x, 0 )
+	local goal = self:GetPos() + moveLength * left:Cross( groundNormal ):Normalize()
+	
+	local trace = util.TraceHull( { start = self:GetPos(), endpos = goal, maxs = standMaxs, mins = hullMin, filter = TBotTraversableFilter, mask = MASK_PLAYERSOLID } )
+	
+	if trace.Fraction >= 1.0 and !trace.StartSolid then
+	
+		return
+		
+	end
+	
+	local crouchMaxs = Vector( halfSize, halfSize, self:GetCrouchHullHeight() )
+	local trace = util.TraceHull( { start = self:GetPos(), endpos = goal, maxs = crouchMaxs, mins = hullMin, filter = TBotTraversableFilter, mask = MASK_PLAYERSOLID } )
+	
+	if trace.Fraction >= 1.0 and !trace.StartSolid then
+	
+		self:PressCrouch()
+		
+	end
+	
+end
+
+function BOT:Approach( pos )
+	
+	self:AdjustPosture( pos )
+	
+	forward = self:EyeAngles():Forward()
+	forward.z = 0.0
+	forward:Normalize()
+	
+	local right = Vector( forward.y, -forward.x, 0 )
+	
+	local to = pos - self:GetPos()
+	to.z = 0.0
+	to:Normalize()
+	
+	local ahead = to:Dot( forward )
+	local side = to:Dot( right )
+	
+	if self:Is_On_Ladder() and self.LadderState != NO_LADDER and ( self.LadderState == ASCENDING_LADDER or self.LadderState == DESCENDING_LADDER ) then
+		
+		self:PressForward()
+		
+		if IsValid( self.LadderInfo ) then
+			
+			local posOnLadder = CalcClosestPointOnLine( self:GetPos(), self.LadderInfo:GetBottom(), self.LadderInfo:GetTop() )
+			local alongLadder = self.LadderInfo:GetTop() - self.LadderInfo:GetBottom()
+			alongLadder:Normalize()
+			local rightLadder = alongLadder:Cross( self.LadderInfo:GetNormal() )
+			local away = self:GetPos() - posOnLadder
+			local Error = away:Dot( rightLadder )
+			away:Normalize()
+			
+			--local tolerance = 5.0 + 0.25 * self:GetHullWidth()
+			local tolerance = 0.25 * self:GetHullWidth()
+			if math.abs( Error ) > tolerance then
+			
+				if away:Dot( rightLadder ) > 0.0 then
+				
+					self:PressLeft()
+					
+				else
+					
+					self:PressRight()
+					
+				end
+				
+			end
+			
+		end
+		
+	else
+		
+		if !self:InVehicle() then
+		
+			if ahead > 0.25 then
+				
+				self:PressForward()
+				
+			elseif ahead < -0.25 then
+				
+				self:PressBack()
+				
+			end
+			
+			if self.WiggleTimer <= CurTime() then
+				
+				if side <= -0.25 then
+				
+					self:PressLeft()
+					
+				elseif side >= 0.25 then
+					
+					self:PressRight()
+					
+				end
+				
+			end
+			
+		else
+			
+			local currentVehicle = self:GetVehicle()
+			if IsValid( currentVehicle ) then
+				
+				self:PressForward()
+				
+				local turnAngle = ( pos - currentVehicle:GetPos() ):Angle()
+				local diff = math.AngleDifference( currentVehicle:GetAngles().y, turnAngle.y )
+				if 15 < diff then
+					
+					self:PressRight()
+					
+				elseif 15 > diff then
+					
+					self:PressLeft()
+					
+				end
+				
+			end
+			
+		end
+		
+	end
+	
+end
+
+function BOT:ApproachAscendingLadder()
+
+	if !IsValid( self.LadderInfo ) then
+	
+		return NO_LADDER
+		
+	end
+	
+	if self:GetPos().z >= self.LadderInfo:GetTop().z - self:GetStepSize() then
+	
+		self.LadderTimer = CurTime() + 2.0
+		return DISMOUNTING_LADDER_TOP
+		
+	end
+	
+	if self:GetPos().z <= self.LadderInfo:GetBottom().z - 64 then
+	
+		return NO_LADDER
+		
+	end
+	
+	self:AimAtPos( Vector( self.LadderInfo:GetBottom().x, self.LadderInfo:GetBottom().y, self:GetShootPos().z ), 0.1, LOW_PRIORITY )
+	
+	self:Approach( self.LadderInfo:GetBottom() )
+	
+	if self:Is_On_Ladder() then
+	
+		return ASCENDING_LADDER
+		
+	end
+	
+	return APPROACHING_ASCENDING_LADDER
+	
+end
+
+function BOT:ApproachDescendingLadder()
+
+	if !IsValid( self.LadderInfo ) then
+	
+		return NO_LADDER
+		
+	end
+	
+	if self:GetPos().z <= self.LadderInfo:GetBottom().z + 64 then
+	
+		self.LadderTimer = CurTime() + 2.0
+		return DISMOUNTING_LADDER_BOTTOM
+		
+	end
+	
+	local mountPoint = self.LadderInfo:GetTop() + 0.25 * self:GetHullWidth() * self.LadderInfo:GetNormal()
+	local to = mountPoint - self:GetPos()
+	to.z = 0.0
+	
+	local mountRange = to:Length()
+	to:Normalize()
+	local moveGoal = nil
+	
+	if mountRange < 10.0 then
+	
+		moveGoal = self:GetPos() + 100 * self:GetMotionVector()
+		
+	else
+	
+		if to:Dot( self.LadderInfo:GetNormal() ) < 0.0 then
+		
+			moveGoal = self.LadderInfo:GetTop() - 100 * self.LadderInfo:GetNormal()
+			
+		else
+		
+			moveGoal = self.LadderInfo:GetTop() + 100 * self.LadderInfo:GetNormal()
+			
+		end
+	
+	end
+	
+	self:FaceTowards( moveGoal )
+	
+	self:Approach( moveGoal )
+	
+	if self:Is_On_Ladder() then
+	
+		return DESCENDING_LADDER
+		
+	end
+	
+	return APPROACHING_DESCENDING_LADDER
+	
+end	
+
+function BOT:AscendLadder()
+
+	if !IsValid( self.LadderInfo ) then
+	
+		return NO_LADDER
+		
+	end
+	
+	if !self:Is_On_Ladder() then
+	
+		self.LadderInfo = nil
+		return NO_LADDER
+		
+	end
+	
+	if self:GetPos().z >= self.LadderInfo:GetTop().z then
+	
+		self.LadderTimer = CurTime() + 2.0
+		return DISMOUNTING_LADDER_TOP
+		
+	end
+	
+	local goal = self:GetPos() + 100 * ( -self.LadderInfo:GetNormal() + Vector( 0, 0, 2 ) )
+	
+	self:AimAtPos( goal, 0.1, MAXIMUM_PRIORITY )
+	
+	self:Approach( goal )
+	
+	return ASCENDING_LADDER
+	
+end
+
+function BOT:DescendLadder()
+
+	if !IsValid( self.LadderInfo ) then
+	
+		return NO_LADDER
+		
+	end
+	
+	if !self:Is_On_Ladder() then
+	
+		self.LadderInfo = nil
+		return NO_LADDER
+		
+	end
+	
+	if self:GetPos().z <= self.LadderInfo:GetBottom().z + self:GetStepSize() then
+	
+		self.LadderTimer = CurTime() + 2.0
+		return DISMOUNTING_LADDER_BOTTOM
+		
+	end
+	
+	local goal = self:GetPos() + 100 * ( self.LadderInfo:GetNormal() + Vector( 0, 0, -2 ) )
+	
+	self:AimAtPos( goal, 0.1, MAXIMUM_PRIORITY )
+	
+	self:Approach( goal )
+	
+	return DESCENDING_LADDER
+	
+end
+
+function BOT:DismountLadderTop()
+
+	if !IsValid( self.LadderInfo ) or self.LadderTimer <= CurTime() then
+	
+		self.LadderInfo = nil
+		return NO_LADDER
+		
+	end
+	
+	local toGoal = self.LadderDismountGoal:GetCenter() - self:GetPos()
+	toGoal.z = 0.0
+	local range = toGoal:Length()
+	toGoal:Normalize()
+	toGoal.z = 1.0
+	
+	self:AimAtPos( self:GetShootPos() + 100 * toGoal, 0.1, MAXIMUM_PRIORITY )
+	
+	self:Approach( self:GetPos() + 100 * toGoal )
+	
+	if self.lastKnownArea == self.LadderDismountGoal and range < 10.0 then
+	
+		self.LadderInfo = nil
+		return NO_LADDER
+		
+	end
+	
+	return DISMOUNTING_LADDER_TOP
+	
+end
+
+function BOT:DismountLadderBottom()
+
+	if !IsValid( self.LadderInfo ) or self.LadderTimer <= CurTime() then
+	
+		self.LadderInfo = nil
+		return NO_LADDER
+		
+	end
+	
+	if self:Is_On_Ladder() then
+	
+		self:PressJump()
+		self.LadderInfo = nil
+		
+	end
+	
+	return NO_LADDER
+	
+end
+
+function BOT:TraverseLadder()
+	
+	if self.LadderState == APPROACHING_ASCENDING_LADDER then
+	
+		self.LadderState = self:ApproachAscendingLadder()
+		return true
+		
+	elseif self.LadderState == APPROACHING_DESCENDING_LADDER then
+	
+		self.LadderState = self:ApproachDescendingLadder()
+		return true
+	
+	elseif self.LadderState == ASCENDING_LADDER then
+	
+		self.LadderState = self:AscendLadder()
+		return true
+	
+	elseif self.LadderState == DESCENDING_LADDER then
+	
+		self.LadderState = self:DescendLadder()
+		return true
+	
+	elseif self.LadderState == DISMOUNTING_LADDER_TOP then
+	
+		self.LadderState = self:DismountLadderTop()
+		return true
+	
+	elseif self.LadderState == DISMOUNTING_LADDER_BOTTOM then
+	
+		self.LadderState = self:DismountLadderBottom()
+		return true
+	
+	else
+	
+		self.LadderInfo = nil
+		return false
+		
+	end
+	
+	return true
+
+end	
 -- Make the bot move.
-function BOT:TBotUpdateMovement( cmd )
+function BOT:TBotUpdateMovement()
 	
 	--local MovementAngle		=	self:EyeAngles()
 	
-	if isvector( self.Goal ) and ( !istable( self.Path ) or table.IsEmpty( self.Path ) or isbool( self.NavmeshNodes ) ) then
+	if isvector( self.Goal ) and self.Path[ self.CurrentSegment ] then
+		
+		--MovementAngle		=	( ( self.Path[ 1 ][ "Pos" ] + self:GetCurrentViewOffset() ) - self:GetShootPos() ):GetNormalized():Angle()
+		
+		--[[if isvector( self.Path[ 1 ][ "Check" ] ) then
+			MovementAngle = ( ( self.Path[ 1 ][ "Check" ] + self:GetCurrentViewOffset() ) - self:GetShootPos() ):GetNormalized():Angle()
+			
+			local CheckIn2D			=	Vector( self.Path[ 1 ][ "Check" ].x , self.Path[ 1 ][ "Check" ].y , self:GetPos().z )
+			
+			if IsVecCloseEnough( self:GetPos() , CheckIn2D , 24 ) then
+				
+				self.Path[ 1 ][ "Check" ] = nil
+				return
+			end
+			
+			if SendBoxedLine( self:GetPos() , CheckIn2D ) == true then
+			
+				self.Path[ 1 ][ "Check" ] = nil
+			end
+		end]]
+		
+		if self:LadderUpdate() then
+			
+			-- we are traversing a ladder
+			self:TraverseLadder()
+			return
+			
+		end
+		
+		-- TODO: Is this better than forcing the bot to jump?
+		if self:OnGround() and !self:Is_On_Ladder() and ( !IsValid( self.Path[ self.CurrentSegment ][ "Area" ] ) or !self.Path[ self.CurrentSegment ].Area:HasAttributes( NAV_MESH_STAIRS ) ) and self.Path[ self.CurrentSegment ][ "Type" ] == PATH_JUMP_OVER_GAP then
+			--[[local SmartJump		=	util.TraceLine({
+				
+				start			=	self:GetPos(),
+				endpos			=	self:GetPos() + Vector( 0 , 0 , -16 ),
+				filter			=	self,
+				mask			=	MASK_SOLID,
+				collisiongroup	=	COLLISION_GROUP_DEBRIS
+				
+			})
+			
+			-- This tells the bot to jump if it detects a gap in the ground
+			if SmartJump.Fraction >= 1.0 and !SmartJump.StartSolid then
+				
+				self:PressJump()
+
+			end]]
+			
+			local aheadRay = Vector( self.Path[ self.CurrentSegment ][ "Pos" ].x - self:GetPos().x, self.Path[ self.CurrentSegment ][ "Pos" ].y - self:GetPos().y, 0 ):Normalize()
+			local jumped = false
+			
+			if self:KeyDown( IN_SPEED ) then
+			
+				local farLookAheadRange = 80
+				local stepAhead = self:GetPos() + farLookAheadRange * aheadRay
+				stepAhead.z = stepAhead.z + HalfHumanHeight.z
+				local ground, normal = navmesh.GetGroundHeight( stepAhead )
+				if ground and isvector( normal ) then
+				
+					if normal.z > 0.9 and ( ground - self:GetPos().z ) < -64 then
+					
+						self:PressJump()
+						jumped = true
+						
+					end
+					
+				end
+				
+			end
+			
+			--[[if !jumped then
+			
+				local lookAheadRange = 30
+				local stepAhead = self:GetPos() + lookAheadRange * aheadRay
+				stepAhead.z = stepAhead.z + HalfHumanHeight.z
+				local ground = navmesh.GetGroundHeight( stepAhead )
+				if ground and ( ground - self:GetPos().z ) < -64 then
+				
+					self:PressJump()
+					jumped = true
+					
+				end
+				
+			end]]
+			
+			if !jumped then
+			
+				local lookAheadRange = 10
+				local stepAhead = self:GetPos() + lookAheadRange * aheadRay
+				stepAhead.z = stepAhead.z + HalfHumanHeight.z
+				local ground = navmesh.GetGroundHeight( stepAhead )
+				if ground and ( ground - self:GetPos().z ) < -64 then
+				
+					self:PressJump()
+					jumped = true
+					
+				end
+				
+			end
+			
+		end
+		
+		if IsValid( self.Path[ self.CurrentSegment ][ "Area" ] ) then
+		
+			local CurrentArea = self.Path[ self.CurrentSegment ][ "Area" ]
+			
+			if !CurrentArea:HasAttributes( NAV_MESH_STAIRS ) and ( CurrentArea:HasAttributes( NAV_MESH_JUMP ) or ( self.Path[ self.CurrentSegment ][ "Type" ] == PATH_CLIMB_UP and self:GetPos():DistToSqr( self.Path[ self.CurrentSegment ][ "Pos" ] ) <= 2500 ) ) then
+			
+				self:PressJump()
+			
+			elseif CurrentArea:HasAttributes( NAV_MESH_CROUCH ) and self.Path[ self.CurrentSegment ][ "Type" ] != PATH_CLIMB_UP and self.Path[ self.CurrentSegment ][ "Type" ] != PATH_JUMP_OVER_GAP and self:GetPos():DistToSqr( self.Path[ self.CurrentSegment ][ "Pos" ] ) <= 2500 and !self:ShouldJump( self:GetPos(), self.Path[ self.CurrentSegment ][ "Pos" ] ) then
+			
+				self:PressCrouch()
+			
+			end
+			
+			if CurrentArea:HasAttributes( NAV_MESH_WALK ) then
+			
+				self:PressWalk()
+				
+			elseif CurrentArea:HasAttributes( NAV_MESH_RUN ) then
+			
+				self:PressRun()
+				
+			end
+			
+		end
+		
+		if self.Path[ self.CurrentSegment ][ "Type" ] == PATH_CLIMB_UP and self:GetPos():DistToSqr( self.Path[ self.CurrentSegment ][ "Pos" ] ) <= 2500 then
+		
+			self:PressJump()
+			
+		end
+		
+		local goalPos = Vector( self.Path[ self.CurrentSegment ][ "Pos" ] )
+		local forward = goalPos - self:GetPos()
+		forward.z = 0.0
+		forward:Normalize()
+		
+		if self.Path[ self.CurrentSegment ][ "Type" ] != PATH_CLIMB_UP then
+			
+			goalPos = self:TBotAvoid( goalPos, forward, Vector( -forward.y, forward.x, 0 ) )
+			
+		end
+		
+		if self:IsOnGround() then
+		
+			self:FaceTowards( goalPos )
+			
+		end
+		
+		self:Approach( goalPos )
+		
+	elseif isvector( self.Goal ) then
 		
 		--MovementAngle		=	( self.Goal - self:GetShootPos() ):GetNormalized():Angle()
 		
-		if self:OnGround() and ( !IsValid( self.currentArea ) or !self.currentArea:HasAttributes( NAV_MESH_STAIRS ) ) then
+		if self:OnGround() and ( !IsValid( self.lastKnownArea ) or !self.lastKnownArea:HasAttributes( NAV_MESH_STAIRS ) ) then
 			local SmartJump		=	util.TraceLine({
 				
 				start			=	self:GetPos(),
@@ -3940,18 +6485,20 @@ function BOT:TBotUpdateMovement( cmd )
 			end
 		end
 		
-		if self:ShouldJump( self:GetPos(), self.Goal ) then
-		
-			self:PressJump()
-			
-		end
-		
 		local goalPos = Vector( self.Goal )
 		local forward = goalPos - self:GetPos()
 		forward.z = 0.0
 		forward:Normalize()
 		
-		goalPos = self:TBotAvoid( goalPos, forward, Vector( -forward.y, forward.x, 0 ) )
+		if self:ShouldJump( self:GetPos(), self.Goal ) then
+		
+			self:PressJump()
+			
+		else
+			
+			goalPos = self:TBotAvoid( goalPos, forward, Vector( -forward.y, forward.x, 0 ) )
+		
+		end
 		
 		forward = self:EyeAngles():Forward()
 		forward.z = 0.0
@@ -4013,207 +6560,20 @@ function BOT:TBotUpdateMovement( cmd )
 		
 		--self:PressForward()
 		
-		if self:Is_On_Ladder() then self:AimAtPos( self.Goal + self:GetCurrentViewOffset(), CurTime() + 0.1, MAXIMUM_PRIORITY )
-		else self:AimAtPos( self.Goal + self:GetCurrentViewOffset(), CurTime() + 0.1, LOW_PRIORITY ) end
-		
 		local GoalIn2D			=	Vector( self.Goal.x , self.Goal.y , self:GetPos().z )
 		if IsVecCloseEnough( self:GetPos() , GoalIn2D , 32 ) then
 			
-			self.Goal			=		nil -- We have reached our goal!
+			self:TBotClearPath() -- We have reached our goal!
+			return
 			
 		end
 		
-	elseif isvector( self.Goal ) and self.Path[ 1 ] then
-		
-		--MovementAngle		=	( ( self.Path[ 1 ][ "Pos" ] + self:GetCurrentViewOffset() ) - self:GetShootPos() ):GetNormalized():Angle()
-		
-		--[[if isvector( self.Path[ 1 ][ "Check" ] ) then
-			MovementAngle = ( ( self.Path[ 1 ][ "Check" ] + self:GetCurrentViewOffset() ) - self:GetShootPos() ):GetNormalized():Angle()
-			
-			local CheckIn2D			=	Vector( self.Path[ 1 ][ "Check" ].x , self.Path[ 1 ][ "Check" ].y , self:GetPos().z )
-			
-			if IsVecCloseEnough( self:GetPos() , CheckIn2D , 24 ) then
-				
-				self.Path[ 1 ][ "Check" ] = nil
-				return
-			end
-			
-			if SendBoxedLine( self:GetPos() , CheckIn2D ) == true then
-			
-				self.Path[ 1 ][ "Check" ] = nil
-			end
-		end]]
-		
-		if self:OnGround() and self.Path[ 1 ][ "IsGapJump" ] then
-			local halfWidth = 1.0
-			local hullHeight = 1.0
-			
-			local SmartJump		=	util.TraceHull({
-				
-				start			=	self.Path[ 1 ][ "Pos" ] + Vector( 0, 0, self:GetStepSize() ),
-				endpos			=	self:GetPos() + Vector( 0 , 0 , -64 ),
-				maxs			=	Vector( halfWidth, halfWidth, hullHeight ),
-				mins			=	Vector( -halfWidth, -halfWidth, 0 ),
-				filter			=	self,
-				mask			=	MASK_PLAYERSOLID_BRUSHONLY
-				
-			})
-			
-			-- This tells the bot to jump if it detects a gap in the ground
-			if SmartJump.Fraction >= 1.0 and !SmartJump.StartSolid then
-				
-				self:PressJump()
-
-			end
-		end
-		
-		if IsValid( self.Path[ 1 ][ "Area" ] ) then
-		
-			local CurrentArea = self.Path[ 1 ][ "Area" ]
-			
-			if !CurrentArea:HasAttributes( NAV_MESH_STAIRS ) and ( CurrentArea:HasAttributes( NAV_MESH_JUMP ) or self:ShouldJump( self:GetPos(), self.Path[ 1 ][ "Pos" ] ) ) then
-			
-				self:PressJump()
-			
-			elseif CurrentArea:HasAttributes( NAV_MESH_CROUCH ) then
-			
-				self:PressCrouch()
-			
-			end
-			
-			if CurrentArea:HasAttributes( NAV_MESH_WALK ) then
-			
-				self:PressWalk()
-				
-			elseif CurrentArea:HasAttributes( NAV_MESH_RUN ) then
-			
-				self:PressRun()
-				
-			end
-			
-		end
-		
-		local goalPos = Vector( self.Path[ 1 ][ "Pos" ] )
-		local forward = goalPos - self:GetPos()
-		forward.z = 0.0
-		forward:Normalize()
-		
-		goalPos = self:TBotAvoid( goalPos, forward, Vector( -forward.y, forward.x, 0 ) )
-		
-		forward = self:EyeAngles():Forward()
-		forward.z = 0.0
-		forward:Normalize()
-		
-		local right = Vector( forward.y, -forward.x, 0 )
-		
-		local to = goalPos - self:GetPos()
-		to.z = 0.0
-		to:Normalize()
-		
-		
-		local ahead = to:Dot( forward )
-		local side = to:Dot( right )
-		
-		if self:Is_On_Ladder() then
-		
-			self:PressForward()
-			
-			local ladderInfo = self.Path[ 1 ][ "IsLadder" ]
-			if IsValid( ladderInfo ) then
-			
-				local posOnLadder = CalcClosestPointOnLine( self:GetPos(), ladderInfo:GetBottom(), ladderInfo:GetTop() )
-				local alongLadder = ( ladderInfo:GetTop() - ladderInfo:GetBottom() ):GetNormalized()
-				local rightLadder = alongLadder:Cross( ladderInfo:GetNormal() )
-				local away = self:GetPos() - posOnLadder
-				local Error = away:Dot( rightLadder )
-				away:Normalize()
-				
-				local tolerance = 5.0 + 0.25 * 16
-				if Error > tolerance then
-				
-					if away:Dot( rightLadder ) > 0.0 then
-					
-						self:PressLeft()
-						
-					else
-					
-						self:PressRight()
-						
-					end
-				
-				end
-				
-			end
-		
-		else
-		
-			if !self:InVehicle() then
-		
-				if ahead > 0.25 then
-				
-					self:PressForward()
-					
-				elseif ahead < -0.25 then
-				
-					self:PressBack()
-					
-				end
-				
-				if side <= -0.25 then
-			
-					self:PressLeft()
-				
-				elseif side >= 0.25 then
-				
-					self:PressRight()
-					
-				end
-			
-			else
-				
-				local currentVehicle = self:GetVehicle()
-				if IsValid( currentVehicle ) then
-				
-					self:PressForward()
-					
-					local turnAngle = ( self.Path[ 1 ][ "Pos" ] - currentVehicle:GetPos() ):Angle()
-					local diff = math.AngleDifference( currentVehicle:GetAngles().y, turnAngle.y )
-					if 15 < diff then
-					
-						self:PressRight()
-					
-					elseif 15 > diff then
-						
-						self:PressLeft()
-						
-					end
-					
-				end
-			
-			end
-		
-		end
-		--self:PressForward()
-		
-		if self:Is_On_Ladder() or self.Path[ 1 ][ "IsLadder" ] then 
-		
-			if self.Path[ 1 ][ "LadderUp" ] then
-			
-				self:AimAtPos( self.Path[ 1 ][ "Pos" ] + self:GetCurrentViewOffset(), CurTime() + 0.1, MAXIMUM_PRIORITY )
-				
-			else
-			
-				self:AimAtPos( self.Path[ 1 ][ "Pos" ] - self:GetCurrentViewOffset(), CurTime() + 0.1, MAXIMUM_PRIORITY )
-				
-			end
-			
-		else self:AimAtPos( self.Path[ 1 ][ "Pos" ] + self:GetCurrentViewOffset(), CurTime() + 0.1, LOW_PRIORITY ) end
+		if self:IsOnGround() then self:FaceTowards( self.Goal )
+		elseif self:Is_On_Ladder() then self:AimAtPos( self.Goal + self:GetCurrentViewOffset(), 0.1, MAXIMUM_PRIORITY ) end
 		
 	end
 	
 	--cmd:SetViewAngles( self:EyeAngles() )
-	cmd:SetForwardMove( self.forwardMovement )
-	cmd:SetSideMove( self.strafeMovement )
 	
 end
 
@@ -4228,15 +6588,15 @@ function BOT:TBotAvoid( goalPos, forward, left )
 	self.AvoidTimer = CurTime() + 0.5
 	local adjustedGoal = goalPos
 	
-	if !self:IsOnGround() or self.currentArea:HasAttributes( NAV_MESH_PRECISE ) then return adjustedGoal end
+	if !self:IsOnGround() or ( IsValid( self.lastKnownArea ) and self.lastKnownArea:HasAttributes( NAV_MESH_PRECISE ) ) then return adjustedGoal end
 	
-	local offset = ( 16 / 4 ) + 2
+	local size = self:GetHullWidth() / 4
+	local offset = size + 2
 	local range = Either( self:KeyDown( IN_SPEED ), 50, 30 )
-	local size = 16 / 4
 	local door = nil
 	
 	local hullMin = Vector( -size, -size, self:GetStepSize() + 0.1 )
-	local hullMax = Vector( size, size, 36 )
+	local hullMax = Vector( size, size, self:GetCrouchHullHeight() )
 	--local nextStepHullMin = Vector( -size, -size, 2.0 * self:GetStepSize() + 0.1 )
 	
 	local leftFrom = self:GetPos() + offset * left
@@ -4375,62 +6735,135 @@ local function NumberMidPoint( num1 , num2 )
 	
 end
 
---[[
--- This function techically gets the center crossing point of the smallest area.
--- This is 90% of the time where the blue connection point is.
--- So keep in mind this will rarely give inaccurate results.
-function Get_Blue_Connection( CurrentArea , TargetArea, dir )
-	if !IsValid( TargetArea ) or !IsValid( CurrentArea ) then return end
-	dir = Get_Direction( CurrentArea, TargetArea )
+
+function Zone:ComputePortal( TargetArea, dir )
+	if !IsValid( TargetArea ) or !IsValid( self ) then return end
 	
-	local NORTH = 0
-	local EAST = 1
-	local SOUTH = 2
-	local WEST = 3
+	local NORTH = 0 -- NORTH_WEST
+	local EAST = 1 -- NORTH_EAST
+	local SOUTH = 2 -- SOUTH_EAST
+	local WEST = 3 -- SOUTH_WEST
+	local center = Vector()
+	local halfWidth = 0
 	
 	if dir == NORTH or dir == SOUTH then
 		
-		if TargetArea:GetSizeX() >= CurrentArea:GetSizeX() then
-			
-			local Vec	=	NumberMidPoint( CurrentArea:GetCorner( NORTH ).y , CurrentArea:GetCorner( EAST ).y )
-			
-			local NavPoint = Vector( CurrentArea:GetCenter().x , Vec , 0 )
-			
-			return TargetArea:GetClosestPointOnArea( NavPoint ), Vector( NavPoint.x , CurrentArea:GetCenter().y , CurrentArea:GetZ( NavPoint ) )
-		else
-			
-			local Vec	=	NumberMidPoint( TargetArea:GetCorner( NORTH ).y , TargetArea:GetCorner( EAST ).y )
-			
-			local NavPoint = Vector( TargetArea:GetCenter().x , Vec , 0 )
-			
-			
-			return TargetArea:GetClosestPointOnArea( CurrentArea:GetClosestPointOnArea( NavPoint ) ), Vector( NavPoint.x , CurrentArea:GetCenter().y , CurrentArea:GetZ( NavPoint ) )
-		end	
+		if dir == NORTH then
 		
+			center.y = self:GetCorner( NORTH ).y
+			
+		else
+		
+			center.y = self:GetCorner( SOUTH ).y 
+			
+		end
+		
+		local left = math.max( self:GetCorner( NORTH ).x, TargetArea:GetCorner( NORTH ).x )
+		local right = math.min( self:GetCorner( SOUTH ).x, TargetArea:GetCorner( SOUTH ).x )
+		
+		if left < self:GetCorner( NORTH ).x then
+		
+			left = self:GetCorner( NORTH ).x
+			
+		elseif left > self:GetCorner( SOUTH ).x then
+		
+			left = self:GetCorner( SOUTH ).x
+			
+		end
+		
+		if right < self:GetCorner( NORTH ).x then
+		
+			right = self:GetCorner( NORTH ).x
+			
+		elseif right > self:GetCorner( SOUTH ).x then
+		
+			right = self:GetCorner( SOUTH ).x
+			
+		end
+		
+		center.x = NumberMidPoint( left, right )
+		halfWidth = ( right - left ) / 2.0
 		
 	else
 		
-		if TargetArea:GetSizeY() >= CurrentArea:GetSizeY() then
+		if dir == WEST then
+		
+			center.x = self:GetCorner( NORTH ).x
 			
-			local Vec	=	NumberMidPoint( CurrentArea:GetCorner( NORTH ).x , CurrentArea:GetCorner( WEST ).x )
-			
-			local NavPoint = Vector( Vec , CurrentArea:GetCenter().y , 0 )
-			
-			
-			return TargetArea:GetClosestPointOnArea( NavPoint ), Vector( CurrentArea:GetCenter().x , NavPoint.y , CurrentArea:GetZ( NavPoint ) )
 		else
+		
+			center.x = self:GetCorner( SOUTH ).x
 			
-			local Vec	=	NumberMidPoint( TargetArea:GetCorner( NORTH ).x , TargetArea:GetCorner( WEST ).x )
-			
-			local NavPoint = Vector( Vec , TargetArea:GetCenter().y , 0 )
-			
-			
-			return TargetArea:GetClosestPointOnArea( CurrentArea:GetClosestPointOnArea( NavPoint ) ), Vector( CurrentArea:GetCenter().x , NavPoint.y , CurrentArea:GetZ( NavPoint ) )
 		end
+		
+		local top = math.max( self:GetCorner( NORTH ).y, TargetArea:GetCorner( NORTH ).y )
+		local bottom = math.min( self:GetCorner( SOUTH ).y, TargetArea:GetCorner( SOUTH ).y )
+		
+		if top < self:GetCorner( NORTH ).y then
+		
+			top = self:GetCorner( NORTH ).y 
+			
+		elseif top > self:GetCorner( SOUTH ).y then
+		
+			top = self:GetCorner( SOUTH ).y
+			
+		end
+		
+		if bottom < self:GetCorner( NORTH ).y then
+		
+			bottom = self:GetCorner( NORTH ).y
+			
+		elseif bottom > self:GetCorner( SOUTH ).y then
+		
+			bottom = self:GetCorner( SOUTH ).y
+			
+		end
+		
+		center.y = NumberMidPoint( top, bottom )
+		halfWidth = ( bottom - top ) / 2.0
 		
 	end
 	
-end]]
+	center.z = self:GetZ( center )
+	
+	return center, halfWidth
+	
+end
+
+function Zone:ComputeNormal( alternate )
+
+	local NORTH_WEST = 0 
+	local NORTH_EAST = 1
+	local SOUTH_EAST = 2
+	local SOUTH_WEST = 3
+	local u, v = Vector(), Vector()
+	
+	if !alternate then
+	
+		u.x = self:GetCorner( SOUTH_EAST ).x - self:GetCorner( NORTH_WEST ).x
+		u.y = 0.0
+		u.z = self:GetCorner( NORTH_EAST ).z - self:GetCorner( NORTH_WEST ).z
+		
+		v.x = 0.0
+		v.y = self:GetCorner( SOUTH_EAST ).y - self:GetCorner( NORTH_WEST ).y
+		v.z = self:GetCorner( SOUTH_WEST ).z - self:GetCorner( NORTH_WEST ).z
+		
+	else
+	
+		u.x = self:GetCorner( NORTH_WEST ).x - self:GetCorner( SOUTH_EAST ).x
+		u.y = 0.0
+		u.z = self:GetCorner( SOUTH_WEST ).z - self:GetCorner( SOUTH_EAST ).z
+		
+		v.x = 0.0
+		v.y = self:GetCorner( NORTH_WEST ).y - self:GetCorner( SOUTH_EAST ).y
+		v.z = self:GetCorner( NORTH_EAST ).z - self:GetCorner( SOUTH_EAST ).z
+		
+	end
+	
+	local normal = u:Cross( v )
+	normal:Normalize()
+	return normal
+end
 
 function Zone:ComputeClosestPointInPortal( TargetArea, fromPos, dir )
 	if !IsValid( TargetArea ) or !IsValid( self ) then return end
@@ -4679,18 +7112,6 @@ function Lad:Get_Closest_Point_Current( pos )
 	return self:GetBottom(), self:GetBottom() + self:GetNormal() * 2.0 * 16, false
 end]]
 
--- See if a node is an area : 1 or a ladder : 2
-function Zone:Node_Get_Type()
-	
-	return 1
-end
-
-function Lad:Node_Get_Type()
-	
-	return 2
-end
-
-
 -- This grabs every internal variable of the specified entity
 function Test( ply )
 	for k, v in pairs( ply:GetSaveTable( true ) ) do
@@ -4698,6 +7119,21 @@ function Test( ply )
 		print( k .. ": " .. v )
 		
 	end 
+end
+
+-- I use this function to test function runtimes
+function Test2( ply, ply2 )
+
+	local startTime = SysTime()
+
+	for i = 1, 256 do
+	
+		NavAreaBuildPath( navmesh.GetNearestNavArea( ply:GetPos() ), navmesh.GetNearestNavArea( ply2:GetPos() ), ply2:GetPos(), ply )
+		
+	end
+	
+	print( "NavAreaBuildPath RunTime: " .. tostring( SysTime() - startTime ) .. " Seconds" )
+	
 end
 
 -- Draws the hiding spots on debug overlay. This includes sniper/exposed spots too!
