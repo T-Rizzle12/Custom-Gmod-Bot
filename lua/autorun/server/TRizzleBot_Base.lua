@@ -64,8 +64,13 @@ util.AddNetworkString( "TRizzleBotFlashlight" )
 local TBotSpawnTime = CreateConVar( "TBotSpawnTime", 6.0, FCVAR_NONE, "This is how long a bot must be dead before it can respawn.", 0 )
 local TBotLookAheadRange = CreateConVar( "TBotLookAheadRange", 300.0, FCVAR_CHEAT, "This is the minimum range a movement goal must be along the bot's path.", 0 )
 local TBotSaccadeSpeed = CreateConVar( "TBotSaccadeSpeed", 1000.0, FCVAR_CHEAT, "This is the maximum speed the bot can turn at.", 0 )
+local TBotAimError = CreateConVar( "TBotAimError", 0.01, FCVAR_CHEAT, "This is the maximum aim error the bot can have. This only affects the bot while it is trying to aim at an enemy.", 0 )
+local TBotGoalTolerance = CreateConVar( "TBotGoalTolerance", 25.0, FCVAR_CHEAT, "This is how close the bot must be to a goal in order to call it done.", 10 )
 local TBotAttackNextBots = CreateConVar( "TBotAttackNextBots", 0.0, FCVAR_NONE, "If nonzero, bots will consider every nextbot to be it's enemy." )
 local TBotAttackPlayers = CreateConVar( "TBotAttackPlayers", 0.0, FCVAR_NONE, "If nonzero, bots will consider every player who is not its Owner or have the same Owner as it an enemy." )
+local TBotBallisticElevationRate = CreateConVar( "TBotBallisticElevationRate", 0.01, FCVAR_CHEAT, "When lobbing grenades at far away targets, this is the degree/range slope to raise our aim." )
+local TBotCheaperClimbing = CreateConVar( "TBotCheaperClimbing", 0.0, FCVAR_CHEAT, "If nonzero, bots will skip the expensive ledge jumping checks, only set this nonzero if you have to as it may cause the bot to get stuck." )
+local TBotRandomPaths = CreateConVar( "TBotRandomPaths", 0.0, FCVAR_CHEAT, "If nonzero, the bot will pick random paths when pathfinding to a goal. It is not recommended to use this." )
 
 function TBotCreate( ply , cmd , args ) -- This code defines stats of the bot when it is created.  
 	if !args[ 1 ] then error( "[INFORMATION] Please give a name for the bot!" ) end 
@@ -82,15 +87,16 @@ function TBotCreate( ply , cmd , args ) -- This code defines stats of the bot wh
 	TBotSetPistol( ply, cmd, { args[ 1 ], args[ 5 ] } ) -- This is the pistol the bot will use
 	TBotSetShotgun( ply, cmd, { args[ 1 ], args[ 6 ] } ) -- This is the shotgun the bot will use
 	TBotSetRifle( ply, cmd, { args[ 1 ], args[ 7 ] } ) -- This is the rifle/smg the bot will use
-	TBotSetSniper( ply, cmd, { args[ 1 ], args[ 8 ], args[ 9 ] } ) -- This is the sniper the bot will use and does the sniper the bot is using have a scope
-	TBotSetMeleeDist( ply, cmd, { args[ 1 ], args[ 10 ] } ) -- If an enemy is closer than this, the bot will use its melee
-	TBotSetPistolDist( ply, cmd, { args[ 1 ], args[ 11 ] } ) -- If an enemy is closer than this, the bot will use its pistol
-	TBotSetShotgunDist( ply, cmd, { args[ 1 ], args[ 12 ] } ) -- If an enemy is closer than this, the bot will use its shotgun
-	TBotSetRifleDist( ply, cmd, { args[ 1 ], args[ 13 ] } ) -- If an enemy is closer than this, the bot will use its rifle/smg
-	TBotSetHealThreshold( ply, cmd, { args[ 1 ], args[ 14 ] } ) -- If the bot's health or a teammate's health drops below this and the bot is not in combat the bot will use its medkit
-	TBotSetCombatHealThreshold( ply, cmd, { args[ 1 ], args[ 15 ] } ) -- If the bot's health drops below this and the bot is in combat the bot will use its medkit
-	TBotSetPlayerModel( ply, cmd, { args[ 1 ], args[ 16 ] } ) -- This is the player model the bot will use
-	TBotSpawnWithPreferredWeapons( ply, cmd, { args[ 1 ], args[ 17 ] } ) -- This checks if the bot should spawn with its preferred weapons
+	TBotSetGrenade( ply, cmd,{ args[ 1 ], args[ 8 ] } ) -- This is the grenade the bot will use
+	TBotSetSniper( ply, cmd, { args[ 1 ], args[ 9 ], args[ 10 ] } ) -- This is the sniper the bot will use and does the sniper the bot is using have a scope
+	TBotSetMeleeDist( ply, cmd, { args[ 1 ], args[ 11 ] } ) -- If an enemy is closer than this, the bot will use its melee
+	TBotSetPistolDist( ply, cmd, { args[ 1 ], args[ 12 ] } ) -- If an enemy is closer than this, the bot will use its pistol
+	TBotSetShotgunDist( ply, cmd, { args[ 1 ], args[ 13 ] } ) -- If an enemy is closer than this, the bot will use its shotgun
+	TBotSetRifleDist( ply, cmd, { args[ 1 ], args[ 14 ] } ) -- If an enemy is closer than this, the bot will use its rifle/smg
+	TBotSetHealThreshold( ply, cmd, { args[ 1 ], args[ 15 ] } ) -- If the bot's health or a teammate's health drops below this and the bot is not in combat the bot will use its medkit
+	TBotSetCombatHealThreshold( ply, cmd, { args[ 1 ], args[ 16 ] } ) -- If the bot's health drops below this and the bot is in combat the bot will use its medkit
+	TBotSetPlayerModel( ply, cmd, { args[ 1 ], args[ 17 ] } ) -- This is the player model the bot will use
+	TBotSpawnWithPreferredWeapons( ply, cmd, { args[ 1 ], args[ 18 ] } ) -- This checks if the bot should spawn with its preferred weapons
 	
 	NewBot:TBotResetAI() -- Fully reset your bots AI.
 	
@@ -136,7 +142,7 @@ function TBotSetMelee( ply, cmd, args ) -- Command for changing the bots melee t
 	if !args[ 1 ] then return end
 	
 	local targetbot = args[ 1 ]
-	local melee = args[ 2 ] or "weapon_crowbar"
+	local melee = args[ 2 ] != "nil" and args[ 2 ] or "weapon_crowbar"
 	
 	for k, bot in ipairs( player.GetAll() ) do
 		
@@ -154,7 +160,7 @@ function TBotSetPistol( ply, cmd, args ) -- Command for changing the bots pistol
 	if !args[ 1 ] then return end
 	
 	local targetbot = args[ 1 ]
-	local pistol = args[ 2 ] or "weapon_pistol"
+	local pistol = args[ 2 ] != "nil" and args[ 2 ] or "weapon_pistol"
 	
 	for k, bot in ipairs( player.GetAll() ) do
 		
@@ -172,7 +178,7 @@ function TBotSetShotgun( ply, cmd, args ) -- Command for changing the bots shotg
 	if !args[ 1 ] then return end
 	
 	local targetbot = args[ 1 ]
-	local shotgun = args[ 2 ] or "weapon_shotgun"
+	local shotgun = args[ 2 ] != "nil" and args[ 2 ] or "weapon_shotgun"
 	
 	for k, bot in ipairs( player.GetAll() ) do
 		
@@ -190,7 +196,7 @@ function TBotSetRifle( ply, cmd, args ) -- Command for changing the bots rifle t
 	if !args[ 1 ] then return end
 	
 	local targetbot = args[ 1 ]
-	local rifle = args[ 2 ] or "weapon_smg1"
+	local rifle = args[ 2 ] != "nil" and args[ 2 ] or "weapon_smg1"
 	
 	for k, bot in ipairs( player.GetAll() ) do
 		
@@ -204,12 +210,30 @@ function TBotSetRifle( ply, cmd, args ) -- Command for changing the bots rifle t
 
 end
 
+function TBotSetGrenade( ply, cmd, args )
+	if !args[ 1 ] then return end
+	
+	local targetbot = args[ 1 ]
+	local grenade = args[ 2 ] != "nil" and args[ 2 ] or "weapon_frag"
+	
+	for k, bot in ipairs( player.GetAll() ) do
+	
+		if bot:IsTRizzleBot() and ( bot:Nick() == targetbot or string.lower( targetbot ) == "all" ) and bot.TBotOwner == ply then
+		
+			bot.Grenade = grenade
+			
+		end
+		
+	end
+	
+end
+
 function TBotSetSniper( ply, cmd, args ) -- Command for changing the bots sniper to something other than the default. 
 	if !args[ 1 ] then return end
 	
 	local targetbot = args[ 1 ]
-	local rifle = args[ 2 ] or "weapon_crossbow"
-	local hasScope = args[ 3 ] or 1
+	local rifle = args[ 2 ] != "nil" and args[ 2 ] or "weapon_crossbow"
+	local hasScope = tonumber( args[ 3 ] ) or 1
 	
 	for k, bot in ipairs( player.GetAll() ) do
 		
@@ -336,7 +360,7 @@ function TBotSetPlayerModel( ply, cmd, args )
 	if !args[ 1 ] then return end
 	
 	local targetbot = args[ 1 ]
-	local playermodel = args[ 2 ] or "kleiner"
+	local playermodel = tostring( args[ 2 ] ) or "kleiner"
 	
 	for k, bot in ipairs( player.GetAll() ) do
 		
@@ -430,6 +454,7 @@ function TBotSetDefault( ply, cmd, args )
 	TBotSetPistol( ply, cmd, args )
 	TBotSetShotgun( ply, cmd, args )
 	TBotSetRifle( ply, cmd, args )
+	TBotSetGrenade( ply, cmd, args )
 	TBotSetSniper( ply, cmd, args )
 	TBotSetMeleeDist( ply, cmd, args )
 	TBotSetPistolDist( ply, cmd, args )
@@ -441,13 +466,14 @@ function TBotSetDefault( ply, cmd, args )
 
 end
 
-concommand.Add( "TRizzleCreateBot" , TBotCreate , nil , "Creates a TRizzle Bot with the specified parameters. Example: TRizzleCreateBot <botname> <followdist> <dangerdist> <melee> <pistol> <shotgun> <rifle> <sniper> <hasScope> <meleedist> <pistoldist> <shotgundist> <rifledist> <healthreshold> <combathealthreshold> <playermodel> <spawnwithpreferredweapons> Example2: TRizzleCreateBot Bot 200 300 weapon_crowbar weapon_pistol weapon_shotgun weapon_smg1 weapon_crossbow 1 80 1300 300 900 100 25 alyx 1" )
+concommand.Add( "TRizzleCreateBot" , TBotCreate , nil , "Creates a TRizzle Bot with the specified parameters. Example: TRizzleCreateBot <botname> <followdist> <dangerdist> <melee> <pistol> <shotgun> <rifle> <grenade> <sniper> <hasScope> <meleedist> <pistoldist> <shotgundist> <rifledist> <healthreshold> <combathealthreshold> <playermodel> <spawnwithpreferredweapons> Example2: TRizzleCreateBot Bot 200 300 weapon_crowbar weapon_pistol weapon_shotgun weapon_smg1 weapon_frag weapon_crossbow 1 80 1300 300 900 100 25 alyx 1" )
 concommand.Add( "TBotSetFollowDist" , TBotSetFollowDist , nil , "Changes the specified bot's how close it should be to its owner. If only the bot is specified the value will revert back to the default." )
 concommand.Add( "TBotSetDangerDist" , TBotSetDangerDist , nil , "Changes the specified bot's how far the bot can be from its owner while in combat. If only the bot is specified the value will revert back to the default." )
 concommand.Add( "TBotSetMelee" , TBotSetMelee , nil , "Changes the specified bot's preferred melee weapon. If only the bot is specified the value will revert back to the default." )
 concommand.Add( "TBotSetPistol" , TBotSetPistol , nil , "Changes the specified bot's preferred pistol. If only the bot is specified the value will revert back to the default." )
 concommand.Add( "TBotSetShotgun" , TBotSetShotgun , nil , "Changes the specified bot's preferred shotgun. If only the bot is specified the value will revert back to the default." )
 concommand.Add( "TBotSetRifle" , TBotSetRifle , nil , "Changes the specified bot's preferred rifle/smg. If only the bot is specified the value will revert back to the default." )
+concommand.Add( "TBotSetGrenade" , TBotSetGrenade , nil , "Changes the specified bot's preferred grenade. If only the bot is specified the value will revert back to the default." )
 concommand.Add( "TBotSetSniper" , TBotSetSniper , nil , "Changes the specified bot's preferred sniper. If only the bot is specified the value will revert back to the default." )
 concommand.Add( "TBotSetMeleeDist" , TBotSetMeleeDist , nil , "Changes the distance for when the bot should use it's melee weapon. If only the bot is specified the value will revert back to the default." )
 concommand.Add( "TBotSetPistolDist" , TBotSetPistolDist , nil , "Changes the distance for when the bot should use it's pistol. If only the bot is specified the value will revert back to the default." )
@@ -481,6 +507,7 @@ function BOT:TBotResetAI()
 	self.HealTarget					=	nil -- This is the player the bot is trying to heal.
 	self.TRizzleBotBlindTime		=	0 -- This is how long the bot should be blind
 	self.LastVisionUpdateTimestamp	=	0 -- This is the last time the bot updated its list of known enemies
+	self.IsJumping					=	false -- Is the bot currently jumping?
 	self.NextJump					=	0 -- This is the next time the bot is allowed to jump.
 	self.HoldAttack					=	0 -- This is how long the bot should hold its attack button.
 	self.HoldAttack2				=	0 -- This is how long the bot should hold its attack2 button.
@@ -499,9 +526,13 @@ function BOT:TBotResetAI()
 	self.ReloadInterval				=	0 -- Limits how often the bot can press its reload button.
 	self.ScopeInterval				=	0 -- Limits how often the bot can press its scope button.
 	self.UseInterval				=	0 -- Limits how often the bot can press its use button.
+	self.GrenadeInterval			=	0 -- Limits how often the bot will throw a grenade.
 	self.Light						=	false -- Tells the bot if it should have its flashlight on or off.
 	--self.LookYawVel					=	0 -- This is the current yaw velocity of the bot.
 	--self.LookPitchVel				=	0 -- This is the current pitch velocity of the bot.
+	self.AimErrorAngle				=	0 -- This is the current error the bot has while aiming.
+	self.AimErrorRadius				=	0 -- This is the radius of the error the bot has while aiming.
+	self.AimAdjustTimer				=	0 -- This is the next time the bot will update its aim error.
 	self.LookTarget					=	vector_origin -- This is the position the bot is currently trying to look at.
 	self.LookTargetSubject			=	nil -- This is the current entity the bot is trying to look at.
 	self.LookTargetVelocity			=	0 -- Used to update subject tracking.
@@ -532,6 +563,9 @@ function BOT:TBotResetAI()
 	self.ReturnPos					=	nil -- This is the spot the will back to after hiding, "Example, If the bot went into cover to reload."
 	self.Goal						=	nil -- The current path segment the bot is on.
 	self.Path						=	{} -- The nodes converted into waypoints by our visiblilty checking.
+	self.IsJumpingAcrossGap			=	false -- Is the bot trying to jump over a gap.
+	self.IsClimbingUpToLedge		=	false -- Is the bot trying to jump up to a ledge. 
+	self.HasLeftTheGround			=	false -- Used by the bot check if it has left the ground while gap jumping and jumping up to a ledge.
 	--self.CurrentSegment				=	1 -- This is the current segment the bot is on.
 	self.SegmentCount				=	0 -- This is how many nodes the bot's current path has.
 	self.LadderState				=	NO_LADDER -- This is the current ladder state of the bot.
@@ -541,8 +575,13 @@ function BOT:TBotResetAI()
 	self.MotionVector				=	Vector( 1.0, 0, 0 ) -- This is the bot's current movement as a vector.
 	self.RepathTimer				=	CurTime() + 0.5 -- This will limit how often the path gets recreated.
 	self.AvoidTimer					=	0 -- Limits how often the bot avoid checks are run.
-	self.WiggleTimer				=	0 -- This helps the bot get unstuck.
-	self.StuckJumpInterval			=	0 -- Limits how often the bot jumps when stuck.
+	self.IsStuck					=	false -- Is the bot stuck.
+	self.StuckPos					=	self:GetPos() -- Used when checking if the bot is stuck or not.
+	self.StuckTimer					=	CurTime() -- Used when checking if the bot is stuck or not.
+	self.StillStuckTimer			=	0 -- Used to check if the bot is stuck.
+	self.MoveRequestTimer			=	0 -- Used to check if the bot wants to move.
+	--self.WiggleTimer				=	0 -- This helps the bot get unstuck.
+	--self.StuckJumpInterval			=	0 -- Limits how often the bot jumps when stuck.
 	
 	self:ComputeApproachPoints()
 	--self:TBotCreateThinking() -- Start our AI
@@ -558,7 +597,7 @@ hook.Add( "StartCommand" , "TRizzleBotAIHook" , function( bot , cmd )
 	cmd:SetImpulse( bot.impulseFlags )
 	cmd:SetForwardMove( bot.forwardMovement )
 	cmd:SetSideMove( bot.strafeMovement )
-	cmd:SetUpMove( bit.band( bot.buttonFlags, IN_JUMP ) == IN_JUMP and bot:GetJumpPower() or 0 )
+	cmd:SetUpMove( bit.band( bot.buttonFlags, IN_JUMP ) == IN_JUMP and bot:GetRunSpeed() or 0 )
 	
 	if IsValid( bot.BestWeapon ) and bot.BestWeapon:IsWeapon() and bot:GetActiveWeapon() != bot.BestWeapon then 
 	
@@ -694,7 +733,7 @@ function BOT:HandleButtons()
 		
 	elseif ShouldCrouch or ( !self:IsOnGround() and !self:Is_On_Ladder() and self:WaterLevel() < 2 ) then 
 	
-		self:PressCrouch( 0.3 )
+		self:PressCrouch()
 		
 	end
 	
@@ -702,7 +741,7 @@ function BOT:HandleButtons()
 	
 	if IsValid( self.Breakable ) then
 	
-		if IsValid( self.HealTarget ) or !self.Breakable:IsBreakable() or self.Breakable:WorldSpaceCenter():DistToSqr( self:GetPos() ) > 6400 or !self:IsAbleToSee( self.Breakable ) then
+		if IsValid( self.HealTarget ) or !self.Breakable:IsBreakable() or self.Breakable:NearestPoint( self:GetPos() ):DistToSqr( self:GetPos() ) > 6400 or !self:IsAbleToSee( self.Breakable ) then
 		
 			self.Breakable = nil
 			return
@@ -735,7 +774,7 @@ function BOT:HandleButtons()
 					self:PressPrimaryAttack()
 					self.FireWeaponInterval = CurTime() + math.Rand( 0.15 , 0.25 )
 					
-					if self.BestWeapon:UsesClipsForAmmo1() and self.BestWeapon:Clip1() > 0 then
+					if !self.BestWeapon:IsPrimaryClipEmpty() then
 					
 						self.ReloadInterval = CurTime() + 0.5
 						
@@ -792,7 +831,7 @@ function BOT:HandleButtons()
 	
 	elseif IsValid( self.Door ) then 
 	
-		if !self.Door:IsDoor() or self.Door:IsDoorOpen() or self.Door:GetPos():DistToSqr( self:GetPos() ) > 6400 then 
+		if !self.Door:IsDoor() or self.Door:IsDoorOpen() or self.Door:NearestPoint( self:GetPos() ):DistToSqr( self:GetPos() ) > 10000 then 
 		
 			self.Door = nil
 			return
@@ -813,7 +852,6 @@ function BOT:HandleButtons()
 end
 
 function BOT:PressPrimaryAttack( holdTime )
-	if self.HoldAttack > CurTime() then return end
 	holdTime = holdTime or -1.0
 
 	self.buttonFlags = bit.bor( self.buttonFlags, IN_ATTACK )
@@ -821,8 +859,14 @@ function BOT:PressPrimaryAttack( holdTime )
 
 end
 
+function BOT:ReleasePrimaryAttack()
+
+	self.buttonFlags = bit.band( self.buttonFlags, bit.bnot( IN_ATTACK ) )
+	self.HoldAttack = 0
+	
+end
+
 function BOT:PressSecondaryAttack( holdTime )
-	if self.HoldAttack2 > CurTime() then return end
 	holdTime = holdTime or -1.0
 
 	self.buttonFlags = bit.bor( self.buttonFlags, IN_ATTACK2 )
@@ -830,8 +874,14 @@ function BOT:PressSecondaryAttack( holdTime )
 
 end
 
+function BOT:ReleaseSecondaryAttack()
+
+	self.buttonFlags = bit.band( self.buttonFlags, bit.bnot( IN_ATTACK2 ) )
+	self.HoldAttack2 = 0
+	
+end
+
 function BOT:PressReload( holdTime )
-	if self.HoldReload > CurTime() then return end
 	holdTime = holdTime or -1.0
 
 	self.buttonFlags = bit.bor( self.buttonFlags, IN_RELOAD )
@@ -839,8 +889,14 @@ function BOT:PressReload( holdTime )
 
 end
 
+function BOT:ReleaseReload()
+
+	self.buttonFlags = bit.band( self.buttonFlags, bit.bnot( IN_RELOAD ) )
+	self.HoldReload = 0
+	
+end
+
 function BOT:PressForward( holdTime )
-	if self.HoldForward > CurTime() then return end
 	holdTime = holdTime or -1.0
 	
 	self.forwardMovement = self:GetRunSpeed()
@@ -849,12 +905,18 @@ function BOT:PressForward( holdTime )
 	self.HoldForward = CurTime() + holdTime
 	
 	self.buttonFlags = bit.band( self.buttonFlags, bit.bnot( IN_BACK ) )
-	self.HoldBack = CurTime()
+	self.HoldBack = 0
 
 end
 
+function BOT:ReleaseForward()
+
+	self.buttonFlags = bit.band( self.buttonFlags, bit.bnot( IN_FORWARD ) )
+	self.HoldForward = 0
+	
+end
+
 function BOT:PressBack( holdTime )
-	if self.HoldBack > CurTime() then return end
 	holdTime = holdTime or -1.0
 	
 	self.forwardMovement = -self:GetRunSpeed()
@@ -863,12 +925,18 @@ function BOT:PressBack( holdTime )
 	self.HoldBack = CurTime() + holdTime
 	
 	self.buttonFlags = bit.band( self.buttonFlags, bit.bnot( IN_FORWARD ) )
-	self.HoldForward = CurTime()
+	self.HoldForward = 0
 
 end
 
+function BOT:ReleaseBack()
+
+	self.buttonFlags = bit.band( self.buttonFlags, bit.bnot( IN_BACK ) )
+	self.HoldBack = 0
+	
+end
+
 function BOT:PressLeft( holdTime )
-	if self.HoldLeft > CurTime() then return end
 	holdTime = holdTime or -1.0
 	
 	self.strafeMovement = -self:GetRunSpeed()
@@ -877,12 +945,18 @@ function BOT:PressLeft( holdTime )
 	self.HoldLeft = CurTime() + holdTime
 
 	self.buttonFlags = bit.band( self.buttonFlags, bit.bnot( IN_MOVERIGHT ) )
-	self.HoldRight = CurTime()
+	self.HoldRight = 0
 
 end
 
+function BOT:ReleaseLeft()
+
+	self.buttonFlags = bit.band( self.buttonFlags, bit.bnot( IN_MOVELEFT ) )
+	self.HoldLeft = 0
+	
+end
+
 function BOT:PressRight( holdTime )
-	if self.HoldRight > CurTime() then return end
 	holdTime = holdTime or -1.0
 	
 	self.strafeMovement = self:GetRunSpeed()
@@ -891,12 +965,18 @@ function BOT:PressRight( holdTime )
 	self.HoldRight = CurTime() + holdTime
 	
 	self.buttonFlags = bit.band( self.buttonFlags, bit.bnot( IN_MOVELEFT ) )
-	self.HoldLeft = CurTime()
+	self.HoldLeft = 0
 
 end
 
+function BOT:ReleaseRight()
+
+	self.buttonFlags = bit.band( self.buttonFlags, bit.bnot( IN_MOVERIGHT ) )
+	self.HoldRight = 0
+	
+end
+
 function BOT:PressRun( holdTime )
-	if self.HoldRun > CurTime() then return end
 	holdTime = holdTime or -1.0
 
 	self.buttonFlags = bit.bor( self.buttonFlags, IN_SPEED )
@@ -904,8 +984,14 @@ function BOT:PressRun( holdTime )
 
 end
 
+function BOT:ReleaseRun()
+
+	self.buttonFlags = bit.band( self.buttonFlags, bit.bnot( IN_SPEED ) )
+	self.HoldRun = 0
+	
+end
+
 function BOT:PressWalk( holdTime )
-	if self.HoldWalk > CurTime() then return end
 	holdTime = holdTime or -1.0
 
 	self.buttonFlags = bit.bor( self.buttonFlags, IN_WALK )
@@ -913,28 +999,32 @@ function BOT:PressWalk( holdTime )
 
 end
 
-function BOT:PressJump( holdTime )
-	if self.NextJump > CurTime() then return end
-	holdTime = holdTime or -1.0
+function BOT:ReleaseWalk()
 
+	self.buttonFlags = bit.band( self.buttonFlags, bit.bnot( IN_WALK ) )
+	self.HoldWalk = 0
+	
+end
+
+function BOT:PressJump( holdTime )
+	holdTime = holdTime or -1.0
+	
+	self.IsJumping = true
+	self.NextJump = CurTime() + 0.5
+	
 	self.buttonFlags = bit.bor( self.buttonFlags, IN_JUMP )
 	self.HoldJump = CurTime() + holdTime
 	
-	-- This cooldown is to prevent the bot from pressing and holding its jump button
-	if holdTime < 0.0 then
-	
-		self.NextJump = CurTime() + 0.5
-	
-	else
-		
-		self.NextJump = self.HoldJump + 0.5
+end
 
-	end
+function BOT:ReleaseJump()
+
+	self.buttonFlags = bit.band( self.buttonFlags, bit.bnot( IN_JUMP ) )
+	self.HoldJump = 0
 	
 end
 
 function BOT:PressCrouch( holdTime )
-	if self.HoldCrouch > CurTime() then return end
 	holdTime = holdTime or -1.0
 
 	self.buttonFlags = bit.bor( self.buttonFlags, IN_DUCK )
@@ -942,13 +1032,26 @@ function BOT:PressCrouch( holdTime )
 
 end
 
+function BOT:ReleaseCrouch()
+
+	self.buttonFlags = bit.band( self.buttonFlags, bit.bnot( IN_DUCK ) )
+	self.HoldCrouch = 0
+	
+end
+
 function BOT:PressUse( holdTime )
-	if self.HoldUse > CurTime() then return end
 	holdTime = holdTime or -1.0
 
 	self.buttonFlags = bit.bor( self.buttonFlags, IN_USE )
 	self.HoldUse = CurTime() + holdTime
 
+end
+
+function BOT:ReleaseUse()
+
+	self.buttonFlags = bit.band( self.buttonFlags, bit.bnot( IN_USE ) )
+	self.HoldUse = 0
+	
 end
 
 net.Receive( "TRizzleBotFlashlight", function( _, ply) 
@@ -1351,6 +1454,7 @@ function BOT:GetHeadAimTrackingInterval()
 	return 0.0
 	
 	-- This is an example of different levels of aim tracking
+	-- I could also make this skill dependent....
 	--[[if "Expert" then
 	
 		return 0.05
@@ -1451,23 +1555,12 @@ function BOT:UpdateAim()
 	
 	self.AnchorRepositionTimer = nil
 	
-	local Subject = self.LookTargetSubject
-	if IsValid( Subject ) then
+	local subject = self.LookTargetSubject
+	if IsValid( subject ) then
 	
 		if self.LookTargetTrackingTimer <= CurTime() then
 		
-			local desiredLookTargetPos = nil
-			
-			if self.AimForHead and !self:IsActiveWeaponRecoilHigh() then
-			
-				desiredLookTargetPos = Subject:GetHeadPos()
-				
-			else
-			
-				desiredLookTargetPos = Subject:WorldSpaceCenter()
-				
-			end
-			
+			local desiredLookTargetPos = self:SelectTargetPoint( subject )
 			local errorVector = desiredLookTargetPos - self.LookTarget
 			local Error = errorVector:Length()
 			errorVector:Normalize()
@@ -1481,7 +1574,7 @@ function BOT:UpdateAim()
 			
 			local errorVel = Error / trackingInterval
 			
-			self.LookTargetVelocity = ( errorVel * errorVector ) + Subject:GetVelocity()
+			self.LookTargetVelocity = ( errorVel * errorVector ) + subject:GetVelocity()
 			
 			self.LookTargetTrackingTimer = CurTime() + ( math.Rand( 0.8, 1.2 ) * trackingInterval )
 			
@@ -1511,7 +1604,7 @@ function BOT:UpdateAim()
 		
 	else
 	
-		self.IsSightedIn = true
+		self.IsSightedIn = false
 		
 	end
 	
@@ -1550,6 +1643,71 @@ function BOT:UpdateAim()
 
 end
 
+-- Given a subject, return the world space position we should aim at.
+-- NOTE: This can be used to make the bot aim differently for certain situations
+function BOT:SelectTargetPoint( subject )
+	
+	local myWeapon = self:GetActiveWeapon()
+	if IsValid( myWeapon ) and myWeapon:IsWeapon() then
+	
+		if myWeapon:GetClass() == self.Grenade or myWeapon:GetClass() == "weapon_frag" or myWeapon:GetClass() == "weapon_handgrenade" then
+		
+			local toThreat = subject:GetPos() - self:GetPos()
+			local threatRange = toThreat:Length()
+			toThreat:Normalize()
+			local elevationAngle = threatRange * TBotBallisticElevationRate:GetFloat()
+			
+			if elevationAngle > 45.0 then
+			
+				-- ballistic range maximum at 45 degrees - aiming higher would decrease the range
+				elevationAngle = 45.0
+				
+			end
+			
+			local s, c = math.sin( elevationAngle * math.pi / 180 ), math.cos( elevationAngle * math.pi / 180 )
+			
+			if c > 0.0 then
+			
+				local elevation = threatRange * s / c
+				return subject:WorldSpaceCenter() + Vector( 0, 0, elevation )
+				
+			end
+			
+		end
+		
+	end
+	
+	if self.AimAdjustTimer <= CurTime() then
+	
+		self.AimAdjustTimer = CurTime() + math.Rand( 0.5, 1.5 )
+		
+		self.AimErrorAngle = math.Rand( -math.pi, math.pi )
+		self.AimErrorRadius = math.Rand( 0.0, TBotAimError:GetFloat() )
+		
+	end
+	
+	local toThreat = subject:GetPos() - self:GetPos()
+	local threatRange = toThreat:Length()
+	toThreat:Normalize()
+	
+	local s1 = math.sin( self.AimErrorRadius )
+	local Error = threatRange * s1
+	local side = toThreat:Cross( vector_up )
+	
+	local s, c = math.sin( self.AimErrorAngle ), math.cos( self.AimErrorAngle )
+	
+	if self.AimForHead and !self:IsActiveWeaponRecoilHigh() then
+	
+		return subject:GetHeadPos() + Error * s * vector_up + Error * c * side
+		
+	else
+	
+		return subject:WorldSpaceCenter() + Error * s * vector_up + Error * c * side
+		
+	end
+	
+end
+
 -- Rotate body to face towards "target"
 function BOT:FaceTowards( target )
 
@@ -1567,11 +1725,14 @@ end
 
 function BOT:AimAtPos( Pos, Time, Priority )
 	
-	if !isvector( Pos ) or !isnumber( Time ) or !isnumber( Priority ) then
+	if !isvector( Pos ) then
 	
 		return
 		
 	end
+	
+	Time = tonumber( Time ) or 0.0
+	Priority = tonumber( Priority ) or LOW_PRIORITY
 	
 	if Time <= 0.0 then
 	
@@ -1616,11 +1777,14 @@ end
 
 function BOT:AimAtEntity( Subject, Time, Priority )
 	
-	if !IsValid( Subject ) or !isnumber( Time ) or !isnumber( Priority ) then
+	if !IsValid( Subject ) then
 	
 		return
 		
 	end
+	
+	Time = tonumber( Time ) or 0.0
+	Priority = tonumber( Priority ) or LOW_PRIORITY
 	
 	if Time <= 0.0 then
 	
@@ -1750,7 +1914,9 @@ function BOT:IsTRizzleBot( onlyRealBots )
 	onlyRealBots = onlyRealBots or false
 	
 	if onlyRealBots and oldIsBot( self ) and self.TRizzleBot then
+	
 		return true
+		
 	end
 	
 	return !onlyRealBots and self.TRizzleBot
@@ -1774,6 +1940,14 @@ function BOT:GetInfo( cVarName )
 		elseif cVarName == "cl_playerbodygroups" then
 		
 			return tostring( self.PlayerBodyGroup )
+		
+		elseif cVarName == "cl_tfa_ironsights_toggle" then
+		
+			return tostring( 1 )
+		
+		elseif cVarName == "tacrp_toggleaim" then
+		
+			return tostring( 1 )
 		
 		end
 		
@@ -1801,12 +1975,28 @@ function BOT:GetInfoNum( cVarName, default )
 		
 			return tonumber( self.PlayerBodyGroup ) or default
 		
+		elseif cVarName == "cl_tfa_ironsights_toggle" then
+		
+			return tonumber( 1 ) or default
+		
+		elseif cVarName == "tacrp_toggleaim" then
+		
+			return tonumber( 1 ) or default
+		
 		end
 		
 	end
 	
 	return oldGetInfoNum( self, cVarName, default )
 
+end
+
+-- Returns true if the player just fired their weapon
+function BOT:DidPlayerJustFireWeapon()
+
+	local weapon = self:GetActiveWeapon()
+	return IsValid( weapon ) and weapon:IsWeapon() and weapon:GetNextPrimaryFire() > CurTime()
+	
 end
 
 -- Got this from CS:GO Source Code, made some changes so it works for Lua
@@ -1817,13 +2007,59 @@ function BOT:IsActiveWeaponRecoilHigh()
 	return angles.x < highRecoil
 end
 
+-- Checks if the bot's active weapon's clip is empty
+function BOT:IsActiveWeaponClipEmpty()
+
+	local activeWeapon = self:GetActiveWeapon()
+	if !IsValid( activeWeapon ) or !activeWeapon:IsWeapon() then return false end
+	
+	return activeWeapon:IsPrimaryClipEmpty()
+	
+end
+
 -- Checks if the bot's active weapon is automatic
 function BOT:IsActiveWeaponAutomatic()
 	
 	local activeWeapon = self:GetActiveWeapon()
-	if !IsValid( activeWeapon ) or !activeWeapon:IsWeapon() or !activeWeapon:IsScripted() then return false end
+	if !IsValid( activeWeapon ) or !activeWeapon:IsWeapon() or activeWeapon:GetClass() == self.Grenade then return false end
 	
-	return activeWeapon.Primary.Automatic
+	-- I have to tell the bot manually if a HL2 or HL:S is automatic
+	-- since the method I used doesn't work on them
+	if !activeWeapon:IsScripted() then
+	
+		local automaticWeapons = { weapon_crowbar = true, weapon_stunstick = true, weapon_smg1 = true, weapon_ar2 = true, weapon_crowbar_hl1 = true, weapon_mp5_hl1 = true, weapon_hornetgun = true, weapon_egon = true, weapon_gauss = true }
+		
+		-- I use tobool so this function always returns either true or false
+		return tobool( automaticWeapons[ activeWeapon:GetClass() ] )
+		
+	end
+	
+	return tobool( activeWeapon.Primary.Automatic )
+	
+end
+
+function BOT:IsInFieldOfView( pos )
+
+	local fov = math.cos(0.5 * self:GetFOV() * math.pi / 180) -- I grab the bot's current FOV
+
+	if IsValid( pos ) and IsEntity( pos ) then
+	
+		if self:PointWithinViewAngle( self:GetShootPos(), pos:WorldSpaceCenter(), self:GetAimVector(), fov ) then
+		
+			return true
+			
+		end
+		
+		return self:PointWithinViewAngle( self:GetShootPos(), pos:EyePos(), self:GetAimVector(), fov )
+		
+	elseif isvector( pos ) then
+	
+		return self:PointWithinViewAngle( self:GetShootPos(), pos, self:GetAimVector(), fov )
+		
+	end
+	
+	return false
+	
 end
 
 -- For some reason IsAbleToSee doesn't work with player bots
@@ -1876,6 +2112,20 @@ function BOT:IsLookingAtPosition( pos, angleTolerance )
 	
 end
 
+function BOT:IsLineOfFireClear( where )
+
+	local trace = util.TraceLine( { start = self:GetShootPos(), endpos = where, filter = TBotTraceFilter, mask = MASK_SHOT } )
+	
+	if IsValid( trace.Entity ) and trace.Entity:IsBreakable() then
+	
+		return true
+		
+	end
+	
+	return !trace.Hit
+	
+end
+
 -- Checks if the current position or entity can be seen by the target entity
 function Ent:TBotVisible( pos )
 	
@@ -1883,7 +2133,7 @@ function Ent:TBotVisible( pos )
 		
 		local trace = util.TraceLine( { start = self:EyePos(), endpos = pos:WorldSpaceCenter(), filter = TBotTraceFilter, mask = MASK_VISIBLE_AND_NPCS } )
 	
-		if trace.Fraction == 1.0 or trace.Entity == pos or ( pos:IsPlayer() and trace.Entity == pos:GetVehicle() ) then
+		if trace.Fraction >= 1.0 or trace.Entity == pos or ( pos:IsPlayer() and trace.Entity == pos:GetVehicle() ) then
 			
 			return true
 
@@ -1891,7 +2141,7 @@ function Ent:TBotVisible( pos )
 		
 		local trace2 = util.TraceLine( { start = self:EyePos(), endpos = pos:EyePos(), filter = TBotTraceFilter, mask = MASK_VISIBLE_AND_NPCS } )
 	
-		if trace2.Fraction == 1.0 or trace2.Entity == pos or ( pos:IsPlayer() and trace2.Entity == pos:GetVehicle() ) then
+		if trace2.Fraction >= 1.0 or trace2.Entity == pos or ( pos:IsPlayer() and trace2.Entity == pos:GetVehicle() ) then
 			
 			return true
 			
@@ -1901,7 +2151,7 @@ function Ent:TBotVisible( pos )
 		
 		local trace = util.TraceLine( { start = self:EyePos(), endpos = pos, filter = TBotTraceFilter, mask = MASK_VISIBLE_AND_NPCS } )
 		
-		return trace.Fraction == 1.0
+		return trace.Fraction >= 1.0
 		
 	end
 	
@@ -1929,7 +2179,7 @@ end
 
 function BOT:BendLineOfSight( eye, target, angleLimit )
 
-	angleLimit = angleLimit or 180
+	angleLimit = angleLimit or 135
 	
 	local result = util.TraceLine( { start = eye, endpos = target, filter = TBotTraceFilter, mask = MASK_VISIBLE_AND_NPCS } )
 	if result.Fraction == 1.0 and !result.StartSolid then
@@ -2022,11 +2272,28 @@ function BOT:UpdateVision()
 	
 end
 
+-- Called when the bot sees another entity
+-- NOTE: Can be used to make the bot react upon seeing an enemy
+-- NOTE2: This is only called after the bot's reaction time has finished
+function BOT:OnSight()
+
+	-- We do nothing here in sandbox
+	return
+	
+end
+
+-- Called when the bot looses sight of another entity
+-- NOTE: Can be used to make the bot react losing sight of an enemy
+function BOT:OnLostSight()
+
+	-- We do nothing here in sandbox
+	return
+	
+end
+
 -- This checks if the entered position in the bot's LOS
 function BOT:IsAbleToSee( pos, checkFOV )
 	if self:IsTRizzleBotBlind() then return false end
-
-	local fov = math.cos(0.5 * self:GetFOV() * math.pi / 180) -- I grab the bot's current FOV
 
 	if IsValid( pos ) and IsEntity( pos ) then
 		-- we must check eyepos and worldspacecenter
@@ -2060,7 +2327,7 @@ function BOT:IsAbleToSee( pos, checkFOV )
 			
 		end
 		
-		if checkFOV and !self:PointWithinViewAngle( self:GetShootPos(), pos:WorldSpaceCenter(), self:GetAimVector(), fov ) and !self:PointWithinViewAngle( self:GetShootPos(), pos:EyePos(), self:GetAimVector(), fov ) then
+		if checkFOV and !self:IsInFieldOfView( pos ) then
 			
 			return false
 			
@@ -2082,7 +2349,7 @@ function BOT:IsAbleToSee( pos, checkFOV )
 			
 		end
 		
-		if checkFOV and !self:PointWithinViewAngle( self:GetShootPos(), pos, self:GetAimVector(), fov ) then
+		if checkFOV and !self:IsInFieldOfView( pos ) then
 		
 			return false
 			
@@ -2097,7 +2364,7 @@ end
 
 -- Blinds the bot for a specified amount of time
 function BOT:TBotBlind( time )
-	if !IsValid( self ) or !self:Alive() or !self:IsTRizzleBot() or time < ( self.TRizzleBotBlindTime - CurTime() ) then return end
+	if !self:Alive() or !self:IsTRizzleBot() or time < ( self.TRizzleBotBlindTime - CurTime() ) then return end
 	
 	self.TRizzleBotBlindTime = CurTime() + time
 	self:AimAtPos( self:GetShootPos() + 1000 * Angle( math.random( -30, 30 ), math.random( -180, 180 ), 0 ):Forward(), 0.1, MAXIMUM_PRIORITY ) -- Make the bot fling its aim in a random direction upon becoming blind
@@ -2105,7 +2372,7 @@ end
 
 -- Is the bot currently blind?
 function BOT:IsTRizzleBotBlind()
-	if !IsValid( self ) or !self:Alive() or !self:IsTRizzleBot() then return false end
+	if !self:Alive() or !self:IsTRizzleBot() then return false end
 	
 	return self.TRizzleBotBlindTime > CurTime()
 end
@@ -2271,13 +2538,25 @@ function BOT:IsCursorOnTarget( target )
 
 	if IsValid( target ) then
 		
-		if self.AimForHead and !self:IsActiveWeaponRecoilHigh() then
+		-- Don't try to shoot through walls
+		if !self:IsLineOfFireClear( target:EyePos() ) then
 		
-			return self:PointWithinCursor( target, target:GetHeadPos() )
-		
+			if !self:IsLineOfFireClear( target:WorldSpaceCenter() ) then
+			
+				return false
+				
+			end
+			
 		end
-
-		return self:PointWithinCursor( target, target:WorldSpaceCenter() )
+		
+		-- This checks makes sure the bot won't attempt to shoot if the bullet will possibly hit a player
+		-- This will not activate if the bot's current enemy is a player and the trace hits them
+		local ply = self:GetEyeTrace().Entity
+		if IsValid( ply ) and ply:IsPlayer() and ply != target then return false end
+		
+		return self.IsSightedIn
+		
+		--return self:PointWithinCursor( target, self:SelectTargetPoint( target ) )
 	
 	end
 	
@@ -2285,10 +2564,10 @@ function BOT:IsCursorOnTarget( target )
 end
 
 -- This will select the best weapon based on the bot's current distance from its enemy
-function BOT:SelectBestWeapon( target )
-	if self.MinEquipInterval > CurTime() or !IsValid( target ) then return end
+function BOT:SelectBestWeapon( target, enemydistsqr )
+	if ( self.MinEquipInterval > CurTime() and !self:IsActiveWeaponClipEmpty() ) or ( !isnumber( enemydistsqr ) and !IsValid( target ) ) then return end
 	
-	local enemydistsqr		=	target:GetPos():DistToSqr( self:GetPos() ) -- Only compute this once, there is no point in recomputing it multiple times as doing so is a waste of computer resources
+	enemydistsqr			=	enemydistsqr or target:GetPos():DistToSqr( self:GetPos() ) -- Only compute this once, there is no point in recomputing it multiple times as doing so is a waste of computer resources
 	local oldBestWeapon 	= 	self.BestWeapon
 	local minEquipInterval	=	0
 	local bestWeapon		=	nil
@@ -2296,13 +2575,14 @@ function BOT:SelectBestWeapon( target )
 	local rifle				=	self:GetWeapon( self.Rifle )
 	local shotgun			=	self:GetWeapon( self.Shotgun )
 	local sniper			=	self:GetWeapon( self.Sniper )
+	local grenade			=	self:GetWeapon( self.Grenade )
 	local melee				=	self:GetWeapon( self.Melee )
 	local medkit			=	self:GetWeapon( "weapon_medkit" )
 	
 	if IsValid( medkit ) and self.CombatHealThreshold > self:Health() and medkit:Clip1() >= 25 then
 		
 		-- The bot will heal themself if they get too injured during combat
-		self:SelectMedkit()
+		self.BestWeapon = medkit
 	
 	else
 		-- I use multiple if statements instead of elseifs
@@ -2338,6 +2618,13 @@ function BOT:SelectBestWeapon( target )
 			
 		end
 		
+		if IsValid( grenade ) and self.GrenadeInterval <= CurTime() and enemydistsqr > 40000 and self:GetKnownCount( nil, true, -1 ) >= 5 then
+		
+			bestWeapon = grenade
+			minEquipInterval = 5.0
+			
+		end
+		
 		-- If an enemy gets too close, the bot should use its melee
 		if IsValid( melee ) and ( ( enemydistsqr < self.MeleeDist * self.MeleeDist and self:GetKnownCount( nil, true, -1 ) < 5 ) or !IsValid( bestWeapon ) ) then
 
@@ -2354,12 +2641,6 @@ function BOT:SelectBestWeapon( target )
 		end
 		
 	end
-	
-end
-
-function BOT:SelectMedkit()
-
-	if self:HasWeapon( "weapon_medkit" ) then self.BestWeapon = self:GetWeapon( "weapon_medkit" ) end
 	
 end
 
@@ -2449,6 +2730,51 @@ function Wep:HasSecondaryAmmo()
 
 end
 
+-- Checks if the weapon's primary clip is empty
+function Wep:IsPrimaryClipEmpty()
+
+	if !self:UsesClipsForAmmo1() or !self:UsesPrimaryAmmo() then
+	
+		return false
+		
+	end
+	
+	return self:Clip1() <= 0
+	
+end
+
+-- Checks if the weapon's secondary clip is empty
+function Wep:IsSecondaryClipEmpty()
+
+	if !self:UsesClipsForAmmo2() or !self:UsesSecondaryAmmo() then
+	
+		return false
+		
+	end
+	
+	return self:Clip2() <= 0
+	
+end
+
+-- Checks if this weapon needs to reload
+function Wep:NeedsToReload()
+
+	if !self:UsesClipsForAmmo1() or !self:UsesPrimaryAmmo() then
+	
+		return false
+		
+	end
+	
+	if self:GetOwner():GetAmmoCount( self:GetPrimaryAmmoType() ) <= self:Clip1() then
+	
+		return false
+		
+	end
+	
+	return self:Clip1() < self:GetMaxClip1()
+	
+end
+
 -- Checks if the bot is currently reloading
 function BOT:IsReloading()
 
@@ -2468,26 +2794,26 @@ end
 function BOT:ReloadWeapons()
 	
 	local botWeapon = self:GetActiveWeapon()
-	if IsValid( botWeapon ) and botWeapon:GetClass() != bot.Melee and botWeapon:GetClass() != "weapon_medkit" and botWeapon:UsesPrimaryAmmo() and botWeapon:UsesClipsForAmmo1() and botWeapon:Clip1() < botWeapon:GetMaxClip1() then return end
+	if IsValid( botWeapon ) and botWeapon:GetClass() != bot.Melee and botWeapon:GetClass() != "weapon_medkit" and botWeapon:NeedsToReload() then return end
 	
 	local pistol		=	self:GetWeapon( self.Pistol )
 	local rifle			=	self:GetWeapon( self.Rifle )
 	local shotgun		=	self:GetWeapon( self.Shotgun )
 	local sniper		=	self:GetWeapon( self.Sniper )
 	
-	if IsValid( sniper ) and sniper:UsesPrimaryAmmo() and sniper:UsesClipsForAmmo1() and sniper:Clip1() < sniper:GetMaxClip1() then
+	if IsValid( sniper ) and sniper:NeedsToReload() then
 		
 		self.BestWeapon = sniper
 		
-	elseif IsValid( pistol ) and pistol:UsesPrimaryAmmo() and pistol:UsesClipsForAmmo1() and pistol:Clip1() < pistol:GetMaxClip1() then
+	elseif IsValid( pistol ) and pistol:NeedsToReload() then
 		
 		self.BestWeapon = pistol
 		
-	elseif IsValid( rifle ) and rifle:UsesPrimaryAmmo() and rifle:UsesClipsForAmmo1() and rifle:Clip1() < rifle:GetMaxClip1() then
+	elseif IsValid( rifle ) and rifle:NeedsToReload() then
 		
 		self.BestWeapon = rifle
 		
-	elseif IsValid( shotgun ) and shotgun:UsesPrimaryAmmo() and shotgun:UsesClipsForAmmo1() and shotgun:Clip1() < shotgun:GetMaxClip1() then
+	elseif IsValid( shotgun ) and shotgun:NeedsToReload() then
 		
 		self.BestWeapon = shotgun
 		
@@ -2502,15 +2828,18 @@ function BOT:RestoreAmmo()
 	local rifle			=	self:GetWeapon( self.Rifle )
 	local shotgun		=	self:GetWeapon( self.Shotgun )
 	local sniper		=	self:GetWeapon( self.Sniper )
+	local grenade		=	self:GetWeapon( self.Grenade )
 	local pistol_ammo
 	local rifle_ammo
 	local shotgun_ammo
 	local sniper_ammo
+	local grenade_ammo
 	
 	if IsValid( pistol ) then pistol_ammo		=	self:GetAmmoCount( pistol:GetPrimaryAmmoType() ) end
 	if IsValid( rifle ) then rifle_ammo		=	self:GetAmmoCount( rifle:GetPrimaryAmmoType() ) end
 	if IsValid( shotgun ) then shotgun_ammo		=	self:GetAmmoCount( shotgun:GetPrimaryAmmoType() ) end
 	if IsValid( sniper ) then sniper_ammo		=	self:GetAmmoCount( sniper:GetPrimaryAmmoType() ) end
+	if IsValid( grenade ) then grenade_ammo		=	self:GetAmmoCount( grenade:GetPrimaryAmmoType() ) end
 	
 	if isnumber( pistol_ammo ) and pistol:UsesPrimaryAmmo() and ( pistol:UsesClipsForAmmo1() and pistol_ammo < ( pistol:GetMaxClip1() * 6 ) or !pistol:UsesClipsForAmmo1() and pistol_ammo < 6 ) then
 		
@@ -2533,6 +2862,13 @@ function BOT:RestoreAmmo()
 	if isnumber( sniper_ammo ) and sniper:UsesPrimaryAmmo() and ( sniper:UsesClipsForAmmo1() and sniper_ammo < ( sniper:GetMaxClip1() * 6 ) or !sniper:UsesClipsForAmmo1() and sniper_ammo < 6 ) then
 		
 		self:GiveAmmo( 1, sniper:GetPrimaryAmmoType(), true )
+		
+	end
+	
+	-- The bot wont regenerate ammo for their grenade unless they feel safe.
+	if isnumber( grenade_ammo ) and self:IsSafe() and grenade:UsesPrimaryAmmo() and grenade_ammo < 6 then
+	
+		self:GiveAmmo( 1, grenade:GetPrimaryAmmoType(), true )
 		
 	end
 	
@@ -2576,11 +2912,8 @@ function Ent:IsBreakable()
 
 	if self:GetInternalVariable( "m_takedamage" ) == DAMAGE_YES then
 		
-		if BreakableList[ self:GetClass() ] then
-		
-			return true
-			
-		end
+		-- I use tobool so this function always returns either true or false
+		return tobool( BreakableList[ self:GetClass() ] )
 		
 	end
 	
@@ -2673,8 +3006,39 @@ function BOT:IsNotMoving( minDuration )
 	
 end
 
+-- When an NPC dies, it should be removed from the bot's known entity list.
+-- This is also called for some nextbots.
+hook.Add( "OnNPCKilled" , "TRizzleBotOnNPCKilled" , function( npc )
+
+	for i = 1, game.MaxPlayers() do
+	
+		local bot = Entity( i )
+	
+		if IsValid( bot ) and bot:IsTRizzleBot() then
+		
+			bot:ForgetEntity( npc )
+			
+		end
+		
+	end
+
+end)
+
 -- When the bot dies, it seems to keep its weapons for some reason. This hook removes them when the bot dies.
+-- This hook also checks if a player dies and removes said player from every bots known enemy list.
 hook.Add( "PostPlayerDeath" , "TRizzleBotPostPlayerDeath" , function( ply )
+
+	for i = 1, game.MaxPlayers() do
+	
+		local bot = Entity( i )
+	
+		if IsValid( bot ) and bot:IsTRizzleBot() then
+		
+			bot:ForgetEntity( ply )
+			
+		end
+		
+	end
 
 	if IsValid( ply ) and ply:IsTRizzleBot() then
 	
@@ -2691,13 +3055,17 @@ hook.Add( "PlayerDisconnected" , "TRizzleBotPlayerLeave" , function( ply )
 		
 		for k, bot in ipairs( player.GetAll() ) do
 		
-			if IsValid( bot ) and bot:IsTRizzleBot( true ) and bot.TBotOwner == ply then
+			if IsValid( bot ) and bot:IsTRizzleBot() and bot.TBotOwner == ply then
 			
-				bot:Kick( "Owner " .. ply:Nick() .. " has left the server" )
-			
-			elseif IsValid( bot ) and bot:IsTRizzleBot() and bot.TBotOwner == ply then
-			
-				bot.TBotOwner = bot
+				if bot:IsTRizzleBot( true ) then
+				
+					bot:Kick( "Owner " .. ply:Nick() .. " has left the server" )
+					
+				else
+				
+					bot.TBotOwner = bot
+					
+				end
 			
 			end
 		end
@@ -2803,7 +3171,7 @@ hook.Add( "Think" , "TRizzleBotThink" , function()
 				
 					if threat:IsVisibleInFOVNow() then
 					
-						bot:AimAtEntity( enemy, 1.0, HIGH_PRIORITY )
+						bot:AimAtEntity( threat:GetEntity(), 1.0, HIGH_PRIORITY )
 						
 					else
 					
@@ -2849,19 +3217,27 @@ hook.Add( "Think" , "TRizzleBotThink" , function()
 					
 					if IsValid( botWeapon ) and botWeapon:IsWeapon() then
 					
-						if bot.FullReload and ( !botWeapon:UsesPrimaryAmmo() or !botWeapon:UsesClipsForAmmo1() or botWeapon:Clip1() >= botWeapon:GetMaxClip1() or bot:GetAmmoCount( botWeapon:GetPrimaryAmmoType() ) <= botWeapon:Clip1() or botWeapon:GetClass() != bot.Shotgun ) then bot.FullReload = false end -- Fully reloaded :)
+						if bot.FullReload and ( !botWeapon:NeedsToReload() or botWeapon:GetClass() != bot.Shotgun ) then bot.FullReload = false end -- Fully reloaded :)
 						
 						if CurTime() >= bot.ScopeInterval and botWeapon:GetClass() == bot.Sniper and bot.SniperScope and !bot:IsUsingScope() then
 						
-							bot:PressSecondaryAttack( 1.0 )
+							bot:PressSecondaryAttack()
 							bot.ScopeInterval = CurTime() + 0.4
-							bot.FireWeaponInterval = CurTime() + 0.4
+							bot.FireWeaponInterval = CurTime() + 0.2
 						
 						end
 						
-						if CurTime() >= bot.FireWeaponInterval and !bot:IsReloading() and !bot.FullReload and botWeapon:GetClass() != "weapon_medkit" and ( botWeapon:GetClass() != bot.Melee or enemyDist <= bot.MeleeDist * bot.MeleeDist ) and bot:IsCursorOnTarget( enemy ) then
+						if CurTime() >= bot.FireWeaponInterval and !bot:IsReloading() and !bot.FullReload and !botWeapon:IsPrimaryClipEmpty() and botWeapon:GetClass() != "weapon_medkit" and ( botWeapon:GetClass() != bot.Grenade or ( bot.GrenadeInterval <= CurTime() and botWeapon:GetNextPrimaryFire() <= CurTime() ) ) and ( botWeapon:GetClass() != bot.Melee or enemyDist <= bot.MeleeDist * bot.MeleeDist ) and bot:IsCursorOnTarget( enemy ) then
 							
 							bot:PressPrimaryAttack()
+							
+							-- The bot should throw a grenade then swap to another weapon
+							if botWeapon:GetClass() == bot.Grenade and bot.GrenadeInterval <= CurTime() then
+							
+								bot.GrenadeInterval = CurTime() + 22.0
+								bot.MinEquipInterval = CurTime() + 2.0
+								
+							end
 							
 							-- If the bot's active weapon is automatic the bot should just press and hold its attack button if their current enemy is close enough
 							if bot:IsActiveWeaponAutomatic() and enemyDist < 160000 then
@@ -2890,7 +3266,7 @@ hook.Add( "Think" , "TRizzleBotThink" , function()
 							
 						end
 						
-						if CurTime() >= bot.ReloadInterval and !bot:IsReloading() and botWeapon:GetClass() != "weapon_medkit" and botWeapon:GetClass() != bot.Melee and botWeapon:UsesPrimaryAmmo() and botWeapon:UsesClipsForAmmo1() and botWeapon:Clip1() == 0 then
+						if CurTime() >= bot.ReloadInterval and !bot:IsReloading() and botWeapon:GetClass() != "weapon_medkit" and botWeapon:GetClass() != bot.Melee and botWeapon:IsPrimaryClipEmpty() then
 							
 							if botWeapon:GetClass() == bot.Shotgun then bot.FullReload = true end
 							
@@ -2915,7 +3291,7 @@ hook.Add( "Think" , "TRizzleBotThink" , function()
 						
 					end
 					
-					bot:SelectBestWeapon( enemy )
+					bot:SelectBestWeapon( enemy, enemyDist )
 				
 				else
 				
@@ -2926,7 +3302,7 @@ hook.Add( "Think" , "TRizzleBotThink" , function()
 						
 						if IsValid( bot.HealTarget ) and bot:HasWeapon( "weapon_medkit" ) then
 						
-							bot:SelectMedkit()
+							bot.BestWeapon = bot:GetWeapon( "weapon_medkit" )
 							
 							if IsValid( botWeapon ) and botWeapon:IsWeapon() and botWeapon:GetClass() == "weapon_medkit" then
 								
@@ -2954,7 +3330,7 @@ hook.Add( "Think" , "TRizzleBotThink" , function()
 						
 						if IsValid( botWeapon ) and botWeapon:IsWeapon() then 
 							
-							if CurTime() >= bot.ReloadInterval and !bot:IsReloading() and botWeapon:GetClass() != "weapon_medkit" and botWeapon:GetClass() != bot.Melee and botWeapon:UsesPrimaryAmmo() and botWeapon:UsesClipsForAmmo1() and botWeapon:Clip1() < botWeapon:GetMaxClip1() then
+							if CurTime() >= bot.ReloadInterval and !bot:IsReloading() and botWeapon:GetClass() != "weapon_medkit" and botWeapon:GetClass() != bot.Melee and botWeapon:NeedsToReload() then
 						
 								bot:PressReload()
 								bot.ReloadInterval = CurTime() + 0.5
@@ -2980,7 +3356,7 @@ hook.Add( "Think" , "TRizzleBotThink" , function()
 						
 					else
 					
-						if IsValid( botWeapon ) and botWeapon:IsWeapon() and CurTime() >= bot.ReloadInterval and !bot:IsReloading() and botWeapon:GetClass() != "weapon_medkit" and botWeapon:GetClass() != bot.Melee and botWeapon:UsesPrimaryAmmo() and botWeapon:UsesClipsForAmmo1() and ( botWeapon:Clip1() == 0 or ( botWeapon:GetClass() == bot.Shotgun and botWeapon:Clip1() < botWeapon:GetMaxClip1() and bot:GetKnownCount( nil, true, -1 ) <= 0 ) or ( botWeapon:Clip1() < ( botWeapon:GetMaxClip1() * 0.6 ) and #bot.EnemyList <= 0 ) ) then
+						if IsValid( botWeapon ) and botWeapon:IsWeapon() and CurTime() >= bot.ReloadInterval and !bot:IsReloading() and botWeapon:GetClass() != "weapon_medkit" and botWeapon:GetClass() != bot.Melee and botWeapon:NeedsToReload() and ( botWeapon:IsPrimaryClipEmpty() or ( botWeapon:GetClass() == bot.Shotgun and bot:GetKnownCount( nil, true, -1 ) <= 0 ) or ( botWeapon:Clip1() < ( botWeapon:GetMaxClip1() * 0.6 ) and #bot.EnemyList <= 0 ) ) then
 						
 							bot:PressReload()
 							bot.ReloadInterval = CurTime() + 0.5
@@ -2997,9 +3373,9 @@ hook.Add( "Think" , "TRizzleBotThink" , function()
 					if bot:IsGroupLeader() then
 					
 						-- If the bot's group is being overwhelmed then they should retreat
-						if !isvector( bot.HidingSpot ) and !bot:IsPathValid() and bot.HidingSpotInterval <= CurTime() and ( ( istbotknownentity( threat ) and IsValid( threat:GetEntity() ) and threat:IsVisibleRecently() and bot:Health() < bot.CombatHealThreshold ) or bot:GetKnownCount( nil, true, bot.DangerDist ) >= 10 ) then
+						if !isvector( bot.HidingSpot ) and !bot:IsPathValid() and bot.HidingSpotInterval <= CurTime() and ( ( istbotknownentity( threat ) and threat:IsVisibleRecently() and bot:Health() < bot.CombatHealThreshold ) or bot:GetKnownCount( nil, true, bot.DangerDist ) >= 10 ) then
 					
-							bot.HidingSpot = bot:FindSpot( "far", { pos = bot:GetPos(), radius = 10000, stepdown = 1000, stepup = 64, checksafe = 1, checkoccupied = 1, checklineoffire = 1 } )
+							bot.HidingSpot = bot:FindSpot( "far", { pos = bot:GetPos(), radius = 10000, stepdown = 1000, stepup = bot:GetMaxJumpHeight(), checksafe = 1, checkoccupied = 1, checklineoffire = 1 } )
 							bot.HidingSpotInterval = CurTime() + 0.5
 							
 							if isvector( bot.HidingSpot ) then
@@ -3010,9 +3386,9 @@ hook.Add( "Think" , "TRizzleBotThink" , function()
 								
 							end
 						
-						elseif !isvector( bot.HidingSpot ) and !bot:IsPathValid() and bot.HidingSpotInterval <= CurTime() and bot:IsSafe() and bot.NextHuntTime < CurTime() then
+						elseif !isvector( bot.HidingSpot ) and !bot:IsPathValid() and bot.HidingSpotInterval <= CurTime() and bot:IsSafe() and bot.NextHuntTime <= CurTime() then
 						
-							bot.HidingSpot = bot:FindSpot( "random", { pos = bot:GetPos(), radius = math.random( 5000, 10000 ), stepdown = 1000, stepup = 64, spotType = "sniper", checksafe = 0, checkoccupied = 1, checklineoffire = 0 } )
+							bot.HidingSpot = bot:FindSpot( "random", { pos = bot:GetPos(), radius = math.random( 5000, 10000 ), stepdown = 1000, stepup = bot:GetMaxJumpHeight(), spotType = "sniper", checksafe = 0, checkoccupied = 1, checklineoffire = 0 } )
 							bot.HidingSpotInterval = CurTime() + 0.5
 							
 							if isvector( bot.HidingSpot ) then
@@ -3028,9 +3404,9 @@ hook.Add( "Think" , "TRizzleBotThink" , function()
 					else
 					
 						-- If the bot needs to reload its active weapon it should find cover nearby and reload there
-						if !isvector( bot.HidingSpot ) and !bot:IsPathValid() and bot.HidingSpotInterval <= CurTime() and istbotknownentity( threat ) and IsValid( threat:GetEntity() ) and threat:IsVisibleRecently() and IsValid( botWeapon ) and botWeapon:IsWeapon() and botWeapon:GetClass() != bot.Melee and botWeapon:UsesPrimaryAmmo() and botWeapon:UsesClipsForAmmo1() and botWeapon:Clip1() == 0 and bot.GroupLeader:GetPos():DistToSqr( bot:GetPos() ) < bot.FollowDist * bot.FollowDist then
+						if !isvector( bot.HidingSpot ) and !bot:IsPathValid() and bot.HidingSpotInterval <= CurTime() and istbotknownentity( threat ) and threat:IsVisibleRecently() and IsValid( botWeapon ) and botWeapon:IsWeapon() and botWeapon:GetClass() != bot.Melee and botWeapon:IsPrimaryClipEmpty() and bot.GroupLeader:GetPos():DistToSqr( bot:GetPos() ) < bot.FollowDist * bot.FollowDist then
 
-							bot.HidingSpot = bot:FindSpot( "near", { pos = bot:GetPos(), radius = 500, stepdown = 1000, stepup = 64, checksafe = 1, checkoccupied = 1, checklineoffire = 1 } )
+							bot.HidingSpot = bot:FindSpot( "near", { pos = bot:GetPos(), radius = 500, stepdown = 1000, stepup = bot:GetMaxJumpHeight(), checksafe = 1, checkoccupied = 1, checklineoffire = 1 } )
 							bot.HidingSpotInterval = CurTime() + 0.5
 							
 							if isvector( bot.HidingSpot ) then
@@ -3048,9 +3424,9 @@ hook.Add( "Think" , "TRizzleBotThink" , function()
 				elseif IsValid( bot.TBotOwner ) and bot.TBotOwner:Alive() then
 					
 					-- If the bot needs to reload its active weapon it should find cover nearby and reload there
-					if !isvector( bot.HidingSpot ) and !bot:IsPathValid() and bot.HidingSpotInterval <= CurTime() and istbotknownentity( threat ) and IsValid( threat:GetEntity() ) and threat:IsVisibleRecently() and IsValid( botWeapon ) and botWeapon:IsWeapon() and botWeapon:GetClass() != bot.Melee and botWeapon:UsesPrimaryAmmo() and botWeapon:UsesClipsForAmmo1() and botWeapon:Clip1() == 0 and bot.TBotOwner:GetPos():DistToSqr( bot:GetPos() ) < bot.FollowDist * bot.FollowDist then
+					if !isvector( bot.HidingSpot ) and !bot:IsPathValid() and bot.HidingSpotInterval <= CurTime() and istbotknownentity( threat ) and threat:IsVisibleRecently() and IsValid( botWeapon ) and botWeapon:IsWeapon() and botWeapon:GetClass() != bot.Melee and botWeapon:IsPrimaryClipEmpty() and bot.TBotOwner:GetPos():DistToSqr( bot:GetPos() ) < bot.FollowDist * bot.FollowDist then
 
-						bot.HidingSpot = bot:FindSpot( "near", { pos = bot:GetPos(), radius = 500, stepdown = 1000, stepup = 64, checksafe = 1, checkoccupied = 1, checklineoffire = 1 } )
+						bot.HidingSpot = bot:FindSpot( "near", { pos = bot:GetPos(), radius = 500, stepdown = 1000, stepup = bot:GetMaxJumpHeight(), checksafe = 1, checkoccupied = 1, checklineoffire = 1 } )
 						bot.HidingSpotInterval = CurTime() + 0.5
 						
 						if isvector( bot.HidingSpot ) then
@@ -3077,7 +3453,7 @@ hook.Add( "Think" , "TRizzleBotThink" , function()
 							bot.HideTime = CurTime() + bot.HideTime
 							
 						-- If the bot finished reloading its active weapon it should clear its selected hiding spot!
-						elseif bot.HideReason == RELOAD_IN_COVER and ( !IsValid( botWeapon ) or !botWeapon:UsesPrimaryAmmo() or !botWeapon:UsesClipsForAmmo1() or ( botWeapon:GetClass() == bot.Melee or botWeapon:Clip1() >= botWeapon:GetMaxClip1() or bot:GetAmmoCount( botWeapon:GetPrimaryAmmoType() ) <= botWeapon:Clip1() ) ) then
+						elseif bot.HideReason == RELOAD_IN_COVER and ( !IsValid( botWeapon ) or botWeapon:GetClass() == bot.Melee or !botWeapon:NeedsToReload() ) then
 							
 							bot:ClearHidingSpot()
 							
@@ -3089,11 +3465,11 @@ hook.Add( "Think" , "TRizzleBotThink" , function()
 							bot:ClearHidingSpot()
 						
 						-- If the bot has a hiding spot it should path there
-						elseif !bot:IsPathValid() and bot.RepathTimer <= CurTime() and bot:GetPos():DistToSqr( bot.HidingSpot ) > 1024 then
+						elseif bot.RepathTimer <= CurTime() and bot:GetPos():DistToSqr( bot.HidingSpot ) > 1024 then
 					
 							TRizzleBotPathfinderCheap( bot, bot.HidingSpot )
-							bot:TBotCreateNavTimer()
-							bot.RepathTimer = CurTime() + 0.5
+							--bot:TBotCreateNavTimer()
+							bot.RepathTimer = CurTime() + math.Rand( 3.0, 5.0 )
 							
 						end
 						
@@ -3106,12 +3482,12 @@ hook.Add( "Think" , "TRizzleBotThink" , function()
 							bot:ClearHidingSpot()
 						
 						-- If the bot has finished reloading its active weapon, it should clear its selected hiding spot
-						elseif bot.HideReason == RELOAD_IN_COVER and ( !IsValid( botWeapon ) or !botWeapon:UsesPrimaryAmmo() or !botWeapon:UsesClipsForAmmo1() or ( botWeapon:GetClass() == bot.Melee or botWeapon:Clip1() >= botWeapon:GetMaxClip1() or bot:GetAmmoCount( botWeapon:GetPrimaryAmmoType() ) <= botWeapon:Clip1() ) ) then
+						elseif bot.HideReason == RELOAD_IN_COVER and ( !IsValid( botWeapon ) or botWeapon:GetClass() == bot.Melee or !botWeapon:NeedsToReload() ) then
 						
 							bot:ClearHidingSpot()
 						
 						-- If the bot's hiding spot is no longer safe, it should clear its selected hiding spot
-						elseif !bot:IsSpotSafe( bot.HidingSpot ) then
+						elseif !bot:IsSpotSafe( bot.HidingSpot + HalfHumanHeight ) then
 						
 							bot.NextHuntTime = CurTime() + 20.0
 							bot:ClearHidingSpot()
@@ -3125,7 +3501,7 @@ hook.Add( "Think" , "TRizzleBotThink" , function()
 						
 					end
 					
-					if bot.HideReason == RELOAD_IN_COVER and IsValid( botWeapon ) and botWeapon:IsWeapon() and CurTime() >= bot.ReloadInterval and !bot:IsReloading() and botWeapon:GetClass() != "weapon_medkit" and botWeapon:GetClass() != bot.Melee and botWeapon:UsesPrimaryAmmo() and botWeapon:UsesClipsForAmmo1() and botWeapon:Clip1() < botWeapon:GetMaxClip1() then
+					if bot.HideReason == RELOAD_IN_COVER and IsValid( botWeapon ) and botWeapon:IsWeapon() and CurTime() >= bot.ReloadInterval and !bot:IsReloading() and botWeapon:GetClass() != "weapon_medkit" and botWeapon:GetClass() != bot.Melee and botWeapon:NeedsToReload() then
 					
 						bot:PressReload()
 						bot.ReloadInterval = CurTime() + 0.5
@@ -3136,13 +3512,9 @@ hook.Add( "Think" , "TRizzleBotThink" , function()
 				
 					if bot:IsPathValid() and bot.GroupLeader:GetPos():DistToSqr( bot:LastSegment().Pos ) > bot.FollowDist * bot.FollowDist or !bot:IsPathValid() and bot.GroupLeader:GetPos():DistToSqr( bot:GetPos() ) > bot.FollowDist * bot.FollowDist then
 						
-						if bot.RepathTimer <= CurTime() then
-						
-							TRizzleBotPathfinderCheap( bot, bot.GroupLeader:GetPos() )
-							bot:TBotCreateNavTimer()
-							bot.RepathTimer = CurTime() + 0.5
-							
-						end
+						TRizzleBotPathfinderCheap( bot, bot.GroupLeader:GetPos() )
+						--bot:TBotCreateNavTimer()
+						bot.RepathTimer = CurTime() + 0.5
 						
 					end
 					
@@ -3150,13 +3522,9 @@ hook.Add( "Think" , "TRizzleBotThink" , function()
 					
 					if bot:IsPathValid() and bot.TBotOwner:GetPos():DistToSqr( bot:LastSegment().Pos ) > bot.FollowDist * bot.FollowDist or !bot:IsPathValid() and bot.TBotOwner:GetPos():DistToSqr( bot:GetPos() ) > bot.FollowDist * bot.FollowDist then
 			
-						if bot.RepathTimer <= CurTime() then
-						
-							TRizzleBotPathfinderCheap( bot, bot.TBotOwner:GetPos() )
-							bot:TBotCreateNavTimer()
-							bot.RepathTimer = CurTime() + 0.5
-							
-						end
+						TRizzleBotPathfinderCheap( bot, bot.TBotOwner:GetPos() )
+						--bot:TBotCreateNavTimer()
+						bot.RepathTimer = CurTime() + 0.5
 						
 					end
 					
@@ -3209,6 +3577,11 @@ hook.Add( "Think" , "TRizzleBotThink" , function()
 							bot:AimAtPos( bot.ApproachPoints[ math.random( #bot.ApproachPoints ) ].Pos + HalfHumanHeight, 1.0, MEDIUM_PRIORITY )
 							bot.NextEncounterTime = CurTime() + 2.0
 							
+						else
+						
+							bot:AimAtPos( bot:ComputeEncounterSpot(), 1.0, MEDIUM_PRIORITY )
+							bot.NextEncounterTime = CurTime() + 2.0
+						
 						end
 					
 					else
@@ -3221,14 +3594,11 @@ hook.Add( "Think" , "TRizzleBotThink" , function()
 				end
 				
 				-- Update the bot movement if they are pathing to a goal
-				if bot:IsPathValid() then
-			
-					bot:TBotDebugWaypoints()
-					bot:TBotUpdateMovement()
-					bot:DoorCheck()
-					bot:BreakableCheck()
-					
-				end
+				bot:TBotDebugWaypoints()
+				bot:TBotUpdateMovement()
+				bot:StuckMonitor()
+				bot:DoorCheck()
+				bot:BreakableCheck()
 				
 				if IsValid( bot.TBotOwner ) then
 				
@@ -3257,6 +3627,7 @@ hook.Add( "Think" , "TRizzleBotThink" , function()
 					bot:Give( bot.Sniper )
 					bot:Give( bot.Melee )
 					bot:Give( "weapon_medkit" )
+					if bot:IsSafe() then bot:Give( bot.Grenade ) end -- The bot should only spawn in its grenade if it feels safe.
 					
 				end
 				
@@ -3497,7 +3868,7 @@ hook.Add( "PlayerHurt" , "TRizzleBotPlayerHurt" , function( victim, attacker )
 		
 			victim:AddKnownEntity( attacker )
 			
-			if victim:IsSafe() then victim.LastCombatTime = CurTime() - 5.0 end
+			if !victim:IsInCombat() then victim.LastCombatTime = CurTime() - 5.0 end
 			
 		end
 		
@@ -3521,7 +3892,7 @@ hook.Add( "EntityEmitSound" , "TRizzleBotEntityEmitSound" , function( soundTable
 			
 				bot:AddKnownEntity( soundTable.Entity )
 			
-				if bot:IsSafe() then bot.LastCombatTime = CurTime() - 5.0 end
+				if !bot:IsInCombat() then bot.LastCombatTime = CurTime() - 5.0 end
 				
 			end
 			
@@ -3533,7 +3904,6 @@ end)
 
 -- Checks if the NPC is alive
 function Npc:IsAlive()
-	if !IsValid( self ) then return false end
 	
 	if self:GetNPCState() == NPC_STATE_DEAD then return false
 	elseif self:GetInternalVariable( "m_lifeState" ) != 0 then return false 
@@ -3545,7 +3915,7 @@ end
 
 -- Checks if the target entity is the bot's enemy
 function BOT:IsEnemy( target )
-	if !IsValid( self ) or !IsValid( target ) or self == target then return false end
+	if !IsValid( target ) or self == target then return false end
 	
 	if target:IsNPC() then
 	
@@ -3587,13 +3957,85 @@ function BOT:IsEnemy( target )
 	
 end
 
+-- Returns true if the bot's reaction time has elapsed
+-- for the entered TBotKnownEntity
 function BOT:IsAwareOf( known )
 
-	return known:GetTimeSinceBecameKnown() >= 0.2
+	return known:GetTimeSinceBecameKnown() >= self:GetMinRecognizeTime()
+	
+end
+
+-- Returns the minimum amount of time before 
+-- the bot can react to seeing an enemy
+-- NOTE: This can be used to make bots react faster or slower to certain things
+function BOT:GetMinRecognizeTime()
+
+	return 0.2
+	
+	-- This is an example of different levels of reaction times
+	-- I could also make this skill dependent....
+	--[[if "Expert" then
+	
+		return 0.2
+		
+	elseif "Hard" then
+	
+		return 0.3
+	
+	elseif "Normal" then
+	
+		return 0.5
+		
+	elseif "Easy" then
+	
+		return 1.0
+	
+	end]]
+	
+end
+
+function BOT:IsThreatAimingTowardMe( threat, cosTolerance )
+
+	cosTolerance = cosTolerance or 0.8
+	local to = self:GetPos() - threat:GetPos()
+	local threatRange = to:Length()
+	to:Normalize()
+	local forward = Either( threat:IsPlayer() or threat:IsNPC(), threat:GetAimVector(), threat:EyeAngles():Forward() )
+	
+	if to:Dot( forward ) > cosTolerance then
+	
+		return true
+		
+	end
+	
+	return false
+	
+end
+
+function BOT:IsThreatFiringAtMe( threat )
+
+	if self:IsThreatAimingTowardMe( threat ) then
+	
+		if threat:IsNPC() and threat:GetEnemy() == self then
+		
+			return true
+			
+		end
+		
+		if threat:IsPlayer() and threat:DidPlayerJustFireWeapon() then
+		
+			return true
+			
+		end
+		
+	end
+	
+	return false
 	
 end
 
 function BOT:GetPrimaryKnownThreat( onlyVisibleThreats )
+	onlyVisibleThreats = onlyVisibleThreats or false
 
 	if #self.EnemyList == 0 then
 	
@@ -3698,14 +4140,21 @@ function BOT:IsImmediateThreat( threat )
 		
 	end
 	
+	if self:IsThreatFiringAtMe( threat:GetEntity() ) then
+	
+		-- Distant threat firing on me - an immediate threat whether in my FOV or not
+		return true
+		
+	end
+	
 	return false
 	
 end
 
 function BOT:SelectCloserThreat( threat1, threat2 )
 
-	local range1 = self:GetPos():DistToSqr( threat1:GetLastKnownPosition() )
-	local range2 = self:GetPos():DistToSqr( threat2:GetLastKnownPosition() )
+	local range1 = self:GetPos():DistToSqr( threat1:GetEntity():GetPos() )
+	local range2 = self:GetPos():DistToSqr( threat2:GetEntity():GetPos() )
 	
 	if range1 < range2 then
 	
@@ -3757,7 +4206,24 @@ function BOT:SelectMoreDangerousThreat( threat1, threat2 )
 	
 	-- Both threats are immediately dangerous!
 	-- Check if any are extremely dangerous
-	-- NOTE: This isn't needed for sandbox so we will just pick the closest instead
+	
+	-- Choose most recent attacker (assume an enemy firing their weapon at us has attacked us)
+	if self:IsThreatFiringAtMe( threat1:GetEntity() ) then
+	
+		if self:IsThreatFiringAtMe( threat2:GetEntity() ) then
+		
+			-- Choose closest
+			return closerThreat
+			
+		end
+		
+		return threat1
+		
+	elseif self:IsThreatFiringAtMe( threat2:GetEntity() ) then
+	
+		return threat2
+		
+	end
 	
 	-- Choose closest
 	return closerThreat
@@ -3905,7 +4371,7 @@ function BOT:UpdateKnownEntities()
 	local visibleNow = {}
 	for k, pit in ipairs( ents.GetAll() ) do
 	
-		if IsValid( pit ) then 
+		if IsValid( pit ) and pit != self then 
 		
 			if ( pit:IsNPC() and pit:IsAlive() ) or ( pit:IsPlayer() and pit:Alive() ) or ( pit:IsNextBot() and pit:Health() > 0 ) then
 				
@@ -3939,11 +4405,19 @@ function BOT:UpdateKnownEntities()
 			known:UpdatePosition()
 			known:UpdateVisibilityStatus( true )
 			
+			-- Has our reaction time just elapsed?
+			if CurTime() - known:GetTimeWhenBecameVisible() >= self:GetMinRecognizeTime() and self.LastVisionUpdateTimestamp - known:GetTimeWhenBecameVisible() < self:GetMinRecognizeTime() then
+			
+				self:OnSight( known:GetEntity() )
+				
+			end
+			
 		else
 		
 			if known:IsVisibleInFOVNow() then
 			
 				known:UpdateVisibilityStatus( false )
+				self:OnLostSight( known:GetEntity() )
 				
 			end
 			
@@ -4057,7 +4531,7 @@ function BOT:DoorCheck()
 	local halfWidth = self:GetHullWidth() / 2.0
 	for k, door in ipairs( ents.FindAlongRay( self:GetPos(), self.Goal.Pos, Vector( -halfWidth, -halfWidth, -halfWidth ), Vector( halfWidth, halfWidth, self:GetStandHullHeight() / 2.0 ) ) ) do
 	
-		if IsValid( door ) and door:IsDoor() and !door:IsDoorOpen() and door:GetPos():DistToSqr( self:GetPos() ) <= 6400 then
+		if IsValid( door ) and door:IsDoor() and !door:IsDoorOpen() and door:NearestPoint( self:GetPos() ):DistToSqr( self:GetPos() ) <= 10000 then
 		
 			self.Door = door
 			break
@@ -4077,7 +4551,7 @@ function BOT:BreakableCheck()
 	local halfWidth = self:GetHullWidth() / 2.0
 	for k, breakable in ipairs( ents.FindAlongRay( self:GetPos(), self.Goal.Pos, Vector( -halfWidth, -halfWidth, -halfWidth ), Vector( halfWidth, halfWidth, self:GetStandHullHeight() / 2.0 ) ) ) do
 	
-		if IsValid( breakable ) and breakable:IsBreakable() and breakable:WorldSpaceCenter():DistToSqr( self:GetPos() ) <= 6400 and self:IsAbleToSee( breakable ) then 
+		if IsValid( breakable ) and breakable:IsBreakable() and breakable:NearestPoint( self:GetPos() ):DistToSqr( self:GetPos() ) <= 6400 and self:IsAbleToSee( breakable ) then 
 		
 			self.Breakable = breakable
 			break
@@ -4121,7 +4595,8 @@ function TRizzleBotRangeCheck( area , fromArea , ladder , bot )
 		-- Jumping is slower than ground movement.
 		if !IsValid( ladder ) and !fromArea:IsUnderwater() and Height > stepHeight then
 			
-			if Height > 64 then
+			local maximumJumpHeight = Either( IsValid( bot ), bot:GetMaxJumpHeight(), 64 )
+			if Height > maximumJumpHeight then
 			
 				return -1
 			
@@ -4170,16 +4645,16 @@ function TRizzleBotRangeCheck( area , fromArea , ladder , bot )
 		local preference = 1.0
 		
 		-- This isn't really needed for sandbox, but since this is a bot base I will leave this here.
-		--[[
 		-- This will have certain cases where its not used.
-		if true then
+		-- NOTE: If TBotRandomPaths is nonzero the bot will use this when pathfinding
+		if TBotRandomPaths:GetBool() then
 		
 			-- this term causes the same bot to choose different routes over time,
 			-- but keep the same route for a period in case of repaths
 			local timeMod = math.floor( ( CurTime() / 10 ) + 1 )
 			preference = 1.0 + 50.0 * ( 1.0 + math.cos( bot:EntIndex() * area:GetID() * timeMod ) )
 			
-		end]]
+		end
 		
 		-- Crawling through a vent is very slow.
 		-- NOTE: The cost is determined by the bot's crouch speed
@@ -4924,54 +5399,6 @@ function GetPathLength( tbl, startArea, endArea )
 
 end
 
---[[
- Got this from CS:GO Source Code, made some changes so it works for Lua
- 
- Given two line segments: startA to endA, and startB to endB, return true if they intesect
- and put the intersection point in "result".
- Note that this computes the intersection of the 2D (x,y) projection of the line segments.
-]]--
-function IsIntersecting2D( startA, endA, startB, endB )
-
-	local denom = (endA.x - startA.x) * (endB.y - startB.y) - (endA.y - startA.y) * (endB.x - startB.x)
-	if demon == 0 then
-	
-		-- Parallel
-		return false, result
-	
-	end
-	
-	local numS = (startA.y - startB.y) * (endB.x - startB.x) - (startA.x - startB.x) * (endB.y - startB.y)
-	if numS == 0 then
-	
-		-- Coincident
-		return true, result
-		
-	end
-	
-	local numT = (startA.y - startB.y) * (endA.x - startA.x) - (startA.x - startB.x) * (endA.y - startA.y)
-	
-	local s = numS / denom
-	if s < 0.0 or s > 1.0 then
-	
-		-- Intersection is not within line segment of startA to endA
-		return false, result
-		
-	end
-	
-	local t = numT / denom
-	if t < 0.0 or t > 1.0 then
-	
-		-- Intersection is not within line segment of startB to endB
-		return false, result
-		
-	end
-	
-	return true, startA + s * (endA - startA)
-	
-end
-
-
 local result = Vector()
 -- Checks if the bot will cross enemy line of fire when attempting to move to the entered position
 function BOT:IsCrossingLineOfFire( startPos, endPos )
@@ -5020,6 +5447,53 @@ function BOT:IsCrossingLineOfFire( startPos, endPos )
 	
 end
 
+--[[
+ Got this from CS:GO Source Code, made some changes so it works for Lua
+ 
+ Given two line segments: startA to endA, and startB to endB, return true if they intesect
+ and put the intersection point in "result".
+ Note that this computes the intersection of the 2D (x,y) projection of the line segments.
+]]--
+function IsIntersecting2D( startA, endA, startB, endB )
+
+	local denom = (endA.x - startA.x) * (endB.y - startB.y) - (endA.y - startA.y) * (endB.x - startB.x)
+	if demon == 0 then
+	
+		-- Parallel
+		return false, result
+	
+	end
+	
+	local numS = (startA.y - startB.y) * (endB.x - startB.x) - (startA.x - startB.x) * (endB.y - startB.y)
+	if numS == 0 then
+	
+		-- Coincident
+		return true, result
+		
+	end
+	
+	local numT = (startA.y - startB.y) * (endA.x - startA.x) - (startA.x - startB.x) * (endA.y - startA.y)
+	
+	local s = numS / denom
+	if s < 0.0 or s > 1.0 then
+	
+		-- Intersection is not within line segment of startA to endA
+		return false, result
+		
+	end
+	
+	local t = numT / denom
+	if t < 0.0 or t > 1.0 then
+	
+		-- Intersection is not within line segment of startB to endB
+		return false, result
+		
+	end
+	
+	return true, startA + s * (endA - startA)
+	
+end
+
 -- Checks if a hiding spot is already in use
 function BOT:IsSpotOccupied( pos )
 
@@ -5039,7 +5513,7 @@ end
 -- Checks if a hiding spot is safe to use
 function BOT:IsSpotSafe( hidingSpot )
 
-	for k, known in pairs( self.EnemyList ) do
+	for k, known in ipairs( self.EnemyList ) do
 	
 		if self:IsAwareOf( known ) and !known:IsObsolete() and known:GetEntity():TBotVisible( hidingSpot ) then return false end -- If one of the bot's enemies its aware of can see it the bot won't use it.
 	
@@ -5060,7 +5534,7 @@ function BOT:ClearHidingSpot()
 		
 		-- We only set the goal once just incase something else that is important, "following their owner," wants to move the bot
 		TRizzleBotPathfinderCheap( self, self.ReturnPos )
-		self:TBotCreateNavTimer()
+		--self:TBotCreateNavTimer()
 		self.ReturnPos = nil
 		
 	end
@@ -5076,7 +5550,7 @@ function BOT:FindSpots( tbl, secondAttempt )
 	tbl.pos				= tbl.pos				or self:WorldSpaceCenter()
 	tbl.radius			= tbl.radius			or 1000
 	tbl.stepdown		= tbl.stepdown			or 1000
-	tbl.stepup			= tbl.stepup			or 64
+	tbl.stepup			= tbl.stepup			or self:GetMaxJumpHeight()
 	tbl.spotType		= tbl.spotType			or "hiding"
 	tbl.checkoccupied	= tbl.checkoccupied		or 1
 	tbl.checksafe		= tbl.checksafe			or 1
@@ -5087,12 +5561,12 @@ function BOT:FindSpots( tbl, secondAttempt )
 
 	local found = {}
 	
-	local startArea = navmesh.GetNearestNavArea( tbl.pos )
-	if !IsValid( startArea ) then
+	--local startArea = navmesh.GetNearestNavArea( tbl.pos )
+	--[[if !IsValid( startArea ) then
 	
 		return
 		
-	end
+	end]]
 
 	-- In each area
 	for _, area in ipairs( areas ) do
@@ -5392,7 +5866,8 @@ function BOT:ComputeNavmeshVisibility()
 				while pushDist <= maxPushDist do
 				
 					local pos = to.Pos + Vector( pushDist * dir.x, pushDist * dir.y, 0 )
-					local ground = util.TraceHull( { start = pos, endpos = pos + Vector( 0, 0, -self:GetStepSize() ), mins = Vector( -halfWidth, -halfWidth, 0 ), maxs = Vector( halfWidth, halfWidth, hullHeight ), mask = MASK_PLAYERSOLID, filter = TBotTraversableFilter } )
+					local lowerPos = Vector( pos.x, pos.y, toPos.z )
+					local ground = util.TraceHull( { start = pos, endpos = lowerPos, mins = Vector( -halfWidth, -halfWidth, 0 ), maxs = Vector( halfWidth, halfWidth, hullHeight ), mask = MASK_PLAYERSOLID, filter = TBotTraversableFilter } )
 					
 					--print( "Ground Fraction: " .. tostring( ground.Fraction ) )
 					--print( "Started Solid: " .. tostring( ground.StartSolid ) )
@@ -5417,20 +5892,36 @@ function BOT:ComputeNavmeshVisibility()
 				local ground = navmesh.GetGroundHeight( startDrop )
 				if ground and startDrop.z > ground + self:GetStepSize() then
 				
-					to.Pos = startDrop
-					to.Type = PATH_DROP_DOWN
+					-- if "ground" is lower than the next segment along the path
+					-- there is a chasm between - this is not a drop down
+					local nextSegment = self:NextSegment( to )
+					local ground2 = nil
+					if nextSegment and IsValid( nextSegment.Area ) then
 					
-					endDrop.z = ground
+						ground2 = navmesh.GetGroundHeight( nextSegment.Area:GetCenter() )
+						
+					end
 					
-					table.insert( self.Path, index + 1, { Pos = endDrop, Area = to.Area, How = to.How, Type = PATH_ON_GROUND } )
-					self.SegmentCount = self.SegmentCount + 1
-					index = index + 2
-					continue
+					if !ground2 or ground2 < ground + self:GetStepSize() then
+					
+						to.Pos = startDrop
+						to.Type = PATH_DROP_DOWN
+						
+						endDrop.z = ground
+						
+						table.insert( self.Path, index + 1, { Pos = endDrop, Area = to.Area, How = to.How, Type = PATH_ON_GROUND } )
+						self.SegmentCount = self.SegmentCount + 1
+						index = index + 2
+						continue
+						
+					end
+				
 				end
 				
 			end
 			
 			index = index + 1
+			continue
 			
 		elseif to.How == GO_LADDER_UP then
 		
@@ -5750,7 +6241,7 @@ end
 
 function BOT:IsPotentiallyTraversable( from, to )
 
-	if to.z - from.z > 64.1 then
+	if to.z - from.z > self:GetMaxJumpHeight() + 0.1 then
 	
 		local along = to - from
 		along:Normalize()
@@ -5779,9 +6270,9 @@ function BOT:IsGap( pos, forward )
 	local halfWidth = 1.0
 	local hullHeight = 1.0
 	
-	local ground = util.TraceHull( { start = pos + Vector( 0, 0, self:GetStepSize() ), endpos = pos + Vector( 0, 0, -64 ), maxs = Vector( halfWidth, halfWidth, hullHeight ), mins = Vector( -halfWidth, -halfWidth, 0 ), filter = TBotTraceFilter, mask = MASK_PLAYERSOLID } )
+	local ground = util.TraceHull( { start = pos + Vector( 0, 0, self:GetStepSize() ), endpos = pos + Vector( 0, 0, -self:GetMaxJumpHeight() ), maxs = Vector( halfWidth, halfWidth, hullHeight ), mins = Vector( -halfWidth, -halfWidth, 0 ), filter = TBotTraceFilter, mask = MASK_PLAYERSOLID } )
 	
-	--debugoverlay.SweptBox( pos + Vector( 0, 0, self:GetStepSize() ), pos + Vector( 0, 0, -64 ), Vector( -halfWidth, -halfWidth, 0 ), Vector( halfWidth, halfWidth, hullHeight ), Angle(), 5.0, Color( 255, 0, 0 ) )
+	--debugoverlay.SweptBox( pos + Vector( 0, 0, self:GetStepSize() ), pos + Vector( 0, 0, -self:GetMaxJumpHeight() ), Vector( -halfWidth, -halfWidth, 0 ), Vector( halfWidth, halfWidth, hullHeight ), Angle(), 5.0, Color( 255, 0, 0 ) )
 	
 	return ground.Fraction >= 1.0 and !ground.StartSolid
 	
@@ -5926,99 +6417,71 @@ end
 
 function BOT:IsAtGoal()
 
-	if self:IsPathValid() then
+	local current		=	self:PriorSegment( self.Goal )
+	local toGoal		=	self.Goal.Pos - self:GetPos()
+	-- ALWAYS: Use 2D navigation, It helps by a large amount.
+	
+	if !current then
+	
+		-- passed goal
+		return true
+	
+	elseif self.Goal.Type == PATH_DROP_DOWN then
 		
-		if self.Goal then
+		local landing = self:NextSegment( self.Goal )
+		
+		if !landing then
+		
+			-- passed goal or corrupt path
+			return true
+		
+		-- did we reach the ground
+		elseif self:GetPos().z - landing.Pos.z < self:GetStepSize() then
 			
-			local current		=	self:PriorSegment( self.Goal )
-			local toGoal		=	self.Goal.Pos - self:GetPos()
-			-- ALWAYS: Use 2D navigation, It helps by a large amount.
+			-- reached goal
+			return true
 			
-			if !current then
+		end
+		
+	elseif self.Goal.Type == PATH_CLIMB_UP then
+		
+		local landing = self:NextSegment( self.Goal )
+		
+		if !landing then
+		
+			-- passed goal or corrupt path
+			return true
+		
+		elseif self:GetPos().z > self.Goal.Pos.z + self:GetStepSize() then
+		
+			return true
 			
-				-- passed goal
-				return true
+		end
+	
+	else
+		
+		local nextSegment = self:NextSegment( self.Goal )
+		
+		if nextSegment then
+		
+			-- because the bot may be off the path, check if it crossed the plane of the goal
+			-- check against average of current and next forward vectors
+			local dividingPlane = nil
 			
-			elseif self.Goal.Type == PATH_DROP_DOWN then
-				
-				local landing = self:NextSegment( self.Goal )
-				
-				if !landing then
-				
-					-- passed goal or corrupt path
-					return true
-				
-				-- did we reach the ground
-				elseif self:GetPos().z - landing.Pos.z < self:GetStepSize() then
-					
-					-- reached goal
-					return true
-					
-				end
-				
-			elseif self.Goal.Type == PATH_CLIMB_UP then
-				
-				local landing = self:NextSegment( self.Goal )
-				
-				if !landing then
-				
-					-- passed goal or corrupt path
-					return true
-				
-				elseif self:GetPos().z > self.Goal.Pos.z + self:GetStepSize() then
-				
-					return true
-					
-				end
+			if current[ "Ladder" ] then
 			
+				dividingPlane = self.Goal[ "Forward" ]:AsVector2D()
+				
 			else
+			
+				dividingPlane = current[ "Forward" ]:AsVector2D() + self.Goal[ "Forward" ]:AsVector2D()
+			
+			end
+			
+			if toGoal:AsVector2D():Dot( dividingPlane ) < 0.0001 and math.abs( toGoal.z ) < self:GetStandHullHeight() then
+			
+				if toGoal.z < self:GetStepSize() and ( self:IsPotentiallyTraversable( self:GetPos(), nextSegment[ "Pos" ] ) and !self:HasPotentialGap( self:GetPos(), nextSegment[ "Pos" ] ) ) then
 				
-				local nextSegment = self:NextSegment( self.Goal )
-				
-				if nextSegment then
-				
-					-- because the bot may be off the path, check if it crossed the plane of the goal
-					-- check against average of current and next forward vectors
-					local dividingPlane = nil
-					
-					if current[ "Ladder" ] then
-					
-						dividingPlane = self.Goal[ "Forward" ]:AsVector2D()
-						
-					else
-					
-						dividingPlane = current[ "Forward" ]:AsVector2D() + self.Goal[ "Forward" ]:AsVector2D()
-					
-					end
-					
-					if toGoal:AsVector2D():Dot( dividingPlane ) < 0.0001 and math.abs( toGoal.z ) < self:GetStandHullHeight() then
-					
-						if toGoal.z < self:GetStepSize() and ( self:IsPotentiallyTraversable( self:GetPos(), nextSegment[ "Pos" ] ) and !self:HasPotentialGap( self:GetPos(), nextSegment[ "Pos" ] ) ) then
-						
-							return true
-							
-						end
-						
-					end
-					
-				end
-				
-				-- Is 10 too small of a goal tolerance?
-				if ( self.Goal.Type == PATH_ON_GROUND or self.Goal.Type == PATH_JUMP_OVER_GAP ) and toGoal:AsVector2D():IsLengthLessThan( 10 ) then
-					
-					if self.Goal.Type == PATH_JUMP_OVER_GAP then
-					
-						nextSegment = self:NextSegment( self.Goal )
-						if nextSegment then
-						
-							self:AimAtPos( nextSegment.Pos + self:GetCurrentViewOffset(), 0.1, MAXIMUM_PRIORITY )
-							
-						end
-				
-						self:PressJump()
-						
-					end
-					
 					return true
 					
 				end
@@ -6027,8 +6490,142 @@ function BOT:IsAtGoal()
 			
 		end
 		
+		if toGoal:AsVector2D():IsLengthLessThan( TBotGoalTolerance:GetFloat() ) then
+		
+			-- Reached goal
+			return true
+		
+		end
+		
 	end
+	
+	return false
+	
+end
 
+function BOT:GetDesiredSpeed()
+
+	local desiredSpeed = self:GetWalkSpeed()
+	if self:KeyDown( IN_WALK ) then
+	
+		desiredSpeed = self:GetSlowWalkSpeed()
+		
+	elseif self:KeyDown( IN_SPEED ) and !self:Crouching() then
+	
+		desiredSpeed = self:GetRunSpeed()
+		
+	end
+	
+	if self:Is_On_Ladder() then
+	
+		return self:GetLadderClimbSpeed()
+		
+	end
+	
+	if self:Crouching() then
+	
+		desiredSpeed = desiredSpeed * self:GetCrouchedWalkSpeed()
+		
+	end
+	
+	return desiredSpeed
+	
+end
+
+function BOT:OnStuck()
+
+	self:PressJump()
+	
+	if math.random( 0, 100 ) < 50 then
+	
+		self:PressLeft()
+		
+	else
+	
+		self:PressRight()
+		
+	end
+	
+end
+
+function BOT:ClearStuckStatus()
+
+	self.IsStuck = false
+	self.StuckPos = self:GetPos()
+	self.StuckTimer = CurTime()
+	
+end
+
+function BOT:StuckMonitor()
+
+	-- a timer is needed to smooth over a few frames of inactivity due to state changes, etc.
+	-- we only want to detect idle situations when the bot really doesn't "want" to move.
+	if CurTime() - self.MoveRequestTimer > 0.25 then
+	
+		self.StuckPos = self:GetPos()
+		self.StuckTimer = CurTime()
+		return
+		
+	end
+	
+	if self.IsStuck then
+	
+		-- we are/were stuck - have we moved enough to consider ourselves "dislodged"
+		if ( self.StuckPos - self:GetPos() ):IsLengthGreaterThan( 100 ) then
+		
+			self:ClearStuckStatus()
+			
+		else
+		
+			-- still stuck - periodically resend the event
+			if self.StillStuckTimer <= CurTime() then
+			
+				self.StillStuckTimer = CurTime() + 1.0
+				
+				self:OnStuck()
+				
+			end
+			
+		end
+		
+		-- We have been stuck for too long, destroy the current path
+		-- and the bot's current hiding spot.
+		if CurTime() - self.StuckTimer > 10.0 then
+		
+			self:TBotClearPath()
+			self:ClearHidingSpot()
+			self:ClearStuckStatus()
+			
+		end
+		
+	else
+	
+		-- we're not stuck - yet
+	
+		if ( self.StuckPos - self:GetPos() ):IsLengthGreaterThan( 100 ) then
+		
+			-- we have moved - reset anchor
+			self.StuckPos = self:GetPos()
+			self.StuckTimer = CurTime()
+			
+		else
+		
+			-- within stuck range of anchor. if we've been here too long, we're stuck
+			local minMoveSpeed = 0.1 * self:GetDesiredSpeed() + 0.1
+			local escapeTime = 100 / minMoveSpeed
+			if CurTime() - self.StuckTimer > escapeTime then
+			
+				-- we have taken too long - we're stuck
+				self.IsStuck = true
+				
+				self:OnStuck()
+				
+			end
+			
+		end
+	
+	end
+	
 end
 
 -- The navigation and navigation debugger for when a bot is stuck.
@@ -6391,10 +6988,10 @@ function BOT:LadderUpdate()
 					
 				end
 				
-				if IsValid( s.Ladder ) and s.How == GO_LADDER_DOWN and s.Ladder:GetLength() > 64 then
+				if IsValid( s.Ladder ) and s.How == GO_LADDER_DOWN and s.Ladder:GetLength() > self:GetMaxJumpHeight() then
 				
 					local destinationHeightDelta = s.Pos.z - self:GetPos().z
-					if math.abs( destinationHeightDelta ) < 64 then
+					if math.abs( destinationHeightDelta ) < self:GetMaxJumpHeight() then
 					
 						self.Goal = s
 						break
@@ -6559,6 +7156,8 @@ function BOT:AdjustPosture( moveGoal )
 end
 
 function BOT:Approach( pos )
+
+	self.MoveRequestTimer = CurTime()
 	
 	self:AdjustPosture( pos )
 	
@@ -6621,17 +7220,13 @@ function BOT:Approach( pos )
 				
 			end
 			
-			if self.WiggleTimer <= CurTime() then
+			if side <= -0.25 then
 				
-				if side <= -0.25 then
+				self:PressLeft()
+			
+			elseif side >= 0.25 then
 				
-					self:PressLeft()
-					
-				elseif side >= 0.25 then
-					
-					self:PressRight()
-					
-				end
+				self:PressRight()
 				
 			end
 			
@@ -6677,7 +7272,7 @@ function BOT:ApproachAscendingLadder()
 		
 	end
 	
-	if self:GetPos().z <= self.LadderInfo:GetBottom().z - 64 then
+	if self:GetPos().z <= self.LadderInfo:GetBottom().z - self:GetMaxJumpHeight() then
 	
 		return NO_LADDER
 		
@@ -6705,7 +7300,7 @@ function BOT:ApproachDescendingLadder()
 		
 	end
 	
-	if self:GetPos().z <= self.LadderInfo:GetBottom().z + 64 then
+	if self:GetPos().z <= self.LadderInfo:GetBottom().z + self:GetMaxJumpHeight() then
 	
 		self.LadderTimer = CurTime() + 2.0
 		return DISMOUNTING_LADDER_BOTTOM
@@ -6764,6 +7359,12 @@ function BOT:AscendLadder()
 	
 		self.LadderInfo = nil
 		return NO_LADDER
+		
+	end
+	
+	if self.LadderDismountGoal:HasAttributes( NAV_MESH_CROUCH ) then
+	
+		self:PressCrouch()
 		
 	end
 	
@@ -6908,6 +7509,659 @@ function BOT:TraverseLadder()
 	return true
 
 end	
+
+function BOT:JumpOverGaps( goal, forward, right, goalRange )
+
+	if !self:IsOnGround() or self:IsClimbingOrJumping() or self:IsAscendingOrDescendingLadder() then
+	
+		return false
+		
+	end
+	
+	if self:Crouching() then
+	
+		-- Can't jump if we're not standing
+		return false
+		
+	end
+	
+	if !self.Goal then
+	
+		return false
+		
+	end
+	
+	local result
+	local hullWidth = self:GetHullWidth()
+	
+	-- 'current' is the segment we are on/just passed over
+	local current = self:PriorSegment( self.Goal )
+	if !current then
+	
+		return false
+		
+	end
+	
+	local minGapJumpRange = 2.0 * hullWidth
+	local gap
+	
+	if current.Type == PATH_JUMP_OVER_GAP then
+	
+		gap = current
+		
+	else
+	
+		local searchRange = goalRange
+		local s = self.Goal
+		while s do
+		
+			if searchRange > minGapJumpRange then
+			
+				break
+				
+			end
+			
+			if s.Type == PATH_JUMP_OVER_GAP then
+			
+				gap = s
+				break
+				
+			end
+			
+			searchRange = searchRange + s.Length
+			s = self:NextSegment( s )
+			
+		end
+		
+	end
+	
+	if gap then
+	
+		local halfWidth = hullWidth / 2.0
+		
+		if self:IsGap( self:GetPos() + halfWidth * gap.Forward, gap.Forward ) then
+		
+			-- There is a gap to jump over
+			local landing = self:NextSegment( gap )
+			if landing then
+			
+				self:JumpAcrossGap( landing.Pos, landing.Forward )
+				
+				-- If we're jumping over a gap, make sure our goal is the landing so we aim for it
+				self.Goal = landing
+				
+				return true
+				
+			end
+			
+		end
+		
+	end
+	
+	return false
+	
+end
+
+function BOT:Climbing( goal, forward, right, goalRange )
+
+	local myArea = self:GetLastKnownArea()
+	
+	-- Use the 2D direction towards our goal
+	local climbDirection = Vector( forward.x, forward.y, 0 )
+	climbDirection:Normalize()
+	
+	-- We can't have this as large as our hull width, or we'll find ledges ahead of us
+	-- that we will fall from when we climb up because our hull wont actually touch at the top.
+	local ledgeLookAheadRange = self:GetHullHeight() - 1
+	
+	if !self:IsOnGround() or self:IsClimbingOrJumping() or self:IsAscendingOrDescendingLadder() then
+	
+		return false
+		
+	end
+	
+	if !self.Goal then
+	
+		return false
+		
+	end
+	
+	if TBotCheaperClimbing:GetBool() then
+	
+		-- Trust what the nav mesh tells us.
+		-- We have been told not to do the expensive ledge-finding.
+	
+		if self.Goal.Type == PATH_CLIMB_UP then
+		
+			local afterClimb = self:NextSegment( self.Goal )
+			if afterClimb and IsValid( afterClimb.Area ) then
+			
+				-- Find the closest point on climb-destination area
+				local nearClimbGoal = afterClimb.Area:GetClosestPointOnArea( self:GetPos() )
+				
+				climbDirection = nearClimbGoal - self:GetPos()
+				climbDirection.z = 0.0
+				climbDirection:Normalize()
+				
+				if self:ClimbUpToLedge( nearClimbGoal, climbDirection, nil ) then
+				
+					return true
+					
+				end
+				
+			end
+			
+		end
+		
+		return false
+		
+	end
+	
+	-- If we're approaching a CLIMB_UP link, save off the height delta for it, and trust the nav *just* enough
+	-- to climb up to that ledge and only that ledge.  We keep as large a tolerance as possible, to trust
+	-- the nav as little as possible.  There's no valid way to have another CLIMB_UP link within crouch height,
+	-- because we can't actually fit in between the two areas, so one climb is invalid.
+	local climbUpLedgeHeightDelta = -1.0
+	local ClimbUpToLedgeTolerance = self:GetCrouchHullHeight()
+	
+	if self.Goal.Type == PATH_CLIMB_UP then
+	
+		local afterClimb = self:NextSegment( self.Goal )
+		if afterClimb and IsValid( afterClimb.Area ) then
+		
+			-- Find the closest point on climb-destination area
+			local nearClimbGoal = afterClimb.Area:GetClosestPointOnArea( self:GetPos() )
+			
+			climbDirection = nearClimbGoal - self:GetPos()
+			climbUpLedgeHeightDelta = climbDirection.z
+			climbDirection.z = 0.0
+			climbDirection:Normalize()
+			
+		end
+		
+	end
+	
+	-- Don't try to climb up stairs
+	if self.Goal.Area:HasAttributes( NAV_MESH_STAIRS ) or ( IsValid( myArea ) and myArea:HasAttributes( NAV_MESH_STAIRS ) ) then
+	
+		return false
+		
+	end
+	
+	-- 'current' is the segment we are on/just passed over
+	local current = self:PriorSegment( self.Goal )
+	if !current then
+	
+		return false
+		
+	end
+	
+	-- If path segment immediately ahead of us is not obstructed, don't try to climb.
+	-- This is required to try to avoid accidentally climbing onto valid high ledges when we really want to run UNDER them to our destination.
+	-- We need to check "immediate" traversability to pay attention to breakable objects in our way that we should climb over.
+	-- We also need to check traversability out to 2 * ledgeLookAheadRange in case our goal is just before a tricky ledge climb and once we pass the goal it will be too late.
+	-- When we're in a CLIMB_UP segment, allow us to look for ledges - we know the destination ledge height, and will only grab the correct ledge.
+	local toGoal = self.Goal.Pos - self:GetPos()
+	toGoal:Normalize()
+	
+	if toGoal.z < 0.6 and !self.IsStuck and self.Goal.Type != PATH_CLIMB_UP and self:IsPotentiallyTraversable( self:GetPos(), self:GetPos() + 2.0 * ledgeLookAheadRange * toGoal ) then
+	
+		return false
+		
+	end
+	
+	-- Determine if we're approaching a planned climb.
+	-- Start with current, the segment we are currently traversing.  Skip the distance check for that segment, because
+	-- the pos is (hopefully) behind us.  And if it's a long path segment, it's already outside the climbLookAheadRange,
+	-- and thus it would prevent us looking at m_goal and further for imminent planned climbs.
+	local isPlannedClimbImminent = false
+	local plannedClimbZ = 0.0
+	local s = current
+	while s do
+	
+		if s != current and ( s.Pos - self:GetPos() ):AsVector2D():IsLengthGreaterThan( 150 ) then
+		
+			break
+			
+		end
+		
+		if s.Type == PATH_CLIMB_UP then
+		
+			isPlannedClimbImminent = true
+			
+			local nextSegment = self:NextSegment( s )
+			if nextSegment then
+			
+				plannedClimbZ = nextSegment.Pos.z
+				
+			end
+			break
+			
+		end
+		
+		s = self:NextSegment( s )
+		
+	end
+	
+	local result
+	
+	local hullWidth = self:GetHullWidth()
+	local halfSize = hullWidth / 2.0
+	local minHullHeight = self:GetCrouchHullHeight()
+	local minLedgeHeight = self:GetStepSize() + 0.1
+	
+	local skipStepHeightHullMin = Vector( -halfSize, -halfSize, minLedgeHeight )
+	
+	-- Need to use minimum actual hull height here to catch porous fences and railings
+	local skipStepHeightHullMax = Vector( halfSize, halfSize, minHullHeight + 0.1 )
+	
+	-- Find the highest height we can stand at our current location.
+	-- Using the full width hull catches on small lips/ledges, so back up and try again.
+	local ceilingFraction
+	
+	-- Instead of IsPotentiallyTraversable, we back up the same distance and use a second upward trace
+	-- to see if that one finds a higher ceiling.  If so, we use that ceiling height, and use the
+	-- backed-up feet position for the ledge finding traces.
+	local feet = self:GetPos()
+	local ceiling = feet + Vector( 0, 0, self:GetMaxJumpHeight() )
+	result = util.TraceHull( { start = feet, endpos = ceiling, maxs = skipStepHeightHullMax, mins = skipStepHeightHullMin, filter = TBotTraversableFilter, mask = MASK_PLAYERSOLID } )
+	ceilingFraction = result.Fraction
+	local isBackupTraceUsed = false
+	if ceilingFraction < 1.0 or result.StartSolid then
+	
+		local backupTrace
+		local backupDistance = hullWidth * 0.25
+		local backupFeet = feet - climbDirection * backupDistance
+		local backupCeiling = backupFeet + Vector( 0, 0, self:GetMaxJumpHeight() )
+		backupTrace = util.TraceHull( { start = backupFeet, endpos = backupCeiling, maxs = skipStepHeightHullMax, mins = skipStepHeightHullMin, filter = TBotTraversableFilter, mask = MASK_PLAYERSOLID } )
+		if !backupTrace.StartSolid and backupTrace.Fraction > ceilingFraction then
+		
+			result = backupTrace
+			ceilingFraction = result.Fraction
+			feet = backupFeet
+			ceiling = backupCeiling
+			isBackupTraceUsed = true
+			
+		end
+		
+	end
+	
+	local maxLedgeHeight = ceilingFraction * self:GetMaxJumpHeight()
+	
+	if maxLedgeHeight <= self:GetStepSize() then
+	
+		return false
+		
+	end
+	
+	-- Check for ledge climbs over things in our way.
+	-- Even if we have a CLIMB_UP link in our path, we still need
+	-- to find the actual ledge by tracing the local geometry.
+	
+	local climbHullMax = Vector( halfSize, halfSize, maxLedgeHeight )
+	local ledgePos = Vector( feet ) -- to be computed below
+	
+	result = util.TraceHull( { start = feet, endpos = feet + climbDirection * ledgeLookAheadRange, maxs = climbHullMax, mins = skipStepHeightHullMin, filter = TBotTraversableFilter, mask = MASK_PLAYERSOLID } )
+	
+	if result.Hit and !result.StartSolid then
+	
+		local obstacle = result.Entity
+		
+		-- EFL_DONTWALKON = 67108864 - NPCs should not walk on this entity
+		if !result.HitNonWorld or ( IsValid( obstacle ) and !obstacle:IsDoor() and !obstacle:IsEFlagSet( 67108864 ) ) then
+		
+			-- The low hull sweep hit an obstacle - note how 'far in' this is
+			local ledgeFrontWallDepth = ledgeLookAheadRange * result.Fraction
+			
+			local minLedgeDepth = self:GetHullWidth() / 2.0
+			if self.Goal.Type == PATH_CLIMB_UP then
+			
+				-- Climbing up to a narrow nav area indicates a narrow ledge.  We need to reduce our minLedgeDepth
+				-- here or our path will say we should climb but we'll forever fail to find a wide enough ledge.
+				local afterClimb = self:NextSegment( self.Goal )
+				if afterClimb and IsValid( afterClimb.Area ) then
+				
+					local depthVector = climbDirection * minLedgeDepth
+					depthVector.z = 0.0
+					if math.abs( depthVector.x ) > afterClimb.Area:GetSizeX() then
+					
+						depthVector.x = Either( depthVector.x > 0, afterClimb.Area:GetSizeX(), -afterClimb.Area:GetSizeX() )
+						
+					end
+					if math.abs( depthVector.y ) > afterClimb.Area:GetSizeY() then
+					
+						depthVector.y = Either( depthVector.y > 0, afterClimb.Area:GetSizeY(), -afterClimb.Area:GetSizeY() )
+						
+					end
+					
+					minLedgeDepth = math.min( minLedgeDepth, depthVector:Length() )
+					
+				end
+				
+			end
+			
+			-- Find the ledge.  Start at the lowest jump we can make
+			-- and step up until we find the actual ledge.  
+			--
+			-- The scan is limited to maxLedgeHeight in case our max 
+			-- jump/climb height is so tall the highest horizontal hull 
+			-- trace could be on the other side of the ceiling above us
+			
+			local ledgeHeight = minLedgeHeight
+			local ledgeHeightIncrement = 0.5 * self:GetStepSize()
+			
+			local foundWall = false
+			local foundLedge = false
+			
+			-- once we have found the ledge's front wall, we must look at least minLedgeDepth farther in to verify it is a ledge
+			-- NOTE: This *must* be ledgeLookAheadRange since ledges are compared against the initial trace which was ledgeLookAheadRange deep
+			local ledgeTopLookAheadRange = ledgeLookAheadRange
+			
+			local climbHullMin = Vector( -halfSize, -halfSize, 0.0 )
+			climbHullMax.x = halfSize
+			climbHullMax.y = halfSize
+			climbHullMax.z = minHullHeight
+			
+			--local wallPos
+			local wallDepth = 0.0
+			
+			local isLastIteration = false
+			while true do
+			
+				-- trace forward to find the wall in front of us, or the empty space of the ledge above us
+				result = util.TraceHull( { start = feet + Vector( 0, 0, ledgeHeight ), endpos = feet + Vector( 0, 0, ledgeHeight ) + climbDirection * ledgeTopLookAheadRange, maxs = climbHullMax, mins = climbHullMin, filter = TBotTraversableFilter, mask = MASK_PLAYERSOLID } )
+				
+				local traceDepth = ledgeTopLookAheadRange * result.Fraction
+				
+				if !result.StartSolid then
+				
+					-- if trace reached minLedgeDepth farther, this is a potential ledge
+					if foundWall then
+					
+						if ( traceDepth - ledgeFrontWallDepth ) > minLedgeDepth then
+						
+							local isUsable = true
+							
+							-- initialize ledgePos from result of last trace
+							ledgePos = result.HitPos
+							
+							-- Find the actual ground level on the potential ledge
+							-- Only trace back down to the previous ledge height trace. 
+							-- The ledge can be no lower, or we would've found it in the last iteration.
+							result = util.TraceHull( { start = ledgePos, endpos = ledgePos + Vector( 0, 0, -ledgeHeightIncrement ), maxs = climbHullMax, mins = climbHullMin, filter = TBotTraversableFilter, mask = MASK_PLAYERSOLID } )
+							
+							ledgePos = result.HitPos
+							
+							-- if the whole trace is in solid, we're out of luck, but
+							-- if the trace just started solid, 'ledgePos' should still be valid
+							-- since the trace left the solid and then hit.
+							-- if the trace hit nothing, the potential ledge is actually deeper in
+							-- players can't stand on ground steeper than 0.7
+							if result.AllSolid or !result.Hit or result.HitNormal.z < 0.7 then
+							
+								-- Not a usable ledge, try again
+								isUsable = false
+								
+							else
+							
+								if climbUpLedgeHeightDelta > 0.0 then
+								
+									-- if we're climbing to a specific ledge via a CLIMB_UP link, only climb to that ledge.
+									-- Do this only for the world (which includes static props) so we can still opportunistically
+									-- climb up onto breakable railings and physics props.
+									if result.HitNonWorld then
+									
+										local potentialLedgeHeight = result.HitPos.z - feet.z
+										if math.abs( potentialLedgeHeight - climbUpLedgeHeightDelta ) > ClimbUpToLedgeTolerance then
+										
+											isUsable = false
+											
+										end
+										
+									end
+									
+								end
+								
+							end
+							
+							if isUsable then
+							
+								-- back up until we no longer are hitting the ledge to determine the
+								-- exact ledge edge position
+								local validLedgePos = Vector( ledgePos )
+								local maxBackUp = hullWidth
+								local backUpSoFar = 4.0
+								local testPos = ledgePos
+								
+								while backUpSoFar < maxBackUp do
+								
+									testPos = testPos - 4.0 * climbDirection
+									backUpSoFar = backUpSoFar + 4.0
+									
+									result = util.TraceHull( { start = testPos, endpos = testPos + Vector( 0, 0, -ledgeHeightIncrement ), maxs = climbHullMax, mins = climbHullMin, filter = TBotTraversableFilter, mask = MASK_PLAYERSOLID } )
+									
+									if result.Hit and result.HitNormal.z >= 0.7 then
+									
+										-- We hit, this is closer to the actual ledge edge
+										ledgePos = result.HitPos
+										
+									else
+									
+										-- Nothing but air or a steep slope below us, we have found the edge
+										break
+										
+									end
+									
+								end
+								
+								-- We want ledgePos to be right on the edge itself, so move 
+								-- it ahead by half of the hull width
+								ledgePos = ledgePos + climbDirection * halfSize
+								
+								-- Make sure this doesn't embed us in the far wall if the ledge is narrow, since we would
+								-- have backed up less than halfSize.
+								local climbHullMinStep = Vector( climbHullMin ) -- Skip StepHeight for sloped ledges
+								result = util.TraceHull( { start = validLedgePos, endpos = ledgePos, maxs = climbHullMax, mins = climbHullMinStep, filter = TBotTraversableFilter, mask = MASK_PLAYERSOLID } )
+								
+								ledgePos = result.HitPos
+								
+								-- Now since ledgePos + StepHeight is valid, trace down to find ground on sloped ledges.
+								result = util.TraceHull( { start = ledgePos + Vector( 0, 0, StepHeight ), endpos = ledgePos, maxs = climbHullMax, mins = climbHullMin, filter = TBotTraversableFilter, mask = MASK_PLAYERSOLID } )
+								
+								if !result.StartSolid then
+								
+									ledgePos = result.HitPos
+									
+								end
+								
+							end
+							
+							if isUsable then
+							
+								-- Found a useable ledge here
+								foundLedge = true
+								break
+								
+							end
+							
+						end
+						
+					elseif result.Hit then
+					
+						-- this iteration hit the wall under the ledge, 
+						-- meaning the next iteration that reaches far enough will be our ledge
+
+						-- Since we know that our desired route is likely blocked (via the 
+						-- IsTraversable check above) - any ledge we hit we must climb.
+
+						-- found a valid ledge wall
+						foundWall = true
+						wallDepth = traceDepth
+						
+						-- make sure the subsequent traces are at least minLedgeDepth deeper than
+						-- the wall we just found, or all ledge checks will fail
+						local minTraceDepth = traceDepth + minLedgeDepth + 0.1
+						
+						if ledgeTopLookAheadRange < minTraceDepth then
+						
+							ledgeTopLookAheadRange = minTraceDepth
+							
+						end
+						
+					elseif ledgeHeight > self:GetCrouchHullHeight() and !isPlannedClimbImminent then
+					
+						-- We haven't hit anything yet, and we're already above our heads - no obstacle
+						break
+						
+					end
+					
+				end
+				
+				ledgeHeight = ledgeHeight + ledgeHeightIncrement
+				
+				if ledgeHeight >= maxLedgeHeight then
+					
+					if isLastIteration then
+						
+						-- Tested at max height
+						break
+						
+					end
+					
+					-- Check one more time at max jump height
+					isLastIteration = true
+					ledgeHeight = maxLedgeHeight
+					
+				end
+				
+			end
+			
+			if foundLedge then
+			
+				if !self:ClimbUpToLedge( ledgePos, climbDirection, obstacle ) then
+				
+					return false
+					
+				end
+				
+				return true
+				
+			end
+		
+		end
+		
+	end
+	
+	return false
+	
+end
+
+function BOT:IsDiscontinuityAhead( type, range )
+
+	if self.Goal then
+	
+		local current = self:PriorSegment( self.Goal )
+		if current and current.Type == type then
+		
+			-- We're on the discontinuity now
+			return true
+			
+		end
+		
+		local rangeSoFar = self.Goal.Pos:Distance( self:GetPos() )
+		
+		local s = self.Goal
+		while s do
+		
+			if rangeSoFar >= range then
+			
+				break
+				
+			end
+			
+			if s.Type == type then
+			
+				return true
+				
+			end
+			
+			rangeSoFar = rangeSoFar + s.Length
+			
+			s = self:NextSegment( s )
+			
+		end
+		
+	end
+	
+	return false
+	
+end
+
+function BOT:IsClimbPossible( obstacle )
+
+	if self:IsPathValid() then
+	
+		if !self:IsDiscontinuityAhead( PATH_CLIMB_UP, 75 ) then
+		
+			-- Always allow climbing over moveable obstacles
+			if IsValid( obstacle ) and !obstacle:IsWorld() then
+			
+				local physics = obstacle:GetPhysicsObject()
+				if IsValid( physics ) and physics:IsMoveable() then
+				
+					-- Moveable physics object - climb over it
+					return true
+					
+				end
+				
+			end
+			
+			if !self.IsStuck then
+			
+				-- we're not stuck - don't try to jump up yet
+				return false
+				
+			end
+			
+		end
+		
+	end
+	
+	return true
+	
+end
+
+function BOT:JumpAcrossGap( landingGoal, landingForward )
+
+	self:PressJump()
+	
+	-- Face forward
+	self:AimAtPos( landingGoal, 1.0, HIGH_PRIORITY )
+	
+	self.IsJumpingAcrossGap = true
+	self.LandingGoal = landingGoal
+	self.HasLeftTheGround = false
+	
+end
+
+function BOT:ClimbUpToLedge( landingGoal, landingForward, obstacle )
+
+	if !self:IsClimbPossible( obstacle ) then
+	
+		return false
+		
+	end
+	
+	self:PressJump()
+	
+	self.IsClimbingUpToLedge = true
+	self.LandingGoal = landingGoal
+	self.HasLeftTheGround = false
+	
+	return true
+	
+end
+
 -- Make the bot move.
 function BOT:TBotUpdateMovement()
 	
@@ -6949,8 +8203,8 @@ function BOT:TBotUpdateMovement()
 		end
 		
 		-- TODO: Is this better than forcing the bot to jump?
-		if self:OnGround() and !self:Is_On_Ladder() and ( !IsValid( self.Goal.Area ) or !self.Goal.Area:HasAttributes( NAV_MESH_STAIRS ) ) and self.Goal.Type == PATH_JUMP_OVER_GAP then
-			--[[local SmartJump		=	util.TraceLine({
+		--[[if self:OnGround() and !self:Is_On_Ladder() and ( !IsValid( self.Goal.Area ) or !self.Goal.Area:HasAttributes( NAV_MESH_STAIRS ) ) and self.Goal.Type == PATH_JUMP_OVER_GAP then
+			local SmartJump		=	util.TraceLine({
 				
 				start			=	self:GetPos(),
 				endpos			=	self:GetPos() + Vector( 0 , 0 , -16 ),
@@ -6965,7 +8219,7 @@ function BOT:TBotUpdateMovement()
 				
 				self:PressJump()
 
-			end]]
+			end
 			
 			local aheadRay = Vector( self.Goal.Pos.x - self:GetPos().x, self.Goal.Pos.y - self:GetPos().y, 0 ):Normalize()
 			local jumped = false
@@ -6989,7 +8243,7 @@ function BOT:TBotUpdateMovement()
 				
 			end
 			
-			--[[if !jumped then
+			if !jumped then
 			
 				local lookAheadRange = 30
 				local stepAhead = self:GetPos() + lookAheadRange * aheadRay
@@ -7002,7 +8256,7 @@ function BOT:TBotUpdateMovement()
 					
 				end
 				
-			end]]
+			end
 			
 			if !jumped then
 			
@@ -7019,17 +8273,90 @@ function BOT:TBotUpdateMovement()
 				
 			end
 			
+		end]]
+		
+		local forward = self.Goal.Pos - self:GetPos()
+		
+		if self.Goal.Type == PATH_CLIMB_UP then
+		
+			local nextSegment = self:NextSegment( self.Goal )
+			if nextSegment then
+			
+				forward = nextSegment.Pos - self:GetPos()
+				
+			end
+			
 		end
 		
-		if IsValid( self.Goal.Area ) then
+		forward.z = 0.0
+		local goalRange = forward:Length()
+		forward:Normalize()
 		
-			local CurrentArea = self.Goal.Area
+		local left = Vector( -forward.y, forward.x, 0 )
+		
+		if left:IsZero() then
+		
+			-- If left is zero, forward must also be - path follow failure
+			self:TBotClearPath()
+			return
 			
-			if !CurrentArea:HasAttributes( NAV_MESH_STAIRS ) and ( CurrentArea:HasAttributes( NAV_MESH_JUMP ) or ( self.Goal.Type == PATH_CLIMB_UP and self:GetPos():DistToSqr( self.Goal.Pos ) <= 2500 ) ) then
+		end
+		
+		forward = left:Cross( vector_up )
+		
+		left = vector_up:Cross( forward )
+		
+		-- Climb up ledges
+		if !self:Climbing( self.Goal, forward, left, goalRange ) then
+		
+			-- A failed climb could mean an invalid path
+			if !self:IsPathValid() then
+			
+				return
+				
+			end
+			
+			self:JumpOverGaps( self.Goal, forward, left, goalRange )
+			
+		end
+		
+		-- Event callbacks from the above climbs and jumps may invalidate the path
+		if !self:IsPathValid() then
+		
+			return
+			
+		end
+		
+		local goalPos = Vector( self.Goal.Pos )
+		forward = goalPos - self:GetPos()
+		forward.z = 0.0
+		local rangeToGoal = forward:Length()
+		forward:Normalize()
+		
+		left.x = -forward.y
+		left.y = forward.x
+		left.z = 0.0
+		
+		if rangeToGoal > 50 or ( self.Goal and self.Goal.Type != PATH_CLIMB_UP ) then
+			
+			goalPos = self:TBotAvoid( goalPos, forward, left )
+			
+		end
+		
+		if self:IsOnGround() then
+		
+			self:FaceTowards( goalPos )
+			
+		end
+		
+		local CurrentArea = self.Goal.Area
+		if IsValid( CurrentArea ) then
+			
+			if !CurrentArea:HasAttributes( NAV_MESH_STAIRS ) and CurrentArea:HasAttributes( NAV_MESH_JUMP ) then
 			
 				self:PressJump()
 			
-			elseif CurrentArea:HasAttributes( NAV_MESH_CROUCH ) and self.Goal.Type != PATH_CLIMB_UP and self.Goal.Type != PATH_JUMP_OVER_GAP and self:GetPos():DistToSqr( self.Goal.Pos ) <= 2500 and !self:ShouldJump( self:GetPos(), self.Goal.Pos ) then
+			elseif CurrentArea:HasAttributes( NAV_MESH_CROUCH ) and CurrentArea:GetClosestPointOnArea( self:GetPos() ):DistToSqr( self:GetPos() ) <= 2500 then
 			
 				self:PressCrouch()
 			
@@ -7047,30 +8374,60 @@ function BOT:TBotUpdateMovement()
 			
 		end
 		
-		if self.Goal.Type == PATH_CLIMB_UP and self:GetPos():DistToSqr( self.Goal.Pos ) <= 2500 then
-		
-			self:PressJump()
-			
-		end
-		
-		local goalPos = Vector( self.Goal.Pos )
-		local forward = goalPos - self:GetPos()
-		forward.z = 0.0
-		forward:Normalize()
-		
-		if self.Goal.Type != PATH_CLIMB_UP then
-			
-			goalPos = self:TBotAvoid( goalPos, forward, Vector( -forward.y, forward.x, 0 ) )
-			
-		end
-		
-		if self:IsOnGround() then
-		
-			self:FaceTowards( goalPos )
-			
-		end
-		
 		self:Approach( goalPos )
+		
+		-- Currently, Approach determines STAND or CROUCH. 
+		-- Override this if we're approaching a climb or a jump
+		if self.Goal and ( self.Goal.Type == PATH_CLIMB_UP or self.Goal.Type == PATH_JUMP_OVER_GAP ) then
+		
+			self:ReleaseCrouch()
+			
+		end
+		
+		if self.IsJumpingAcrossGap or self.IsClimbingUpToLedge then
+		
+			local toLanding = self.LandingGoal - self:GetPos()
+			toLanding.z = 0.0
+			toLanding:Normalize()
+			
+			if self.HasLeftTheGround then
+			
+				self:AimAtPos( self:GetShootPos() + 100 * toLanding, 0.25, MAXIMUM_PRIORITY )
+				
+				if self:IsOnGround() then
+				
+					-- Back on the ground - jump is complete
+					self.IsClimbingUpToLedge = false
+					self.IsJumpingAcrossGap = false
+					
+				end
+				
+			else
+				-- Haven't left the ground yet - just starting the jump
+				if !self:IsClimbingOrJumping() then
+				
+					self:PressJump()
+					
+				end
+				
+				if self.IsJumpingAcrossGap then
+				
+					self:PressRun()
+					
+				end
+				
+				if !self:IsOnGround() then
+				
+					-- Jump has begun
+					self.HasLeftTheGround = true
+					
+				end
+				
+			end
+			
+			self:Approach( self.LandingGoal )
+			
+		end
 		
 	--[[elseif isvector( self.Goal ) then
 		
@@ -7196,13 +8553,24 @@ function BOT:TBotAvoid( goalPos, forward, left )
 	end
 
 	self.AvoidTimer = CurTime() + 0.5
-	local adjustedGoal = goalPos
 	
-	if !self:IsOnGround() or ( IsValid( self:GetLastKnownArea() ) and self:GetLastKnownArea():HasAttributes( NAV_MESH_PRECISE ) ) then return adjustedGoal end
+	if self:IsClimbingOrJumping() or !self:IsOnGround() then
+	
+		return goalPos
+		
+	end
+	
+	local area = self:GetLastKnownArea()
+	if IsValid( area ) and area:HasAttributes( NAV_MESH_PRECISE ) then 
+	
+		return goalPos 
+		
+	end
 	
 	local size = self:GetHullWidth() / 4
 	local offset = size + 2
 	local range = Either( self:KeyDown( IN_SPEED ), 50, 30 )
+	range = range * self:GetModelScale()
 	local door = nil
 	
 	local hullMin = Vector( -size, -size, self:GetStepSize() + 0.1 )
@@ -7282,6 +8650,8 @@ function BOT:TBotAvoid( goalPos, forward, left )
 		end
 		
 	end
+	
+	local adjustedGoal = goalPos
 	
 	if IsValid( door ) and !isLeftClear and !isRightClear then
 	
@@ -7372,7 +8742,7 @@ end
 
 
 function Zone:ComputePortal( TargetArea, dir )
-	if !IsValid( TargetArea ) or !IsValid( self ) then return end
+	if !IsValid( TargetArea ) then return end
 	
 	local NORTH = 0 -- NORTH_WEST
 	local EAST = 1 -- NORTH_EAST
@@ -7501,7 +8871,7 @@ function Zone:ComputeNormal( alternate )
 end
 
 function Zone:ComputeClosestPointInPortal( TargetArea, fromPos, dir )
-	if !IsValid( TargetArea ) or !IsValid( self ) then return end
+	if !IsValid( TargetArea ) then return end
 	
 	local NORTH = 0 -- NORTH_WEST
 	local EAST = 1 -- NORTH_EAST
@@ -7678,6 +9048,55 @@ function BOT:ShouldJump( currentArea, nextArea )
 	
 end
 
+function BOT:IsClimbingOrJumping()
+
+	if !self.IsJumping then
+	
+		return false
+		
+	end
+	
+	if self.NextJump <= CurTime() and self:IsOnGround() then
+	
+		self.IsJumping = false
+		return false
+		
+	end
+	
+	return true
+	
+end
+
+function BOT:GetMaxJumpHeight()
+
+	return 64
+	
+end
+
+function BOT:IsAscendingOrDescendingLadder()
+
+	if self.LadderState == ASCENDING_LADDER then
+	
+		return true
+		
+	elseif self.LadderState == DESCENDING_LADDER then
+	
+		return true
+		
+	elseif self.LadderState == DISMOUNTING_LADDER_TOP then
+	
+		return true
+		
+	elseif self.LadderState == DISMOUNTING_LADDER_BOTTOM then
+	
+		return true
+		
+	end
+	
+	return false
+	
+end
+
 function BOT:Is_On_Ladder()
 	
 	if self:GetMoveType() == MOVETYPE_LADDER then
@@ -7768,6 +9187,238 @@ function Test2( ply, ply2 )
 	end
 	
 	print( "NavAreaBuildPath RunTime: " .. tostring( SysTime() - startTime ) .. " Seconds" )
+	
+end
+
+-- This creates nav ladders on func_useableladders
+function Test3( absMin, absMax, maxHeightAboveTopArea )
+	
+	local NORTH = 0 
+	local EAST = 1 
+	local SOUTH = 2 
+	local WEST = 3
+	local NUM_DIRECTIONS = 4
+	
+	maxHeightAboveTopArea = tonumber( maxHeightAboveTopArea ) or 0.0
+	
+	local top = Vector( ( absMin.x + absMax.x ) / 2.0, ( absMin.y + absMax.y ) / 2.0, absMax.z )
+	local bottom = Vector( top.x, top.y, absMin.z )
+	local width
+	
+	-- determine facing - assumes "normal" runged ladder
+	local xSize = absMax.x - absMin.x
+	local ySize = absMax.y - absMin.y
+	local normal = Vector()
+	local dir = NUM_DIRECTIONS
+	local result
+	if xSize > ySize then
+	
+		-- ladder is facing north or south - determine which way
+		-- "pull in" traceline from bottom and top in case ladder abuts floor and/or ceiling
+		local from = bottom + Vector( 0.0, 25.0, 12.5 )
+		local to = top + Vector( 0.0, 25.0, -12.5 )
+		
+		result = util.TraceLine( { start = from, endpos = to, mask = MASK_PLAYERSOLID_BRUSHONLY } )
+		
+		if result.Fraction != 1.0 or result.StartSolid then
+		
+			--NORTH
+			dir = NORTH
+			normal = AddDirectionVector( normal, NORTH, 1.0 )
+			local from2 = ( top + bottom ) * 0.5 + normal * 5.0
+			local to2 = from2 - normal * 32.0
+			
+			local result2 = util.TraceLine( { start = from2, endpos = to2, mask = MASK_PLAYERSOLID_BRUSHONLY } )
+			
+			if result2.Fraction != 1.0 then
+			
+				local climbableSurface = util.GetSurfaceData( result2.SurfaceProps ).climbable != 0
+				if !climbableSurface then
+				
+					climbableSurface = ( bit.band( result2.Contents, CONTENTS_LADDER ) != 0 )
+					
+				end
+				if climbableSurface then
+				
+					normal = result2.HitNormal
+					
+				end
+				
+			end
+			
+		else
+		
+			--SOUTH
+			dir = SOUTH
+			normal = AddDirectionVector( normal, SOUTH, 1.0 )
+			local from2 = ( top + bottom ) * 0.5 + normal * 5.0
+			local to2 = from2 - normal * 32.0
+			
+			local result2 = util.TraceLine( { start = from2, endpos = to2, mask = MASK_PLAYERSOLID_BRUSHONLY } )
+			
+			if result2.Fraction != 1.0 then
+			
+				local climbableSurface = util.GetSurfaceData( result2.SurfaceProps ).climbable != 0
+				if !climbableSurface then
+				
+					climbableSurface = ( bit.band( result2.Contents, CONTENTS_LADDER ) != 0 )
+					
+				end
+				if climbableSurface then
+				
+					normal = result2.HitNormal
+					
+				end
+				
+			end
+			
+		end
+		
+		width = xSize
+		
+	else
+	
+		-- ladder is facing east or west - determine which way
+		local from = bottom + Vector( 25.0, 0.0, 12.5 )
+		local to = top + Vector( 25.0, 0.0, -12.5 )
+		
+		result = util.TraceLine( { start = from, endpos = to, mask = MASK_PLAYERSOLID_BRUSHONLY } )
+		
+		if result.Fraction != 1.0 or result.StartSolid then
+		
+			--WEST
+			dir = WEST
+			normal = AddDirectionVector( normal, WEST, 1.0 )
+			local from2 = ( top + bottom ) * 0.5 + normal * 5.0
+			local to2 = from2 - normal * 32.0
+			
+			local result2 = util.TraceLine( { start = from2, endpos = to2, mask = MASK_PLAYERSOLID_BRUSHONLY } )
+			
+			if result2.Fraction != 1.0 then
+			
+				local climbableSurface = util.GetSurfaceData( result2.SurfaceProps ).climbable != 0
+				if !climbableSurface then
+				
+					climbableSurface = ( bit.band( result2.Contents, CONTENTS_LADDER ) != 0 )
+					
+				end
+				if climbableSurface then
+				
+					normal = result2.HitNormal
+					
+				end
+				
+			end
+			
+		else
+		
+			--EAST
+			dir = EAST
+			normal = AddDirectionVector( normal, EAST, 1.0 )
+			local from2 = ( top + bottom ) * 0.5 + normal * 5.0
+			local to2 = from2 - normal * 32.0
+			
+			local result2 = util.TraceLine( { start = from2, endpos = to2, mask = MASK_PLAYERSOLID_BRUSHONLY } )
+			
+			if result2.Fraction != 1.0 then
+			
+				local climbableSurface = util.GetSurfaceData( result2.SurfaceProps ).climbable != 0
+				if !climbableSurface then
+				
+					climbableSurface = ( bit.band( result2.Contents, CONTENTS_LADDER ) != 0 )
+					
+				end
+				if climbableSurface then
+				
+					normal = result2.HitNormal
+					
+				end
+				
+			end
+			
+		end
+		
+		width = ySize
+		
+	end
+	
+	-- adjust top and bottom of ladder to make sure they are reachable
+	-- (cs_office has a crate right in front of the base of a ladder)
+	local along = top - bottom
+	local length = along:Length()
+	along:Normalize()
+	local on, out = Vector(), Vector()
+	local minLadderClearance = 32.0
+	
+	-- adjust bottom to bypass blockages
+	local inc = 10.0
+	local t = 0.0
+	while t <= length do
+	
+		on = bottom + t * along
+		
+		out = on + normal * minLadderClearance
+		
+		result = util.TraceLine( { start = on, endpos = out, mask = MASK_PLAYERSOLID_BRUSHONLY } )
+		
+		if result.Fraction == 1.0 and !result.StartSolid then
+		
+			bottom = on
+			break
+			
+		end
+		
+		t = t + inc
+		
+	end
+	
+	-- adjust top to bypass blockages
+	t = 0.0
+	while t <= length do
+	
+		on = top + t * along
+		
+		out = on + normal * minLadderClearance
+		
+		result = util.TraceLine( { start = on, endpos = out, mask = MASK_PLAYERSOLID_BRUSHONLY } )
+		
+		if result.Fraction == 1.0 and !result.StartSolid then
+		
+			top = on
+			break
+			
+		end
+		
+		t = t + inc
+		
+	end
+	
+	normal:Zero()
+	normal = AddDirectionVector( normal, dir, 1.0 )
+	local from2 = ( top + bottom ) * 0.5 + normal * 5.0
+	local to2 = from2 - normal * 32.0
+	
+	local result2 = util.TraceLine( { start = from2, endpos = to2, mask = MASK_PLAYERSOLID_BRUSHONLY } )
+	
+	if result2.Fraction != 1.0 then
+	
+		local climbableSurface = util.GetSurfaceData( result2.SurfaceProps ).climbable != 0
+		if !climbableSurface then
+		
+			climbableSurface = ( bit.band( result2.Contents, CONTENTS_LADDER ) != 0 )
+			
+		end
+		if climbableSurface then
+		
+			normal = result2.HitNormal
+			
+		end
+		
+	end
+	
+	print( normal )
+	
+	navmesh.CreateNavLadder( top, bottom, width, normal, maxHeightAboveTopArea )
 	
 end
 
