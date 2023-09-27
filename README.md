@@ -15,11 +15,12 @@ Special thanks to [Zenlenafelex [PSF]](https://steamcommunity.com/profiles/76561
 
 ## Why I made this mod
 I made this because I usually have to play Gmod alone and I also wanted to see what I could do with the nextbot system.
+This is also a base bot addon, I will use this addon to make bots for other gamemodes.
 
 # Commands
 CommandName, CommandParameters, Example
-- <code>TRizzleCreateBot</code> <code>botname</code> <code>followdist</code> <code>dangerdist</code> <code>melee</code> <code>pistol</code> <code>shotgun</code> <code>rifle</code> <code>sniper</code> <code>hasScope</code> <code>meleedist</code> <code>pistoldist</code> <code>shotgundist</code> <code>rifledist</code> <code>healthreshold</code> <code>combathealthreshold</code> <code>playermodel</code> <code>spawnwithpreferredweapons</code>
-  - TRizzleCreateBot Bot 200 300 weapon_crowbar weapon_pistol weapon_shotgun weapon_smg1 weapon_crossbow 1 80 1300 300 900 100 25 alyx 1
+- <code>TRizzleCreateBot</code> <code>botname</code> <code>followdist</code> <code>dangerdist</code> <code>melee</code> <code>pistol</code> <code>shotgun</code> <code>rifle</code> <code>grenade</code> <code>sniper</code> <code>hasScope</code> <code>meleedist</code> <code>pistoldist</code> <code>shotgundist</code> <code>rifledist</code> <code>healthreshold</code> <code>combathealthreshold</code> <code>playermodel</code> <code>spawnwithpreferredweapons</code>
+  - TRizzleCreateBot Bot 200 300 weapon_crowbar weapon_pistol weapon_shotgun weapon_smg1 weapon_frag weapon_crossbow 1 80 1300 300 900 100 25 alyx 1
 - <code>TBotSetFollowDist</code> <code>targetbot</code> <code>followdist</code> 
   -  TBotSetFollowDist Bot 200
 - <code>TBotSetDangerDist</code> <code>targetbot</code> <code>dangerdist</code> 
@@ -32,6 +33,8 @@ CommandName, CommandParameters, Example
   - TBotSetShotgun Bot weapon_shotgun
 - <code>TBotSetRifle</code> <code>targetbot</code>  <code>rifle</code>  
   - TBotSetRifle Bot weapon_smg1
+- <code>TBotSetGrenade</code> <code>targetbot</code> <code>grenade</code>
+  - TBotSetGrenade Bot weapon_frag
 - <code>TBotSetSniper</code> <code>targetbot</code>  <code>sniper</code> <code>1 or 0</code>  
   - TBotSetRifle Bot weapon_crossbow 1
 - <code>TBotSetMeleeDist</code> <code>targetbot</code>  <code>meleedist</code>  
@@ -50,6 +53,10 @@ CommandName, CommandParameters, Example
   - TBotSetRifle Bot alyx
 - <code>TBotSpawnWithPreferredWeapons</code> <code>targetbot</code>  <code>1 or 0</code>  
   - TBotSpawnWithPreferredWeapons Bot 1
+- <code>TBotSetModelSkin</code> <code>targetbot</code>  <code>desiredskin</code>  
+  - TBotSetModelSkin Bot 0
+- <code>TBotSetModelBodyGroup</code> <code>targetbot</code>  <code>row</code>  <code>number</code>
+  - TBotSetModelBodyGroup Bot 0 0
 - <code>TBotSetDefault</code> <code>targetbot</code>  
   - TBotSetDefault Bot
 
@@ -73,8 +80,7 @@ I know what you are thinking, but these are needed to make the bot fun and easy 
 - The bot will slowly regenerate ammo for its weapons when not in combat. This prevents the player from having to "give" the bot ammo or it having to be programmed to "find" ammo. (Collect it from dead enemies)     
 
 # Issues
-- The bot doesn't know if a Nextbot is hostile or friendly, won't attack nextbots at all!
-- The bot doesn’t know how to drive cars, basic support is planned.
+- The bot doesn't know if a Nextbot is hostile or friendly.
+- The bot has very basic driving support.
 
 # Planned Features
-- [ ] Get the bot to detect Nextbots
