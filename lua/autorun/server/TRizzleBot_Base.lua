@@ -2794,7 +2794,7 @@ end
 function BOT:ReloadWeapons()
 	
 	local botWeapon = self:GetActiveWeapon()
-	if IsValid( botWeapon ) and botWeapon:GetClass() != bot.Melee and botWeapon:GetClass() != "weapon_medkit" and botWeapon:NeedsToReload() then return end
+	if IsValid( botWeapon ) and botWeapon:GetClass() != self.Melee and botWeapon:GetClass() != "weapon_medkit" and botWeapon:NeedsToReload() then return end
 	
 	local pistol		=	self:GetWeapon( self.Pistol )
 	local rifle			=	self:GetWeapon( self.Rifle )
@@ -2966,6 +2966,38 @@ function BOT:FindGroupLeader()
 
 	return CurrentLeader
 	
+end
+
+function BOT:TBotSetHidingSpot( spot, reason, time )
+	reason = reason or RETREAT
+	time = time or 10.0
+
+	if isvector( spot ) then
+	
+		self.HidingSpot = spot
+		self.HidingState = MOVE_TO_SPOT
+		self.HideReason	= reason
+		
+		if reason == RELOAD_IN_COVER then 
+		
+			if isvector( time ) then
+			
+				self.ReturnPos = time
+				
+			else
+			
+				self.ReturnPos = self:GetPos()
+				
+			end
+		
+		else
+		
+			self.HideTime	= time 
+			
+		end
+	
+	end
+
 end
 
 -- Returns true if the bot is trying to hide
@@ -3375,29 +3407,13 @@ hook.Add( "Think" , "TRizzleBotThink" , function()
 						-- If the bot's group is being overwhelmed then they should retreat
 						if !isvector( bot.HidingSpot ) and !bot:IsPathValid() and bot.HidingSpotInterval <= CurTime() and ( ( istbotknownentity( threat ) and threat:IsVisibleRecently() and bot:Health() < bot.CombatHealThreshold ) or bot:GetKnownCount( nil, true, bot.DangerDist ) >= 10 ) then
 					
-							bot.HidingSpot = bot:FindSpot( "far", { pos = bot:GetPos(), radius = 10000, stepdown = 1000, stepup = bot:GetMaxJumpHeight(), checksafe = 1, checkoccupied = 1, checklineoffire = 1 } )
 							bot.HidingSpotInterval = CurTime() + 0.5
-							
-							if isvector( bot.HidingSpot ) then
-								
-								bot.HidingState = MOVE_TO_SPOT
-								bot.HideReason	= RETREAT
-								bot.HideTime	= 10.0
-								
-							end
+							bot:TBotSetHidingSpot( bot:FindSpot( "far", { pos = bot:GetPos(), radius = 10000, stepdown = 1000, stepup = bot:GetMaxJumpHeight(), checksafe = 1, checkoccupied = 1, checklineoffire = 1 } ), RETREAT, 10.0 )
 						
 						elseif !isvector( bot.HidingSpot ) and !bot:IsPathValid() and bot.HidingSpotInterval <= CurTime() and bot:IsSafe() and bot.NextHuntTime <= CurTime() then
 						
-							bot.HidingSpot = bot:FindSpot( "random", { pos = bot:GetPos(), radius = math.random( 5000, 10000 ), stepdown = 1000, stepup = bot:GetMaxJumpHeight(), spotType = "sniper", checksafe = 0, checkoccupied = 1, checklineoffire = 0 } )
 							bot.HidingSpotInterval = CurTime() + 0.5
-							
-							if isvector( bot.HidingSpot ) then
-								
-								bot.HidingState = MOVE_TO_SPOT
-								bot.HideReason	= SEARCH_AND_DESTORY
-								bot.HideTime	= 30.0
-								
-							end
+							bot:TBotSetHidingSpot( bot:FindSpot( "random", { pos = bot:GetPos(), radius = math.random( 5000, 10000 ), stepdown = 1000, stepup = bot:GetMaxJumpHeight(), spotType = "sniper", checksafe = 0, checkoccupied = 1, checklineoffire = 0 } ), SEARCH_AND_DESTORY, 30.0 )
 						
 						end
 					
@@ -3406,16 +3422,8 @@ hook.Add( "Think" , "TRizzleBotThink" , function()
 						-- If the bot needs to reload its active weapon it should find cover nearby and reload there
 						if !isvector( bot.HidingSpot ) and !bot:IsPathValid() and bot.HidingSpotInterval <= CurTime() and istbotknownentity( threat ) and threat:IsVisibleRecently() and IsValid( botWeapon ) and botWeapon:IsWeapon() and botWeapon:GetClass() != bot.Melee and botWeapon:IsPrimaryClipEmpty() and bot.GroupLeader:GetPos():DistToSqr( bot:GetPos() ) < bot.FollowDist * bot.FollowDist then
 
-							bot.HidingSpot = bot:FindSpot( "near", { pos = bot:GetPos(), radius = 500, stepdown = 1000, stepup = bot:GetMaxJumpHeight(), checksafe = 1, checkoccupied = 1, checklineoffire = 1 } )
 							bot.HidingSpotInterval = CurTime() + 0.5
-							
-							if isvector( bot.HidingSpot ) then
-								
-								bot.HidingState = MOVE_TO_SPOT
-								bot.HideReason	= RELOAD_IN_COVER
-								bot.ReturnPos	= bot:GetPos()
-								
-							end
+							bot:TBotSetHidingSpot( bot:FindSpot( "near", { pos = bot:GetPos(), radius = 500, stepdown = 1000, stepup = bot:GetMaxJumpHeight(), checksafe = 1, checkoccupied = 1, checklineoffire = 1 } ), RELOAD_IN_COVER )
 
 						end
 					
@@ -3426,16 +3434,8 @@ hook.Add( "Think" , "TRizzleBotThink" , function()
 					-- If the bot needs to reload its active weapon it should find cover nearby and reload there
 					if !isvector( bot.HidingSpot ) and !bot:IsPathValid() and bot.HidingSpotInterval <= CurTime() and istbotknownentity( threat ) and threat:IsVisibleRecently() and IsValid( botWeapon ) and botWeapon:IsWeapon() and botWeapon:GetClass() != bot.Melee and botWeapon:IsPrimaryClipEmpty() and bot.TBotOwner:GetPos():DistToSqr( bot:GetPos() ) < bot.FollowDist * bot.FollowDist then
 
-						bot.HidingSpot = bot:FindSpot( "near", { pos = bot:GetPos(), radius = 500, stepdown = 1000, stepup = bot:GetMaxJumpHeight(), checksafe = 1, checkoccupied = 1, checklineoffire = 1 } )
 						bot.HidingSpotInterval = CurTime() + 0.5
-						
-						if isvector( bot.HidingSpot ) then
-							
-							bot.HidingState = MOVE_TO_SPOT
-							bot.HideReason	= RELOAD_IN_COVER
-							bot.ReturnPos	= bot:GetPos()
-							
-						end
+						bot:TBotSetHidingSpot( bot:FindSpot( "near", { pos = bot:GetPos(), radius = 500, stepdown = 1000, stepup = bot:GetMaxJumpHeight(), checksafe = 1, checkoccupied = 1, checklineoffire = 1 } ), RELOAD_IN_COVER )
 
 					end
 					
@@ -3512,9 +3512,13 @@ hook.Add( "Think" , "TRizzleBotThink" , function()
 				
 					if bot:IsPathValid() and bot.GroupLeader:GetPos():DistToSqr( bot:LastSegment().Pos ) > bot.FollowDist * bot.FollowDist or !bot:IsPathValid() and bot.GroupLeader:GetPos():DistToSqr( bot:GetPos() ) > bot.FollowDist * bot.FollowDist then
 						
-						TRizzleBotPathfinderCheap( bot, bot.GroupLeader:GetPos() )
-						--bot:TBotCreateNavTimer()
-						bot.RepathTimer = CurTime() + 0.5
+						if bot.RepathTimer <= CurTime() then
+						
+							TRizzleBotPathfinderCheap( bot, bot.GroupLeader:GetPos() )
+							--bot:TBotCreateNavTimer()
+							bot.RepathTimer = CurTime() + 0.5
+							
+						end
 						
 					end
 					
@@ -3522,9 +3526,13 @@ hook.Add( "Think" , "TRizzleBotThink" , function()
 					
 					if bot:IsPathValid() and bot.TBotOwner:GetPos():DistToSqr( bot:LastSegment().Pos ) > bot.FollowDist * bot.FollowDist or !bot:IsPathValid() and bot.TBotOwner:GetPos():DistToSqr( bot:GetPos() ) > bot.FollowDist * bot.FollowDist then
 			
-						TRizzleBotPathfinderCheap( bot, bot.TBotOwner:GetPos() )
-						--bot:TBotCreateNavTimer()
-						bot.RepathTimer = CurTime() + 0.5
+						if bot.RepathTimer <= CurTime() then
+						
+							TRizzleBotPathfinderCheap( bot, bot.TBotOwner:GetPos() )
+							--bot:TBotCreateNavTimer()
+							bot.RepathTimer = CurTime() + 0.5
+							
+						end
 						
 					end
 					
