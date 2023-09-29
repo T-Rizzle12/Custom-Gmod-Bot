@@ -4747,7 +4747,7 @@ function TRizzleBotPathfinderCheap( bot, goal )
 		
 	end
 	
-	local pathEndPosition = goal
+	local pathEndPosition = Vector( goal )
 	if IsValid( goalArea ) then
 	
 		pathEndPosition.z = goalArea:GetZ( pathEndPosition )
@@ -4902,7 +4902,12 @@ function NavAreaBuildPath( startArea, goalArea, goalPos, bot )
 		
 	end
 	
-	local actualGoalPos = Either( isvector( goalPos ), goalPos, goalArea:GetCenter() )
+	local actualGoalPos = goalPos
+	if !isvector( goalPos ) then
+	
+		actualGoalPos = goalArea:GetCenter()
+		
+	end
 	
 	startArea:ClearSearchLists()
 	
@@ -7142,7 +7147,7 @@ function BOT:AdjustPosture( moveGoal )
 	local moveLength = moveDir:Length()
 	moveDir:Normalize()
 	local left = Vector( -moveDir.y, moveDir.x, 0 )
-	local goal = self:GetPos() + moveLength * left:Cross( vector_up ):Normalize()
+	local goal = self:GetPos() + moveLength * left:Cross( vector_up ):GetNormalized()
 	
 	local trace = util.TraceHull( { start = self:GetPos(), endpos = goal, maxs = standMaxs, mins = hullMin, filter = TBotTraversableFilter, mask = MASK_PLAYERSOLID } )
 	
