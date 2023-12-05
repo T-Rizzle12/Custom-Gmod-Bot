@@ -498,13 +498,19 @@ function BOT:TBotResetAI()
 	self.forwardMovement			=	0 -- This tells the bot to move either forward or backwards.
 	self.strafeMovement				=	0 -- This tells the bot to move left or right.
 	self.GroupLeader				=	nil -- If the bot's owner is dead, this bot will take charge in combat and leads other bots with the same "owner". 
+	self.UseEnt						=	nil -- This is the entity this bot is trying to use.
+	self.UseHoldTime				=	0 -- This is how long the bot should press its use key on UseEnt.
+	self.StartedUse					=	false -- Has the bot started to press its use key on UseEnt.
+	self.HoldPos					=	nil -- This is the position the bot will wait at.
 	self.EnemyList					=	{} -- This is the list of enemies the bot knows about.
+	self.AttackList					=	{} -- This is the list of entities the bot has been told to attack.
 	self.AimForHead					=	false -- Should the bot aim for the head?
 	self.TimeInCombat				=	0 -- This is how long the bot has been in combat.
 	self.LastCombatTime				=	0 -- This is the last time the bot was in combat.
 	self.BestWeapon					=	nil -- This is the weapon the bot currently wants to equip.
 	self.MinEquipInterval			=	0 -- Throttles how often equipping is allowed.
 	self.HealTarget					=	nil -- This is the player the bot is trying to heal.
+	self.ReviveTarget				=	nil -- This is the player the bot is trying to revive. -- NOTE: This is only for incapacitation addons
 	self.TRizzleBotBlindTime		=	0 -- This is how long the bot should be blind
 	self.LastVisionUpdateTimestamp	=	0 -- This is the last time the bot updated its list of known enemies
 	self.IsJumping					=	false -- Is the bot currently jumping?
@@ -563,6 +569,7 @@ function BOT:TBotResetAI()
 	self.ReturnPos					=	nil -- This is the spot the will back to after hiding, "Example, If the bot went into cover to reload."
 	self.Goal						=	nil -- The current path segment the bot is on.
 	self.Path						=	{} -- The nodes converted into waypoints by our visiblilty checking.
+	self.PathAge					=	0 -- This is how old the current bot's path is.
 	self.IsJumpingAcrossGap			=	false -- Is the bot trying to jump over a gap.
 	self.IsClimbingUpToLedge		=	false -- Is the bot trying to jump up to a ledge. 
 	self.HasLeftTheGround			=	false -- Used by the bot check if it has left the ground while gap jumping and jumping up to a ledge.
@@ -574,6 +581,7 @@ function BOT:TBotResetAI()
 	self.LadderTimer				=	0 -- This helps the bot leave the ladder state if it somehow gets stuck.
 	self.MotionVector				=	Vector( 1.0, 0, 0 ) -- This is the bot's current movement as a vector.
 	self.RepathTimer				=	CurTime() + 0.5 -- This will limit how often the path gets recreated.
+	self.ChaseTimer					=	CurTime() + 0.5 -- This will limit how often the bot repaths while chasing something.
 	self.AvoidTimer					=	0 -- Limits how often the bot avoid checks are run.
 	self.IsStuck					=	false -- Is the bot stuck.
 	self.StuckPos					=	self:GetPos() -- Used when checking if the bot is stuck or not.
@@ -1451,7 +1459,7 @@ end]]
 -- NOTE: This can be used to make bots have better or worse aim tracking
 function BOT:GetHeadAimTrackingInterval()
 	
-	return 0.0
+	return 0.05 -- For now make the bots act like expert TF2 bots!
 	
 	-- This is an example of different levels of aim tracking
 	-- I could also make this skill dependent....
@@ -1484,6 +1492,7 @@ end
 
 -- This where the bot updates its current aim angles
 function BOT:UpdateAim()
+	if self:IsFrozen() then return end -- If we are frozen don't update our aim!!!!
 	
 	local deltaT = FrameTime()
 	if deltaT < 0.00001 then
@@ -1929,7 +1938,11 @@ function BOT:GetInfo( cVarName )
 
 	if self:IsTRizzleBot( true ) then
 	
-		if cVarName == "cl_playermodel" then
+		if cVarName == "fov_desired" then
+		
+			return tostring( "90.00" )
+			
+		elseif cVarName == "cl_playermodel" then
 		
 			return tostring( self.PlayerModel )
 			
@@ -1963,7 +1976,11 @@ function BOT:GetInfoNum( cVarName, default )
 
 	if self:IsTRizzleBot( true ) then
 	
-		if cVarName == "cl_playermodel" then
+		if cVarName == "fov_desired" then
+		
+			return tonumber( 90.00 ) or default
+			
+		elseif cVarName == "cl_playermodel" then
 		
 			return tonumber( self.PlayerModel ) or default
 			
@@ -2114,15 +2131,43 @@ end
 
 function BOT:IsLineOfFireClear( where )
 
-	local trace = util.TraceLine( { start = self:GetShootPos(), endpos = where, filter = TBotTraceFilter, mask = MASK_SHOT } )
+	if IsValid( where ) and IsEntity( where ) then
 	
-	if IsValid( trace.Entity ) and trace.Entity:IsBreakable() then
+		local trace = {}
+		util.TraceLine( { start = self:GetShootPos(), endpos = where:GetHeadPos(), filter = TBotTraceFilter, mask = MASK_SHOT, output = trace } )
+		
+		if ( IsValid( trace.Entity ) and trace.Entity:IsBreakable() ) or !trace.Hit then
+		
+			return true
+			
+		end
+		
+		util.TraceLine( { start = self:GetShootPos(), endpos = where:WorldSpaceCenter(), filter = TBotTraceFilter, mask = MASK_SHOT, output = trace } )
+		
+		if IsValid( trace.Entity ) and trace.Entity:IsBreakable() then
+		
+			return true
+			
+		end
+		
+		return !trace.Hit
 	
-		return true
+	elseif isvector( where ) then
+	
+		local trace = {}
+		util.TraceLine( { start = self:GetShootPos(), endpos = where, filter = TBotTraceFilter, mask = MASK_SHOT, output = trace } )
+		
+		if IsValid( trace.Entity ) and trace.Entity:IsBreakable() then
+		
+			return true
+			
+		end
+		
+		return !trace.Hit
 		
 	end
 	
-	return !trace.Hit
+	return false
 	
 end
 
@@ -2131,7 +2176,8 @@ function Ent:TBotVisible( pos )
 	
 	if IsValid( pos ) and IsEntity( pos ) then
 		
-		local trace = util.TraceLine( { start = self:EyePos(), endpos = pos:WorldSpaceCenter(), filter = TBotTraceFilter, mask = MASK_VISIBLE_AND_NPCS } )
+		local trace = {}
+		util.TraceLine( { start = self:EyePos(), endpos = pos:WorldSpaceCenter(), filter = TBotTraceFilter, mask = MASK_VISIBLE_AND_NPCS, output = trace } )
 	
 		if trace.Fraction >= 1.0 or trace.Entity == pos or ( pos:IsPlayer() and trace.Entity == pos:GetVehicle() ) then
 			
@@ -2139,9 +2185,9 @@ function Ent:TBotVisible( pos )
 
 		end
 		
-		local trace2 = util.TraceLine( { start = self:EyePos(), endpos = pos:EyePos(), filter = TBotTraceFilter, mask = MASK_VISIBLE_AND_NPCS } )
+		util.TraceLine( { start = self:EyePos(), endpos = pos:EyePos(), filter = TBotTraceFilter, mask = MASK_VISIBLE_AND_NPCS, output = trace } )
 	
-		if trace2.Fraction >= 1.0 or trace2.Entity == pos or ( pos:IsPlayer() and trace2.Entity == pos:GetVehicle() ) then
+		if trace.Fraction >= 1.0 or trace.Entity == pos or ( pos:IsPlayer() and trace.Entity == pos:GetVehicle() ) then
 			
 			return true
 			
@@ -2149,7 +2195,8 @@ function Ent:TBotVisible( pos )
 		
 	elseif isvector( pos ) then
 		
-		local trace = util.TraceLine( { start = self:EyePos(), endpos = pos, filter = TBotTraceFilter, mask = MASK_VISIBLE_AND_NPCS } )
+		local trace = {}
+		util.TraceLine( { start = self:EyePos(), endpos = pos, filter = TBotTraceFilter, mask = MASK_VISIBLE_AND_NPCS, output = trace } )
 		
 		return trace.Fraction >= 1.0
 		
@@ -2181,7 +2228,8 @@ function BOT:BendLineOfSight( eye, target, angleLimit )
 
 	angleLimit = angleLimit or 135
 	
-	local result = util.TraceLine( { start = eye, endpos = target, filter = TBotTraceFilter, mask = MASK_VISIBLE_AND_NPCS } )
+	local result = {}
+	util.TraceLine( { start = eye, endpos = target, filter = TBotTraceFilter, mask = MASK_VISIBLE_AND_NPCS, output = result } )
 	if result.Fraction == 1.0 and !result.StartSolid then
 	
 		return true, target
@@ -2209,7 +2257,7 @@ function BOT:BendLineOfSight( eye, target, angleLimit )
 			
 			local rotPoint = Vector( eye.x + length * dx, eye.y + length * dy, target.z )
 			
-			result = util.TraceLine( { start = eye, endpos = rotPoint, filter = TBotTraceFilter, mask = MASK_VISIBLE_AND_NPCS } )
+			util.TraceLine( { start = eye, endpos = rotPoint, filter = TBotTraceFilter, mask = MASK_VISIBLE_AND_NPCS, output = result } )
 			
 			if result.StartSolid then
 			
@@ -2231,7 +2279,7 @@ function BOT:BendLineOfSight( eye, target, angleLimit )
 			
 				local bendPoint = eye + bendLength * ray
 				
-				result = util.TraceLine( { start = bendPoint, endpos = target, filter = TBotTraceFilter, mask = MASK_VISIBLE_AND_NPCS } )
+				util.TraceLine( { start = bendPoint, endpos = target, filter = TBotTraceFilter, mask = MASK_VISIBLE_AND_NPCS, output = result } )
 				
 				if result.Fraction == 1.0 and !result.StartSolid then
 				
@@ -2333,7 +2381,13 @@ function BOT:IsAbleToSee( pos, checkFOV )
 			
 		end
 		
-		return self:TBotVisible( pos )
+		if !self:TBotVisible( pos ) then
+		
+			return false
+			
+		end
+		
+		return self:IsVisibleEntityNoticed( pos )
 
 	elseif isvector( pos ) then
 		
@@ -2509,7 +2563,8 @@ function BOT:PointWithinCursor( target, targetpos )
 	if IsValid( ply ) and ply:IsPlayer() and ply != target then return false end
 	
 	-- This check makes sure the bot won't attempt to shoot if the bullet won't hit its target
-	local trace = util.TraceLine( { start = self:GetShootPos(), endpos = targetpos, filter = self, mask = MASK_SHOT } )
+	local trace = {}
+	util.TraceLine( { start = self:GetShootPos(), endpos = targetpos, filter = self, mask = MASK_SHOT, output = trace } )
 	local traceEntity = trace.Entity
 	
 	if IsValid( traceEntity ) then
@@ -2539,7 +2594,7 @@ function BOT:IsCursorOnTarget( target )
 	if IsValid( target ) then
 		
 		-- Don't try to shoot through walls
-		if !self:IsLineOfFireClear( target:EyePos() ) then
+		if !self:IsLineOfFireClear( target:GetHeadPos() ) then
 		
 			if !self:IsLineOfFireClear( target:WorldSpaceCenter() ) then
 			
@@ -2554,7 +2609,7 @@ function BOT:IsCursorOnTarget( target )
 		local ply = self:GetEyeTrace().Entity
 		if IsValid( ply ) and ply:IsPlayer() and ply != target then return false end
 		
-		return self.IsSightedIn
+		return self.IsSightedIn and self.LookTargetSubject == target
 		
 		--return self:PointWithinCursor( target, self:SelectTargetPoint( target ) )
 	
@@ -2687,6 +2742,12 @@ end
 -- This checks if the given weapon has any ammo for its primary attack
 function Wep:HasPrimaryAmmo()
 
+	if !self:UsesPrimaryAmmo() then
+	
+		return true
+		
+	end
+
 	if self:UsesClipsForAmmo1() then
 	
 		if self:Clip1() > 0 then
@@ -2709,6 +2770,12 @@ end
 
 -- This checks if the given weapon has any ammo for its secondary attack
 function Wep:HasSecondaryAmmo()
+
+	if !self:UsesSecondaryAmmo() then
+	
+		return true
+		
+	end
 
 	if self:UsesClipsForAmmo2() then
 	
@@ -2733,7 +2800,7 @@ end
 -- Checks if the weapon's primary clip is empty
 function Wep:IsPrimaryClipEmpty()
 
-	if !self:UsesClipsForAmmo1() or !self:UsesPrimaryAmmo() then
+	if !self:UsesClipsForAmmo1() then
 	
 		return false
 		
@@ -2746,7 +2813,7 @@ end
 -- Checks if the weapon's secondary clip is empty
 function Wep:IsSecondaryClipEmpty()
 
-	if !self:UsesClipsForAmmo2() or !self:UsesSecondaryAmmo() then
+	if !self:UsesClipsForAmmo2() then
 	
 		return false
 		
@@ -2759,7 +2826,7 @@ end
 -- Checks if this weapon needs to reload
 function Wep:NeedsToReload()
 
-	if !self:UsesClipsForAmmo1() or !self:UsesPrimaryAmmo() then
+	if !self:UsesClipsForAmmo1() then
 	
 		return false
 		
@@ -3038,6 +3105,21 @@ function BOT:IsNotMoving( minDuration )
 	
 end
 
+-- If and entity gets removed, clear it from the bot's attack list.
+hook.Add( "EntityRemoved" , "TRizzleBotEntityRemoved" , function( ent, fullUpdate ) 
+
+	for i = 1, game.MaxPlayers() do
+	
+		if IsValid( bot ) and bot:IsTRizzleBot() then
+		
+			bot.AttackList[ ent ] = nil
+			
+		end
+		
+	end
+
+end)
+
 -- When an NPC dies, it should be removed from the bot's known entity list.
 -- This is also called for some nextbots.
 hook.Add( "OnNPCKilled" , "TRizzleBotOnNPCKilled" , function( npc )
@@ -3049,6 +3131,7 @@ hook.Add( "OnNPCKilled" , "TRizzleBotOnNPCKilled" , function( npc )
 		if IsValid( bot ) and bot:IsTRizzleBot() then
 		
 			bot:ForgetEntity( npc )
+			bot.AttackList[ npc ] = nil
 			
 		end
 		
@@ -3067,6 +3150,7 @@ hook.Add( "PostPlayerDeath" , "TRizzleBotPostPlayerDeath" , function( ply )
 		if IsValid( bot ) and bot:IsTRizzleBot() then
 		
 			bot:ForgetEntity( ply )
+			bot.AttackList[ ply ] = nil
 			
 		end
 		
@@ -3087,15 +3171,21 @@ hook.Add( "PlayerDisconnected" , "TRizzleBotPlayerLeave" , function( ply )
 		
 		for k, bot in ipairs( player.GetAll() ) do
 		
-			if IsValid( bot ) and bot:IsTRizzleBot() and bot.TBotOwner == ply then
+			if IsValid( bot ) and bot:IsTRizzleBot() then 
 			
-				if bot:IsTRizzleBot( true ) then
+				bot.AttackList[ ply ] = nil
 				
-					bot:Kick( "Owner " .. ply:Nick() .. " has left the server" )
+				if bot.TBotOwner == ply then
+			
+					if bot:IsTRizzleBot( true ) then
 					
-				else
-				
-					bot.TBotOwner = bot
+						bot:Kick( "Owner " .. ply:Nick() .. " has left the server" )
+						
+					else
+					
+						bot.TBotOwner = bot
+						
+					end
 					
 				end
 			
@@ -3198,6 +3288,7 @@ hook.Add( "Think" , "TRizzleBotThink" , function()
 					
 				end
 				
+				bot.ReviveTarget = bot:TBotFindReviveTarget()
 				local threat = bot:GetPrimaryKnownThreat()
 				if istbotknownentity( threat ) and IsValid( threat:GetEntity() ) then
 				
@@ -3218,7 +3309,7 @@ hook.Add( "Think" , "TRizzleBotThink" , function()
 							imperfectAimSpot.x = imperfectAimSpot.x + math.Rand( -Error, Error )
 							imperfectAimSpot.y = imperfectAimSpot.y + math.Rand( -Error, Error )
 							
-							bot:AimAtPos( imperfectAimSpot, 1.0, HIGH_PRIORITY )
+							bot:AimAtPos( imperfectAimSpot, 1.0, MEDIUM_PRIORITY )
 							
 						end
 					
@@ -3235,7 +3326,8 @@ hook.Add( "Think" , "TRizzleBotThink" , function()
 					local enemyDist = enemy:GetPos():DistToSqr( bot:GetPos() ) -- Grab the bot's current distance from their current enemy
 					
 					-- Should I limit how often this runs?
-					local trace = util.TraceLine( { start = bot:GetShootPos(), endpos = enemy:GetHeadPos(), filter = bot, mask = MASK_SHOT } )
+					local trace = {}
+					util.TraceLine( { start = bot:GetShootPos(), endpos = enemy:GetHeadPos(), filter = bot, mask = MASK_SHOT, output = trace } )
 					
 					if trace.Entity == enemy then
 						
@@ -3446,8 +3538,9 @@ hook.Add( "Think" , "TRizzleBotThink" , function()
 					
 					if bot.HidingState == MOVE_TO_SPOT then
 						
+						local spotDistSq = bot:GetPos():DistToSqr( bot.HidingSpot )
 						-- When have reached our destination start the wait timer
-						if bot:GetPos():DistToSqr( bot.HidingSpot ) <= 1024 then
+						if spotDistSq <= 1024 then
 							
 							bot.HidingState = WAIT_AT_SPOT
 							bot.HideTime = CurTime() + bot.HideTime
@@ -3465,7 +3558,7 @@ hook.Add( "Think" , "TRizzleBotThink" , function()
 							bot:ClearHidingSpot()
 						
 						-- If the bot has a hiding spot it should path there
-						elseif bot.RepathTimer <= CurTime() and bot:GetPos():DistToSqr( bot.HidingSpot ) > 1024 then
+						elseif bot.RepathTimer <= CurTime() and spotDistSq > 1024 then
 					
 							TRizzleBotPathfinderCheap( bot, bot.HidingSpot )
 							--bot:TBotCreateNavTimer()
@@ -3507,33 +3600,132 @@ hook.Add( "Think" , "TRizzleBotThink" , function()
 						bot.ReloadInterval = CurTime() + 0.5
 					
 					end
-					
-				elseif IsValid( bot.GroupLeader ) and !bot:IsGroupLeader() then
 				
-					if bot:IsPathValid() and bot.GroupLeader:GetPos():DistToSqr( bot:LastSegment().Pos ) > bot.FollowDist * bot.FollowDist or !bot:IsPathValid() and bot.GroupLeader:GetPos():DistToSqr( bot:GetPos() ) > bot.FollowDist * bot.FollowDist then
-						
-						if bot.RepathTimer <= CurTime() then
-						
-							TRizzleBotPathfinderCheap( bot, bot.GroupLeader:GetPos() )
+				elseif IsValid( bot.UseEnt ) then
+				
+					if bot.UseHoldTime > CurTime() or !bot.StartedUse then
+				
+						local useEnt = bot:GetUseEntity()
+						if bot.RepathTimer <= CurTime() and useEnt != bot.UseEnt then
+							
+							TRizzleBotPathfinderCheap( bot, bot.UseEnt:GetPos() )
 							--bot:TBotCreateNavTimer()
-							bot.RepathTimer = CurTime() + 0.5
+							bot.RepathTimer = CurTime() + math.Rand( 3.0, 5.0 )
+							
+						elseif useEnt == bot.UseEnt then
+							
+							bot:PressUse()
+							bot.RepathTimer = 0
+							bot:TBotClearPath()
+							
+							if !bot.StartedUse then
+							
+								bot.StartedUse = true
+								bot.UseHoldTime = CurTime() + bot.UseHoldTime
+								
+							end
+						
+						end
+						
+						if bot.UseEnt:GetPos():DistToSqr( bot:GetPos() ) <= 200^2 and bot:IsAbleToSee( bot.UseEnt ) then
+							
+							bot:AimAtPos( bot.UseEnt:WorldSpaceCenter(), 0.1, HIGH_PRIORITY )
+							
+						end
+						
+					else
+					
+						bot.UseEnt = nil
+						bot.UseHoldTime = 0
+						bot.StartedUse = false
+						
+					end
+				
+				elseif IsValid( bot.ReviveTarget ) and bot:GetKnownCount( nil, false, bot.DangerDist ) <= 5 then
+				
+					local reviveTargetDist = bot.ReviveTarget:GetPos():DistToSqr( bot:GetPos() )
+					if reviveTargetDist > 80^2 or !bot:IsLineOfFireClear( bot.ReviveTarget ) then
+						
+						if !bot:IsPathValid() or ( bot.ChaseTimer <= CurTime() and bot:IsRepathNeeded( bot.ReviveTarget ) ) or bot.RepathTimer <= CurTime() then
+						
+							TRizzleBotPathfinderCheap( bot, bot.ReviveTarget:GetPos() )
+							--bot:TBotCreateNavTimer()
+							bot.RepathTimer = CurTime() + math.Rand( 3.0, 5.0 )
+							bot.ChaseTimer = CurTime() + 0.5
+							
+						end
+					
+					elseif bot:IsPathValid() then
+					
+						bot:TBotClearPath()
+					
+					end
+					
+					if reviveTargetDist <= 100^2 and bot:IsAbleToSee( bot.ReviveTarget ) then
+					
+						bot:AimAtPos( bot.ReviveTarget:GetPos(), 0.1, HIGH_PRIORITY )
+						
+						if bot:IsLookingAtPosition( bot.ReviveTarget:GetPos() ) then
+						
+							bot:PressUse()
+							
+						end
+					
+					end
+				
+				elseif isvector( bot.HoldPos ) then
+				
+					local goalDist = bot:GetPos():DistToSqr( bot.HoldPos )
+					if goalDist > TBotGoalTolerance:GetFloat()^2 then
+					
+						if bot.RepathTimer <= CurTime() then
+							
+							TRizzleBotPathfinderCheap( bot, bot.HoldPos )
+							--bot:TBotCreateNavTimer()
+							bot.RepathTimer = CurTime() + math.Rand( 3.0, 5.0 )
 							
 						end
 						
 					end
+				
+				elseif IsValid( bot.GroupLeader ) and !bot:IsGroupLeader() then
+				
+					local leaderDist = bot.GroupLeader:GetPos():DistToSqr( bot:GetPos() )
+					if leaderDist > bot.FollowDist^2 then
+						
+						if !bot:IsPathValid() or ( bot.ChaseTimer <= CurTime() and bot:IsRepathNeeded( bot.GroupLeader ) ) or bot.RepathTimer <= CurTime() then
+						
+							TRizzleBotPathfinderCheap( bot, bot.GroupLeader:GetPos() )
+							--bot:TBotCreateNavTimer()
+							bot.RepathTimer = CurTime() + math.Rand( 3.0, 5.0 )
+							bot.ChaseTimer = CurTime() + 0.5
+							
+						end
+					
+					elseif bot:IsPathValid() and bot:IsLineOfFireClear( bot.GroupLeader ) then -- Is this a good idea? and leaderDist <= ( bot.FollowDist / 2 )^2
+					
+						bot:TBotClearPath()
+					
+					end
 					
 				elseif IsValid( bot.TBotOwner ) and bot.TBotOwner:Alive() then
 					
-					if bot:IsPathValid() and bot.TBotOwner:GetPos():DistToSqr( bot:LastSegment().Pos ) > bot.FollowDist * bot.FollowDist or !bot:IsPathValid() and bot.TBotOwner:GetPos():DistToSqr( bot:GetPos() ) > bot.FollowDist * bot.FollowDist then
-			
-						if bot.RepathTimer <= CurTime() then
+					local ownerDist = bot.TBotOwner:GetPos():DistToSqr( bot:GetPos() )
+					if ownerDist > bot.FollowDist^2 then
+						
+						if !bot:IsPathValid() or ( bot.ChaseTimer <= CurTime() and bot:IsRepathNeeded( bot.TBotOwner ) ) or bot.RepathTimer <= CurTime() then
 						
 							TRizzleBotPathfinderCheap( bot, bot.TBotOwner:GetPos() )
 							--bot:TBotCreateNavTimer()
-							bot.RepathTimer = CurTime() + 0.5
+							bot.RepathTimer = CurTime() + math.Rand( 3.0, 5.0 )
+							bot.ChaseTimer = CurTime() + 0.5
 							
 						end
-						
+					
+					elseif bot:IsPathValid() and bot:IsLineOfFireClear( bot.TBotOwner ) then -- Is this a good idea? and ownerDist <= ( bot.FollowDist / 2 )^2
+					
+						bot:TBotClearPath()
+					
 					end
 					
 				end
@@ -3604,6 +3796,7 @@ hook.Add( "Think" , "TRizzleBotThink" , function()
 				-- Update the bot movement if they are pathing to a goal
 				bot:TBotDebugWaypoints()
 				bot:TBotUpdateMovement()
+				bot:TBotUpdateLocomotion()
 				bot:StuckMonitor()
 				bot:DoorCheck()
 				bot:BreakableCheck()
@@ -3661,6 +3854,71 @@ hook.Add( "Think" , "TRizzleBotThink" , function()
 
 	--print( "Think RunTime: " .. tostring( SysTime() - startTime ) .. " Seconds" )
 	
+end)
+
+-- Bot chat commands are handled here.
+hook.Add( "PlayerSay", "TRizzleBotPlayerSay", function( sender, text, teamChat ) 
+	if !IsValid( sender ) then return end
+
+	local textTable = string.Explode( " ", text )
+	for k, bot in ipairs( player.GetAll() ) do
+	
+		if IsValid( bot ) and bot:IsTRizzleBot() and sender == bot.TBotOwner and textTable[ 1 ] == bot:Nick() then
+		
+			local command = textTable[ 2 ]:lower()
+			if command == "follow" then
+			
+				bot.UseEnt = nil
+				bot.UseHoldTime = 0.0
+				bot.StartedUse = false
+				bot.HoldPos = nil
+				
+			elseif command == "hold" then
+			
+				bot.HoldPos = sender:GetEyeTrace().HitPos
+			
+			elseif command == "use" then
+			
+				local useEnt = sender:GetEyeTrace().Entity
+			
+				if IsValid( useEnt ) and !useEnt:IsWorld() then
+				
+					bot.UseEnt = useEnt
+					bot.StartedUse = false
+					
+					if textTable[ 3 ] then
+					
+						bot.UseHoldTime = tonumber( textTable[ 3 ] ) or 0.1
+						
+					else
+					
+						bot.UseHoldTime = 0.1
+						
+					end
+					
+				end
+			
+			elseif command == "attack" then
+			
+				local enemy = sender:GetEyeTrace().Entity
+				
+				if IsValid( enemy ) and !enemy:IsWorld() then
+				
+					bot:AddKnownEntity( enemy )
+					bot.AttackList[ enemy ] = true
+					
+				end
+			
+			elseif command == "warp" then
+			
+				bot:SetPos( sender:GetEyeTrace().HitPos )
+			
+			end
+		
+		end
+	
+	end
+
 end)
 
 -- Reset their AI on spawn.
@@ -3874,7 +4132,13 @@ hook.Add( "PlayerHurt" , "TRizzleBotPlayerHurt" , function( victim, attacker )
 		
 		if victim:IsEnemy( attacker ) then
 		
-			victim:AddKnownEntity( attacker )
+			local known = victim:AddKnownEntity( attacker )
+			
+			if istbotknownentity( known ) then
+			
+				known:UpdatePosition()
+				
+			end
 			
 			if !victim:IsInCombat() then victim.LastCombatTime = CurTime() - 5.0 end
 			
@@ -3898,7 +4162,13 @@ hook.Add( "EntityEmitSound" , "TRizzleBotEntityEmitSound" , function( soundTable
 		
 			if bot:IsEnemy( soundTable.Entity ) and soundTable.Entity:GetPos():DistToSqr( bot:GetPos() ) < math.Clamp( ( 2500 * ( soundTable.SoundLevel / 100 ) )^2, 0, 6250000 ) then
 			
-				bot:AddKnownEntity( soundTable.Entity )
+				local known = bot:AddKnownEntity( soundTable.Entity )
+				
+				if istbotknownentity( known ) then
+				
+					known:UpdatePosition()
+					
+				end
 			
 				if !bot:IsInCombat() then bot.LastCombatTime = CurTime() - 5.0 end
 				
@@ -3959,6 +4229,12 @@ function BOT:IsEnemy( target )
 		
 		end
 		
+	end
+	
+	if self.AttackList[ target ] then
+	
+		return true
+	
 	end
 	
 	return false
@@ -4058,7 +4334,7 @@ function BOT:GetPrimaryKnownThreat( onlyVisibleThreats )
 	
 		local firstThreat = self.EnemyList[ i ]
 		
-		if self:IsAwareOf( firstThreat ) and !firstThreat:IsObsolete() and self:IsEnemy( firstThreat:GetEntity() ) then
+		if self:IsAwareOf( firstThreat ) and !firstThreat:IsObsolete() and !self:IsIgnored( firstThreat:GetEntity() ) and self:IsEnemy( firstThreat:GetEntity() ) then
 		
 			if !onlyVisibleThreats or firstThreat:IsVisibleRecently() then
 			
@@ -4084,7 +4360,7 @@ function BOT:GetPrimaryKnownThreat( onlyVisibleThreats )
 	
 		local newThreat = self.EnemyList[ i ]
 		
-		if self:IsAwareOf( newThreat ) and !newThreat:IsObsolete() and self:IsEnemy( newThreat:GetEntity() ) then
+		if self:IsAwareOf( newThreat ) and !newThreat:IsObsolete() and !self:IsIgnored( newThreat:GetEntity() ) and self:IsEnemy( newThreat:GetEntity() ) then
 		
 			if !onlyVisibleThreats or newThreat:IsVisibleRecently() then
 			
@@ -4129,7 +4405,8 @@ function BOT:IsImmediateThreat( threat )
 	end
 	
 	-- If the threat can't hurt the bot, they aren't an immediate threat
-	local trace = util.TraceLine( { start = self:GetShootPos(), endpos = threat:GetEntity():WorldSpaceCenter(), filter = self, mask = MASK_SHOT } )
+	local trace = {}
+	util.TraceLine( { start = self:GetShootPos(), endpos = threat:GetEntity():WorldSpaceCenter(), filter = self, mask = MASK_SHOT, output = trace } )
 	if trace.Hit and trace.Entity != threat:GetEntity() then
 	
 		return false
@@ -4295,11 +4572,18 @@ function BOT:AddKnownEntity( entity )
 	
 	local known = TBotKnownEntity( entity )
 	
-	if !table.HasValueSequential( self.EnemyList, known ) then
+	for k, known2 in ipairs( self.EnemyList ) do
 	
-		table.insert( self.EnemyList, known )
+		if istbotknownentity( known2 ) and known == known2 then
+		
+			return known2
+			
+		end
 		
 	end
+	
+	table.insert( self.EnemyList, known )
+	return known
 	
 end
 
@@ -4336,7 +4620,7 @@ function BOT:GetKnownCount( team, onlyVisible, rangeLimit )
 	
 	for k, known in ipairs( self.EnemyList ) do
 	
-		if !known:IsObsolete() and self:IsAwareOf( known ) then
+		if !known:IsObsolete() and self:IsAwareOf( known ) and self:IsEnemy( known:GetEntity() ) then
 		
 			if !isnumber( team ) or !known:GetEntity():IsPlayer() or known:GetEntity():Team() == team then
 			
@@ -4374,18 +4658,46 @@ function table.HasValueSequential( t, val )
 	
 end
 
+function BOT:IsIgnored( subject )
+	if !IsValid( subject ) then return true end
+
+	if !self:IsEnemy( subject ) then
+	
+		-- don't ignore our friends
+		return false
+		
+	end
+	
+	return false
+	
+end
+
+function BOT:IsVisibleEntityNoticed( subject )
+
+	if IsValid( subject ) and self:IsEnemy( subject ) then
+	
+		return true
+		
+	end
+
+	return true
+
+end
+
 function BOT:UpdateKnownEntities()
 
 	local visibleNow = {}
+	local visibleNow2 = {}
 	for k, pit in ipairs( ents.GetAll() ) do
 	
 		if IsValid( pit ) and pit != self then 
 		
-			if ( pit:IsNPC() and pit:IsAlive() ) or ( pit:IsPlayer() and pit:Alive() ) or ( pit:IsNextBot() and pit:Health() > 0 ) then
+			if self.AttackList[ pit ] or ( pit:IsNPC() and pit:IsAlive() ) or ( pit:IsPlayer() and pit:Alive() ) or ( pit:IsNextBot() and pit:Health() > 0 ) then
 				
-				if self:IsEnemy( pit ) and self:IsAbleToSee( pit, true ) then
+				if !self:IsIgnored( pit ) and self:IsEnemy( pit ) and self:IsAbleToSee( pit, true ) then
 				
 					table.insert( visibleNow, pit )
+					visibleNow2[ pit ] = true
 					
 				end
 				
@@ -4407,8 +4719,9 @@ function BOT:UpdateKnownEntities()
 			
 		end
 		
-		-- NOTE: For some reason this is the same way valve does it.....
-		if table.HasValueSequential( visibleNow, known:GetEntity() ) then
+		-- NOTE: Valve reiterates through the list to check IsAbleToSee.....
+		-- I choose to create both a table and a list so I don't have to do that. :)
+		if tobool( visibleNow2[ known:GetEntity() ] ) then
 		
 			known:UpdatePosition()
 			known:UpdateVisibilityStatus( true )
@@ -4506,6 +4819,36 @@ function BOT:TBotFindHealTarget()
 	
 end
 
+-- Revive any player or bot that is visible to us.
+function BOT:TBotFindReviveTarget()
+	if ( ( engine.TickCount() + self:EntIndex() ) % 5 ) != 0 then return self.ReviveTarget end -- This shouldn't run as often
+	if !isfunction( self.IsDowned ) or self:IsDowned() then return end -- This shouldn't run if the revive mod isn't installed or the bot is downed.
+	
+	local targetdistsqr			=	1000000000000 -- This will allow the bot to select the closest teammate to it.
+	local target				=	nil -- This is the closest teammate to the bot.
+	
+	--The bot should revive its owner before it revives anyone else
+	if IsValid( self.TBotOwner ) and self.TBotOwner:Alive() and self.TBotOwner:IsDowned() then return self.TBotOwner end
+
+	for i = 1, game.MaxPlayers() do
+	
+		local ply = Entity( i )
+		
+		if IsValid( ply ) and ply != self and ply:Alive() and ply:IsDowned() then -- The bot will revive any teammate than need to be revived.
+			
+			local teammatedistsqr = ply:GetPos():DistToSqr( self:GetPos() )
+			
+			if teammatedistsqr < targetdistsqr then 
+				target = ply
+				targetdist = teammatedist
+			end
+		end
+	end
+	
+	return target
+	
+end
+
 function BOT:FindNearbySeat()
 	if ( ( engine.TickCount() + self:EntIndex() ) % 5 ) != 0 then return end -- This shouldn't run as often
 	
@@ -4570,8 +4913,7 @@ function BOT:BreakableCheck()
 	
 end
 
-function TRizzleBotRangeCheck( area , fromArea , ladder , bot )
-	if !IsValid( area ) then return -1 end
+function TRizzleBotRangeCheck( area , fromArea , ladder , bot , length )
 	
 	if !IsValid( fromArea ) then
 	
@@ -4592,6 +4934,11 @@ function TRizzleBotRangeCheck( area , fromArea , ladder , bot )
 		
 			dist = ladder:GetLength()
 			
+		elseif isnumber( length ) and length > 0 then
+		
+			-- optimization to avoid recomputing lengths
+			dist = length
+		
 		else
 		
 			dist = area:GetCenter():Distance( fromArea:GetCenter() )
@@ -4759,7 +5106,7 @@ function TRizzleBotPathfinderCheap( bot, goal )
 		
 	end
 	
-	local pathResult, closestArea = NavAreaBuildPath( startArea, goalArea, goal, bot )
+	local pathResult, closestArea = NavAreaBuildPath( startArea, goalArea, Vector( goal ), bot )
 	
 	-- Failed?
 	if !IsValid( closestArea ) then
@@ -4972,6 +5319,7 @@ function NavAreaBuildPath( startArea, goalArea, goalPos, bot )
 		local floorList = Current:GetAdjacentAreasAtSide( NORTH )
 		local ladderList = nil
 		local ladderTopDir = 0
+		local length = -1.0
 		
 		while ( true ) do
 		
@@ -5102,7 +5450,7 @@ function NavAreaBuildPath( startArea, goalArea, goalPos, bot )
 				
 			end
 			
-			local NewCostSoFar		=	TRizzleBotRangeCheck( newArea , Current , ladder , bot )
+			local NewCostSoFar		=	TRizzleBotRangeCheck( newArea , Current , ladder , bot , length )
 			
 			-- inf really mess up this function up causing tough to track down hangs. If
 			--  we get inf back, clamp it down to a really high number.
@@ -5380,6 +5728,17 @@ function BOT:PriorSegment( currentSegment )
 	
 end
 
+function BOT:IsRepathNeeded( subject )
+	if !IsValid( subject ) then return false end
+	
+	-- The closer we get, the more accurate out path needs to be.
+	local to = subject:GetPos() - self:GetPos()
+	local tolerance = 0.33 * to:Length()
+	
+	return ( subject:GetPos() - self:LastSegment().Pos ):IsLengthGreaterThan( tolerance )
+	
+end
+
 function BOT:IsPathValid()
 
 	return self.SegmentCount > 0
@@ -5392,6 +5751,13 @@ function BOT:TBotClearPath()
 	self.AvoidTimer = 0
 	self.SegmentCount = 0
 	self.Goal = nil
+	self.PathAge = 0
+	
+end
+
+function BOT:GetPathAge()
+
+	return Either( isnumber( self.PathAge ), CurTime() - self.PathAge, 99999.9 )
 	
 end
 
@@ -5418,7 +5784,7 @@ function BOT:IsCrossingLineOfFire( startPos, endPos )
 
 	for k, known in ipairs( self.EnemyList ) do
 	
-		if !self:IsAwareOf( known ) or known:IsObsolete() then
+		if !self:IsAwareOf( known ) or known:IsObsolete() or !self:IsEnemy( known:GetEntity() )then
 		
 			continue
 			
@@ -5519,6 +5885,16 @@ function BOT:IsSpotOccupied( pos )
 
 	end
 
+	local trace = {}
+	local size = self:GetHullWidth() / 2.0
+	util.TraceHull( { start = pos, endpos = pos, maxs = Vector( size, size, self:GetCrouchHullHeight() ), mins = Vector( -size, -size, 0.0 ), mask = MASK_PLAYERSOLID, filter = SlasherBotTraceFilter, output = trace  } )
+	-- Don't consider spots if there is a prop in the way.
+	if trace.Fraction < 1.0 or trace.StartSolid then
+	
+		return true
+		
+	end
+
 	return false
 
 end
@@ -5528,7 +5904,7 @@ function BOT:IsSpotSafe( hidingSpot )
 
 	for k, known in ipairs( self.EnemyList ) do
 	
-		if self:IsAwareOf( known ) and !known:IsObsolete() and known:GetEntity():TBotVisible( hidingSpot ) then return false end -- If one of the bot's enemies its aware of can see it the bot won't use it.
+		if self:IsAwareOf( known ) and !known:IsObsolete() and self:IsEnemy( known:GetEntity() ) and known:GetEntity():TBotVisible( hidingSpot ) then return false end -- If one of the bot's enemies its aware of can see it the bot won't use it.
 	
 	end
 
@@ -5570,9 +5946,10 @@ function BOT:FindSpots( tbl, secondAttempt )
 	tbl.checklineoffire	= tbl.checklineoffire	or 1
 
 	-- Find a bunch of areas within this distance
-	local areas = navmesh.Find( tbl.pos, tbl.radius, tbl.stepdown, tbl.stepup )
+	local areas = navmesh.Find( tbl.pos, tbl.radius, tbl.stepup, tbl.stepdown )
 
 	local found = {}
+	local found2 = {}
 	
 	--local startArea = navmesh.GetNearestNavArea( tbl.pos )
 	--[[if !IsValid( startArea ) then
@@ -5634,6 +6011,9 @@ function BOT:FindSpots( tbl, secondAttempt )
 			-- If the bot has to cross line of fire to reach the spot the bot shouldn't consider it
 			elseif tobool( tbl.checklineoffire ) and self:IsCrossingLineOfFire( tbl.pos, vec ) then 
 			
+				-- I add the hiding spots to a second table so if every hiding spot is crossing line of fire
+				-- then the bot can consider them anyway.
+				table.insert( found2, { vector = vec, distance = pathLength } )
 				continue 
 			
 			end
@@ -5644,7 +6024,7 @@ function BOT:FindSpots( tbl, secondAttempt )
 
 	end
 	
-	if ( !found or #found == 0 ) and !secondAttempt then
+	if ( !found or #found == 0 ) and ( !found2 or #found2 == 0 ) and !secondAttempt then
 	
 		-- If we didn't find any hiding spots then look for sniper spots instead
 		if tbl.spotType == "hiding" then
@@ -5665,7 +6045,7 @@ function BOT:FindSpots( tbl, secondAttempt )
 	end
 	
 	--print( "FindSpots RunTime: " .. tostring( SysTime() - startTime ) .. " Seconds" )
-	return found
+	return Either( found and #found != 0, found, found2 )
 
 end
 
@@ -5880,7 +6260,8 @@ function BOT:ComputeNavmeshVisibility()
 				
 					local pos = to.Pos + Vector( pushDist * dir.x, pushDist * dir.y, 0 )
 					local lowerPos = Vector( pos.x, pos.y, toPos.z )
-					local ground = util.TraceHull( { start = pos, endpos = lowerPos, mins = Vector( -halfWidth, -halfWidth, 0 ), maxs = Vector( halfWidth, halfWidth, hullHeight ), mask = MASK_PLAYERSOLID, filter = TBotTraversableFilter } )
+					local ground = {}
+					util.TraceHull( { start = pos, endpos = lowerPos, mins = Vector( -halfWidth, -halfWidth, 0 ), maxs = Vector( halfWidth, halfWidth, hullHeight ), mask = MASK_PLAYERSOLID, filter = TBotTraversableFilter, output = ground } )
 					
 					--print( "Ground Fraction: " .. tostring( ground.Fraction ) )
 					--print( "Started Solid: " .. tostring( ground.StartSolid ) )
@@ -6118,6 +6499,8 @@ end
 -- This is the post proccess of the path
 function PostProccess( bot )
 	
+	bot.PathAge = CurTime()
+	
 	if bot.SegmentCount == 0 then 
 	
 		return 
@@ -6202,7 +6585,7 @@ function Ent:GetLastKnownArea()
 		
 	end
 	
-	return navmesh.GetNearestNavArea( self:GetPos(), true, 50, true )
+	return navmesh.GetNearestNavArea( self:GetPos(), true, 200, true )
 	
 end
 
@@ -6272,7 +6655,8 @@ function BOT:IsPotentiallyTraversable( from, to )
 	local hullMin = Vector( -probeSize, -probeSize, probeZ )
 	local hullMax = Vector( probeSize, probeSize, self:GetCrouchHullHeight() )
 	
-	local result = util.TraceHull( { start = from, endpos = to, maxs = hullMax, mins = hullMin, filter = TBotTraversableFilter, mask = MASK_PLAYERSOLID } )
+	local result = {}
+	util.TraceHull( { start = from, endpos = to, maxs = hullMax, mins = hullMin, filter = TBotTraversableFilter, mask = MASK_PLAYERSOLID, output = result } )
 
 	return result.Fraction >= 1.0 and !result.StartSolid, result.Fraction
 	
@@ -6283,7 +6667,8 @@ function BOT:IsGap( pos, forward )
 	local halfWidth = 1.0
 	local hullHeight = 1.0
 	
-	local ground = util.TraceHull( { start = pos + Vector( 0, 0, self:GetStepSize() ), endpos = pos + Vector( 0, 0, -self:GetMaxJumpHeight() ), maxs = Vector( halfWidth, halfWidth, hullHeight ), mins = Vector( -halfWidth, -halfWidth, 0 ), filter = TBotTraceFilter, mask = MASK_PLAYERSOLID } )
+	local ground = {}
+	util.TraceHull( { start = pos + Vector( 0, 0, self:GetStepSize() ), endpos = pos + Vector( 0, 0, -self:GetMaxJumpHeight() ), maxs = Vector( halfWidth, halfWidth, hullHeight ), mins = Vector( -halfWidth, -halfWidth, 0 ), filter = TBotTraceFilter, mask = MASK_PLAYERSOLID, output = ground } )
 	
 	--debugoverlay.SweptBox( pos + Vector( 0, 0, self:GetStepSize() ), pos + Vector( 0, 0, -self:GetMaxJumpHeight() ), Vector( -halfWidth, -halfWidth, 0 ), Vector( halfWidth, halfWidth, hullHeight ), Angle(), 5.0, Color( 255, 0, 0 ) )
 	
@@ -6577,6 +6962,14 @@ function BOT:StuckMonitor()
 	
 		self.StuckPos = self:GetPos()
 		self.StuckTimer = CurTime()
+		return
+		
+	end
+	
+	-- We are not stuck if we are frozen!
+	if self:IsFrozen() then
+	
+		self:ClearStuckStatus()
 		return
 		
 	end
@@ -7049,7 +7442,9 @@ function BOT:LadderUpdate()
 			local ladderNormal2D = self.Goal.Ladder:GetNormal():AsVector2D()
 			local dot = ladderNormal2D:Dot( to )
 			
-			if dot < -0.9 then
+			-- This was -0.9, but it caused issues with slanted ladders.
+			-- -0.6 seems to fix this, but I don't know if any errors may occur from this change!
+			if dot < -0.6 then
 			
 				self:Approach( self.Goal.Ladder:GetBottom() )
 			
@@ -7149,7 +7544,8 @@ function BOT:AdjustPosture( moveGoal )
 	local left = Vector( -moveDir.y, moveDir.x, 0 )
 	local goal = self:GetPos() + moveLength * left:Cross( vector_up ):GetNormalized()
 	
-	local trace = util.TraceHull( { start = self:GetPos(), endpos = goal, maxs = standMaxs, mins = hullMin, filter = TBotTraversableFilter, mask = MASK_PLAYERSOLID } )
+	local trace = {}
+	util.TraceHull( { start = self:GetPos(), endpos = goal, maxs = standMaxs, mins = hullMin, filter = TBotTraversableFilter, mask = MASK_PLAYERSOLID, output = trace } )
 	
 	if trace.Fraction >= 1.0 and !trace.StartSolid then
 	
@@ -7158,7 +7554,7 @@ function BOT:AdjustPosture( moveGoal )
 	end
 	
 	local crouchMaxs = Vector( halfSize, halfSize, self:GetCrouchHullHeight() )
-	local trace = util.TraceHull( { start = self:GetPos(), endpos = goal, maxs = crouchMaxs, mins = hullMin, filter = TBotTraversableFilter, mask = MASK_PLAYERSOLID } )
+	util.TraceHull( { start = self:GetPos(), endpos = goal, maxs = crouchMaxs, mins = hullMin, filter = TBotTraversableFilter, mask = MASK_PLAYERSOLID, output = trace } )
 	
 	if trace.Fraction >= 1.0 and !trace.StartSolid then
 	
@@ -7454,6 +7850,10 @@ function BOT:DismountLadderTop()
 		self.LadderInfo = nil
 		return NO_LADDER
 		
+	elseif self.LadderDismountGoal == self.LadderInfo:GetTopBehindArea() and self:Is_On_Ladder() then
+		
+		self:PressJump()
+		
 	end
 	
 	return DISMOUNTING_LADDER_TOP
@@ -7515,6 +7915,14 @@ function BOT:TraverseLadder()
 	else
 	
 		self.LadderInfo = nil
+		
+		if self:Is_On_Ladder() then
+		
+			-- on ladder and don't want to be
+			self:PressJump()
+			
+		end
+		
 		return false
 		
 	end
@@ -7625,7 +8033,7 @@ function BOT:Climbing( goal, forward, right, goalRange )
 	
 	-- We can't have this as large as our hull width, or we'll find ledges ahead of us
 	-- that we will fall from when we climb up because our hull wont actually touch at the top.
-	local ledgeLookAheadRange = self:GetHullHeight() - 1
+	local ledgeLookAheadRange = self:GetHullWidth() - 1
 	
 	if !self:IsOnGround() or self:IsClimbingOrJumping() or self:IsAscendingOrDescendingLadder() then
 	
@@ -7695,7 +8103,7 @@ function BOT:Climbing( goal, forward, right, goalRange )
 	end
 	
 	-- Don't try to climb up stairs
-	if self.Goal.Area:HasAttributes( NAV_MESH_STAIRS ) or ( IsValid( myArea ) and myArea:HasAttributes( NAV_MESH_STAIRS ) ) then
+	if ( IsValid( self.Goal.Area ) and self.Goal.Area:HasAttributes( NAV_MESH_STAIRS ) ) or ( IsValid( myArea ) and myArea:HasAttributes( NAV_MESH_STAIRS ) ) then
 	
 		return false
 		
@@ -7756,7 +8164,7 @@ function BOT:Climbing( goal, forward, right, goalRange )
 		
 	end
 	
-	local result
+	local result = {}
 	
 	local hullWidth = self:GetHullWidth()
 	local halfSize = hullWidth / 2.0
@@ -7777,16 +8185,16 @@ function BOT:Climbing( goal, forward, right, goalRange )
 	-- backed-up feet position for the ledge finding traces.
 	local feet = self:GetPos()
 	local ceiling = feet + Vector( 0, 0, self:GetMaxJumpHeight() )
-	result = util.TraceHull( { start = feet, endpos = ceiling, maxs = skipStepHeightHullMax, mins = skipStepHeightHullMin, filter = TBotTraversableFilter, mask = MASK_PLAYERSOLID } )
+	util.TraceHull( { start = feet, endpos = ceiling, maxs = skipStepHeightHullMax, mins = skipStepHeightHullMin, filter = TBotTraversableFilter, mask = MASK_PLAYERSOLID, output = result } )
 	ceilingFraction = result.Fraction
 	local isBackupTraceUsed = false
 	if ceilingFraction < 1.0 or result.StartSolid then
 	
-		local backupTrace
+		local backupTrace = {}
 		local backupDistance = hullWidth * 0.25
 		local backupFeet = feet - climbDirection * backupDistance
 		local backupCeiling = backupFeet + Vector( 0, 0, self:GetMaxJumpHeight() )
-		backupTrace = util.TraceHull( { start = backupFeet, endpos = backupCeiling, maxs = skipStepHeightHullMax, mins = skipStepHeightHullMin, filter = TBotTraversableFilter, mask = MASK_PLAYERSOLID } )
+		util.TraceHull( { start = backupFeet, endpos = backupCeiling, maxs = skipStepHeightHullMax, mins = skipStepHeightHullMin, filter = TBotTraversableFilter, mask = MASK_PLAYERSOLID, output = backupTrace } )
 		if !backupTrace.StartSolid and backupTrace.Fraction > ceilingFraction then
 		
 			result = backupTrace
@@ -7814,7 +8222,7 @@ function BOT:Climbing( goal, forward, right, goalRange )
 	local climbHullMax = Vector( halfSize, halfSize, maxLedgeHeight )
 	local ledgePos = Vector( feet ) -- to be computed below
 	
-	result = util.TraceHull( { start = feet, endpos = feet + climbDirection * ledgeLookAheadRange, maxs = climbHullMax, mins = skipStepHeightHullMin, filter = TBotTraversableFilter, mask = MASK_PLAYERSOLID } )
+	util.TraceHull( { start = feet, endpos = feet + climbDirection * ledgeLookAheadRange, maxs = climbHullMax, mins = skipStepHeightHullMin, filter = TBotTraversableFilter, mask = MASK_PLAYERSOLID, output = result } )
 	
 	if result.Hit and !result.StartSolid then
 	
@@ -7882,7 +8290,7 @@ function BOT:Climbing( goal, forward, right, goalRange )
 			while true do
 			
 				-- trace forward to find the wall in front of us, or the empty space of the ledge above us
-				result = util.TraceHull( { start = feet + Vector( 0, 0, ledgeHeight ), endpos = feet + Vector( 0, 0, ledgeHeight ) + climbDirection * ledgeTopLookAheadRange, maxs = climbHullMax, mins = climbHullMin, filter = TBotTraversableFilter, mask = MASK_PLAYERSOLID } )
+				util.TraceHull( { start = feet + Vector( 0, 0, ledgeHeight ), endpos = feet + Vector( 0, 0, ledgeHeight ) + climbDirection * ledgeTopLookAheadRange, maxs = climbHullMax, mins = climbHullMin, filter = TBotTraversableFilter, mask = MASK_PLAYERSOLID, output = result } )
 				
 				local traceDepth = ledgeTopLookAheadRange * result.Fraction
 				
@@ -7901,7 +8309,7 @@ function BOT:Climbing( goal, forward, right, goalRange )
 							-- Find the actual ground level on the potential ledge
 							-- Only trace back down to the previous ledge height trace. 
 							-- The ledge can be no lower, or we would've found it in the last iteration.
-							result = util.TraceHull( { start = ledgePos, endpos = ledgePos + Vector( 0, 0, -ledgeHeightIncrement ), maxs = climbHullMax, mins = climbHullMin, filter = TBotTraversableFilter, mask = MASK_PLAYERSOLID } )
+							util.TraceHull( { start = ledgePos, endpos = ledgePos + Vector( 0, 0, -ledgeHeightIncrement ), maxs = climbHullMax, mins = climbHullMin, filter = TBotTraversableFilter, mask = MASK_PLAYERSOLID, output = result } )
 							
 							ledgePos = result.HitPos
 							
@@ -7951,7 +8359,7 @@ function BOT:Climbing( goal, forward, right, goalRange )
 									testPos = testPos - 4.0 * climbDirection
 									backUpSoFar = backUpSoFar + 4.0
 									
-									result = util.TraceHull( { start = testPos, endpos = testPos + Vector( 0, 0, -ledgeHeightIncrement ), maxs = climbHullMax, mins = climbHullMin, filter = TBotTraversableFilter, mask = MASK_PLAYERSOLID } )
+									util.TraceHull( { start = testPos, endpos = testPos + Vector( 0, 0, -ledgeHeightIncrement ), maxs = climbHullMax, mins = climbHullMin, filter = TBotTraversableFilter, mask = MASK_PLAYERSOLID, output = result } )
 									
 									if result.Hit and result.HitNormal.z >= 0.7 then
 									
@@ -7974,12 +8382,12 @@ function BOT:Climbing( goal, forward, right, goalRange )
 								-- Make sure this doesn't embed us in the far wall if the ledge is narrow, since we would
 								-- have backed up less than halfSize.
 								local climbHullMinStep = Vector( climbHullMin ) -- Skip StepHeight for sloped ledges
-								result = util.TraceHull( { start = validLedgePos, endpos = ledgePos, maxs = climbHullMax, mins = climbHullMinStep, filter = TBotTraversableFilter, mask = MASK_PLAYERSOLID } )
+								util.TraceHull( { start = validLedgePos, endpos = ledgePos, maxs = climbHullMax, mins = climbHullMinStep, filter = TBotTraversableFilter, mask = MASK_PLAYERSOLID, output = result } )
 								
 								ledgePos = result.HitPos
 								
 								-- Now since ledgePos + StepHeight is valid, trace down to find ground on sloped ledges.
-								result = util.TraceHull( { start = ledgePos + Vector( 0, 0, StepHeight ), endpos = ledgePos, maxs = climbHullMax, mins = climbHullMin, filter = TBotTraversableFilter, mask = MASK_PLAYERSOLID } )
+								util.TraceHull( { start = ledgePos + Vector( 0, 0, self:GetStepSize() ), endpos = ledgePos, maxs = climbHullMax, mins = climbHullMin, filter = TBotTraversableFilter, mask = MASK_PLAYERSOLID, output = result } )
 								
 								if !result.StartSolid then
 								
@@ -8204,7 +8612,6 @@ function BOT:TBotUpdateMovement()
 		if self:LadderUpdate() then
 			
 			-- we are traversing a ladder
-			self:TraverseLadder()
 			return
 			
 		end
@@ -8397,51 +8804,6 @@ function BOT:TBotUpdateMovement()
 			
 		end
 		
-		if self.IsJumpingAcrossGap or self.IsClimbingUpToLedge then
-		
-			local toLanding = self.LandingGoal - self:GetPos()
-			toLanding.z = 0.0
-			toLanding:Normalize()
-			
-			if self.HasLeftTheGround then
-			
-				self:AimAtPos( self:GetShootPos() + 100 * toLanding, 0.25, MAXIMUM_PRIORITY )
-				
-				if self:IsOnGround() then
-				
-					-- Back on the ground - jump is complete
-					self.IsClimbingUpToLedge = false
-					self.IsJumpingAcrossGap = false
-					
-				end
-				
-			else
-				-- Haven't left the ground yet - just starting the jump
-				if !self:IsClimbingOrJumping() then
-				
-					self:PressJump()
-					
-				end
-				
-				if self.IsJumpingAcrossGap then
-				
-					self:PressRun()
-					
-				end
-				
-				if !self:IsOnGround() then
-				
-					-- Jump has begun
-					self.HasLeftTheGround = true
-					
-				end
-				
-			end
-			
-			self:Approach( self.LandingGoal )
-			
-		end
-		
 	--[[elseif isvector( self.Goal ) then
 		
 		--MovementAngle		=	( self.Goal - self:GetShootPos() ):GetNormalized():Angle()
@@ -8557,6 +8919,61 @@ function BOT:TBotUpdateMovement()
 	
 end
 
+function BOT:TBotUpdateLocomotion()
+
+	if self:TraverseLadder() then
+	
+		return
+		
+	end
+
+	if self.IsJumpingAcrossGap or self.IsClimbingUpToLedge then
+		
+		local toLanding = self.LandingGoal - self:GetPos()
+		toLanding.z = 0.0
+		toLanding:Normalize()
+		
+		if self.HasLeftTheGround then
+			
+			self:AimAtPos( self:GetShootPos() + 100 * toLanding, 0.25, MAXIMUM_PRIORITY )
+			
+			if self:IsOnGround() then
+				
+				-- Back on the ground - jump is complete
+				self.IsClimbingUpToLedge = false
+				self.IsJumpingAcrossGap = false
+				
+			end
+			
+		else
+			-- Haven't left the ground yet - just starting the jump
+			if !self:IsClimbingOrJumping() then
+				
+				self:PressJump()
+				
+			end
+			
+			if self.IsJumpingAcrossGap then
+				
+				self:PressRun()
+				
+			end
+			
+			if !self:IsOnGround() then
+				
+				-- Jump has begun
+				self.HasLeftTheGround = true
+				
+			end
+			
+		end
+		
+		self:Approach( self.LandingGoal )
+		
+	end
+	
+end
+
 function BOT:TBotAvoid( goalPos, forward, left )
 
 	if self.AvoidTimer > CurTime() then
@@ -8595,7 +9012,8 @@ function BOT:TBotAvoid( goalPos, forward, left )
 	local isLeftClear = true
 	local leftAvoid = 0.0
 	
-	local result = util.TraceHull( { start = leftFrom, endpos = leftTo, maxs = hullMax, mins = hullMin, filter = self, mask = MASK_PLAYERSOLID } )
+	local result = {}
+	util.TraceHull( { start = leftFrom, endpos = leftTo, maxs = hullMax, mins = hullMin, filter = self, mask = MASK_PLAYERSOLID, output = result } )
 	if result.Fraction < 1.0 or result.StartSolid then
 	
 		if result.StartSolid then
@@ -8620,7 +9038,7 @@ function BOT:TBotAvoid( goalPos, forward, left )
 	local isRightClear = true
 	local rightAvoid = 0.0
 	
-	result = util.TraceHull( { start = rightFrom, endpos = rightTo, maxs = hullMax, mins = hullMin, filter = self, mask = MASK_PLAYERSOLID } )
+	util.TraceHull( { start = rightFrom, endpos = rightTo, maxs = hullMax, mins = hullMin, filter = self, mask = MASK_PLAYERSOLID, output = result } )
 	if result.Fraction < 1.0 or result.StartSolid then
 	
 		if result.StartSolid then
@@ -8753,6 +9171,14 @@ local function NumberMidPoint( num1 , num2 )
 	
 end
 
+function CalcClosestPointOnLineSegment( P, vLineA, vLineB )
+
+	local t, vDir = CalcClosestPointOnLineT( P, vLineA, vLineB )
+	t = math.Clamp( t, 0.0, 1.0 )
+	
+	return t, vLineA + vDir * t
+	
+end
 
 function Zone:ComputePortal( TargetArea, dir )
 	if !IsValid( TargetArea ) then return end
@@ -9122,7 +9548,7 @@ end
 
 function BOT:ComputeLadderEndpoint( ladder, isAscending )
 	
-	local result
+	local result = {}
 	local from
 	local to
 
@@ -9143,7 +9569,7 @@ function BOT:ComputeLadderEndpoint( ladder, isAscending )
 		to = ladder:GetBottom()
 	end
 
-	result = util.TraceLine( { start = from, endpos = ladder:GetBottom(), mask = MASK_PLAYERSOLID_BRUSHONLY } )
+	util.TraceLine( { start = from, endpos = ladder:GetBottom(), mask = MASK_PLAYERSOLID_BRUSHONLY, output = result } )
 
 	if result.Fraction == 1.0 then
 		return to
@@ -9204,7 +9630,7 @@ function Test2( ply, ply2 )
 end
 
 -- This creates nav ladders on func_useableladders
-function Test3( absMin, absMax, maxHeightAboveTopArea )
+function Test3( absMin, absMax, maxHeightAboveTopArea, ent )
 	
 	local NORTH = 0 
 	local EAST = 1 
@@ -9223,7 +9649,7 @@ function Test3( absMin, absMax, maxHeightAboveTopArea )
 	local ySize = absMax.y - absMin.y
 	local normal = Vector()
 	local dir = NUM_DIRECTIONS
-	local result
+	local result = {}
 	if xSize > ySize then
 	
 		-- ladder is facing north or south - determine which way
@@ -9231,7 +9657,7 @@ function Test3( absMin, absMax, maxHeightAboveTopArea )
 		local from = bottom + Vector( 0.0, 25.0, 12.5 )
 		local to = top + Vector( 0.0, 25.0, -12.5 )
 		
-		result = util.TraceLine( { start = from, endpos = to, mask = MASK_PLAYERSOLID_BRUSHONLY } )
+		util.TraceLine( { start = from, endpos = to, mask = MASK_PLAYERSOLID_BRUSHONLY, output = result } )
 		
 		if result.Fraction != 1.0 or result.StartSolid then
 		
@@ -9241,7 +9667,8 @@ function Test3( absMin, absMax, maxHeightAboveTopArea )
 			local from2 = ( top + bottom ) * 0.5 + normal * 5.0
 			local to2 = from2 - normal * 32.0
 			
-			local result2 = util.TraceLine( { start = from2, endpos = to2, mask = MASK_PLAYERSOLID_BRUSHONLY } )
+			local result2 = {}
+			util.TraceLine( { start = from2, endpos = to2, mask = MASK_PLAYERSOLID_BRUSHONLY, output = result2 } )
 			
 			if result2.Fraction != 1.0 then
 			
@@ -9267,7 +9694,8 @@ function Test3( absMin, absMax, maxHeightAboveTopArea )
 			local from2 = ( top + bottom ) * 0.5 + normal * 5.0
 			local to2 = from2 - normal * 32.0
 			
-			local result2 = util.TraceLine( { start = from2, endpos = to2, mask = MASK_PLAYERSOLID_BRUSHONLY } )
+			local result2 = {}
+			util.TraceLine( { start = from2, endpos = to2, mask = MASK_PLAYERSOLID_BRUSHONLY, output = result2 } )
 			
 			if result2.Fraction != 1.0 then
 			
@@ -9295,7 +9723,7 @@ function Test3( absMin, absMax, maxHeightAboveTopArea )
 		local from = bottom + Vector( 25.0, 0.0, 12.5 )
 		local to = top + Vector( 25.0, 0.0, -12.5 )
 		
-		result = util.TraceLine( { start = from, endpos = to, mask = MASK_PLAYERSOLID_BRUSHONLY } )
+		util.TraceLine( { start = from, endpos = to, mask = MASK_PLAYERSOLID_BRUSHONLY, output = result } )
 		
 		if result.Fraction != 1.0 or result.StartSolid then
 		
@@ -9305,7 +9733,8 @@ function Test3( absMin, absMax, maxHeightAboveTopArea )
 			local from2 = ( top + bottom ) * 0.5 + normal * 5.0
 			local to2 = from2 - normal * 32.0
 			
-			local result2 = util.TraceLine( { start = from2, endpos = to2, mask = MASK_PLAYERSOLID_BRUSHONLY } )
+			local result2 = {}
+			util.TraceLine( { start = from2, endpos = to2, mask = MASK_PLAYERSOLID_BRUSHONLY, output = result2 } )
 			
 			if result2.Fraction != 1.0 then
 			
@@ -9331,7 +9760,8 @@ function Test3( absMin, absMax, maxHeightAboveTopArea )
 			local from2 = ( top + bottom ) * 0.5 + normal * 5.0
 			local to2 = from2 - normal * 32.0
 			
-			local result2 = util.TraceLine( { start = from2, endpos = to2, mask = MASK_PLAYERSOLID_BRUSHONLY } )
+			local result2 = {}
+			util.TraceLine( { start = from2, endpos = to2, mask = MASK_PLAYERSOLID_BRUSHONLY, output = result2 } )
 			
 			if result2.Fraction != 1.0 then
 			
@@ -9372,7 +9802,7 @@ function Test3( absMin, absMax, maxHeightAboveTopArea )
 		
 		out = on + normal * minLadderClearance
 		
-		result = util.TraceLine( { start = on, endpos = out, mask = MASK_PLAYERSOLID_BRUSHONLY } )
+		util.TraceLine( { start = on, endpos = out, mask = MASK_PLAYERSOLID_BRUSHONLY, output = result } )
 		
 		if result.Fraction == 1.0 and !result.StartSolid then
 		
@@ -9393,7 +9823,7 @@ function Test3( absMin, absMax, maxHeightAboveTopArea )
 		
 		out = on + normal * minLadderClearance
 		
-		result = util.TraceLine( { start = on, endpos = out, mask = MASK_PLAYERSOLID_BRUSHONLY } )
+		util.TraceLine( { start = on, endpos = out, mask = MASK_PLAYERSOLID_BRUSHONLY, output = result } )
 		
 		if result.Fraction == 1.0 and !result.StartSolid then
 		
@@ -9411,7 +9841,8 @@ function Test3( absMin, absMax, maxHeightAboveTopArea )
 	local from2 = ( top + bottom ) * 0.5 + normal * 5.0
 	local to2 = from2 - normal * 32.0
 	
-	local result2 = util.TraceLine( { start = from2, endpos = to2, mask = MASK_PLAYERSOLID_BRUSHONLY } )
+	local result2 = {}
+	util.TraceLine( { start = from2, endpos = to2, mask = MASK_PLAYERSOLID_BRUSHONLY, output = result2 } )
 	
 	if result2.Fraction != 1.0 then
 	
@@ -9428,6 +9859,27 @@ function Test3( absMin, absMax, maxHeightAboveTopArea )
 		end
 		
 	end
+	
+	-- For some reason I can't really rely on the code above for
+	-- the map slash_subway so I made some manual adjustments here.
+	--[[if ent:EntIndex() == 93 then
+	
+		normal = Vector( 0.0, -1.0, 0.0 )
+		
+	elseif ent:EntIndex() == 594 then
+	
+		normal = Vector( 0.0, 1.0, 0.0 )
+		
+	elseif ent:EntIndex() == 601 then
+	
+		normal = Vector( 0.0, -1.0, 0.0 )
+		
+	elseif ent:EntIndex() == 606 then
+	
+		normal = Vector( 0.0, 1.0, 0.0 )
+		top = top + Vector( 0.0, 0.0, -20 )
+	
+	end]]
 	
 	print( normal )
 	
