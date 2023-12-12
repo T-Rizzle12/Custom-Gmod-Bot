@@ -59,6 +59,7 @@ local DISMOUNTING_LADDER_BOTTOM		=	6
 
 -- Setup net messages
 util.AddNetworkString( "TRizzleBotFlashlight" )
+util.AddNetworkString( "TRizzleCreateBotMenu" )
 
 -- Setup addon cvars
 local TBotSpawnTime = CreateConVar( "TBotSpawnTime", 6.0, FCVAR_NONE, "This is how long a bot must be dead before it can respawn.", 0 )
@@ -465,6 +466,33 @@ function TBotSetDefault( ply, cmd, args )
 	TBotSpawnWithPreferredWeapons( ply, cmd, args )
 
 end
+
+-- This creates a TRizzleBot using the parameters given in the client menu.
+net.Receive( "TRizzleCreateBotMenu", function( _, ply ) 
+
+	local args = {}
+	table.insert( args, net.ReadString() ) -- Name
+	table.insert( args, net.ReadInt( 32 ) ) -- FollowDist
+	table.insert( args, net.ReadInt( 32 ) ) -- DangerDist
+	table.insert( args, net.ReadString() ) -- Melee
+	table.insert( args, net.ReadString() ) -- Pistol
+	table.insert( args, net.ReadString() ) -- Shotgun
+	table.insert( args, net.ReadString() ) -- Rifle/SMG
+	table.insert( args, net.ReadString() ) -- Grenade
+	table.insert( args, net.ReadString() ) -- Sniper
+	table.insert( args, Either( net.ReadBool(), 1, 0 ) ) -- Sniper has scope
+	table.insert( args, net.ReadInt( 32 ) ) -- MeleeDist
+	table.insert( args, net.ReadInt( 32 ) ) -- PistolDist
+	table.insert( args, net.ReadInt( 32 ) ) -- ShotgunDist
+	table.insert( args, net.ReadInt( 32 ) ) -- RifleDist
+	table.insert( args, net.ReadInt( 32 ) ) -- HealThreshold
+	table.insert( args, net.ReadInt( 32 ) ) -- CombatHealThreshold
+	table.insert( args, net.ReadString() ) -- PlayerModel
+	table.insert( args, Either( net.ReadBool(), 1, 0 ) ) -- SpawnWithPreferredWeapons
+	
+	TBotCreate( ply, "TRizzleCreateBot", args )
+
+end)
 
 concommand.Add( "TRizzleCreateBot" , TBotCreate , nil , "Creates a TRizzle Bot with the specified parameters. Example: TRizzleCreateBot <botname> <followdist> <dangerdist> <melee> <pistol> <shotgun> <rifle> <grenade> <sniper> <hasScope> <meleedist> <pistoldist> <shotgundist> <rifledist> <healthreshold> <combathealthreshold> <playermodel> <spawnwithpreferredweapons> Example2: TRizzleCreateBot Bot 200 300 weapon_crowbar weapon_pistol weapon_shotgun weapon_smg1 weapon_frag weapon_crossbow 1 80 1300 300 900 100 25 alyx 1" )
 concommand.Add( "TBotSetFollowDist" , TBotSetFollowDist , nil , "Changes the specified bot's how close it should be to its owner. If only the bot is specified the value will revert back to the default." )
@@ -1726,7 +1754,20 @@ function BOT:FaceTowards( target )
 		
 	end
 	
-	local look = Vector( target.x, target.y, self:GetShootPos().z )
+	-- Is this better than the old system?
+	--local look = Vector( target.x, target.y, self:GetShootPos().z )
+	local look = self:GetShootPos()
+	local targetHeight = look.z - self:GetPos().z
+	local ground = navmesh.GetGroundHeight( target )
+	
+	look.x = target.x
+	look.y = target.y
+	
+	if ground then
+	
+		look.z = ground + targetHeight
+		
+	end
 	
 	self:AimAtPos( look, 0.1, LOW_PRIORITY )
 	
@@ -2693,6 +2734,13 @@ function BOT:SelectBestWeapon( target, enemydistsqr )
 			self.BestWeapon			= bestWeapon
 			self.MinEquipInterval 	= CurTime() + minEquipInterval
 			
+			-- The bot should wait before throwing a grenade since some have a pull out animation
+			if bestWeapon == grenade then
+			
+				self.FireWeaponInterval = CurTime() + 1.5
+				
+			end
+			
 		end
 		
 	end
@@ -2702,14 +2750,14 @@ end
 -- This checks if the given weapon uses clips for its primary attack
 function Wep:UsesClipsForAmmo1()
 
-	return self:GetMaxClip1() != -1
+	return self:GetMaxClip1() > 0
 
 end
 
 -- This checks if the given weapon uses clips for its secondary attack
 function Wep:UsesClipsForAmmo2()
 
-	return self:GetMaxClip2() != -1
+	return self:GetMaxClip2() > 0
 
 end
 
@@ -3347,7 +3395,7 @@ hook.Add( "Think" , "TRizzleBotThink" , function()
 						
 							bot:PressSecondaryAttack()
 							bot.ScopeInterval = CurTime() + 0.4
-							bot.FireWeaponInterval = CurTime() + 0.2
+							bot.FireWeaponInterval = CurTime() + 0.4
 						
 						end
 						
@@ -3875,7 +3923,15 @@ hook.Add( "PlayerSay", "TRizzleBotPlayerSay", function( sender, text, teamChat )
 				
 			elseif command == "hold" then
 			
-				bot.HoldPos = sender:GetEyeTrace().HitPos
+				local pos = sender:GetEyeTrace().HitPos
+				local ground = navmesh.GetGroundHeight( pos )
+				if ground then
+				
+					pos.z = ground
+					
+				end
+				
+				bot.HoldPos = pos
 			
 			elseif command == "use" then
 			
@@ -5219,7 +5275,7 @@ If 'goalPos' is NULL, will use the center of 'goalArea' as the goal position.
 If 'maxPathLength' is nonzero, path building will stop when this length is reached.
 Returns true if a path exists.	
 ]]
-function NavAreaBuildPath( startArea, goalArea, goalPos, bot )
+function NavAreaBuildPath( startArea, goalArea, goalPos, bot, costFunc )
 	
 	local closestArea = startArea
 	
@@ -6199,7 +6255,7 @@ function BOT:ComputeNavmeshVisibility()
 	self.Path[ 1 ].Type = PATH_ON_GROUND
 	
 	local index = 2
-	while index < #self.Path do
+	while index <= #self.Path do
 		
 		local from = self.Path[ index - 1 ]
 		local to = self.Path[ index ]
@@ -6314,9 +6370,6 @@ function BOT:ComputeNavmeshVisibility()
 				
 			end
 			
-			index = index + 1
-			continue
-			
 		elseif to.How == GO_LADDER_UP then
 		
 			local list = from.Area:GetLaddersAtSide( LADDER_UP )
@@ -6348,9 +6401,6 @@ function BOT:ComputeNavmeshVisibility()
 				
 			end
 			
-			index = index + 1
-			continue
-			
 		elseif to.How == GO_LADDER_DOWN then
 		
 			local list = from.Area:GetLaddersAtSide( LADDER_DOWN )
@@ -6379,10 +6429,10 @@ function BOT:ComputeNavmeshVisibility()
 				
 			end
 			
-			index = index + 1
-			continue
-			
 		end
+		
+		index = index + 1
+		continue
 		
 	end
 	
