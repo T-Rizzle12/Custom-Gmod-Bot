@@ -701,35 +701,36 @@ function BOT:HandleButtons()
 	local ShouldRun		=	false
 	local ShouldWalk	=	false
 	
-	if IsValid( self:GetLastKnownArea() ) then -- If there is no nav_mesh this will not run to prevent the addon from spamming errors
+	local myArea = self:GetLastKnownArea()
+	if IsValid( myArea ) then -- If there is no nav_mesh this will not run to prevent the addon from spamming errors
 		
-		if self:IsOnGround() and self:GetLastKnownArea():HasAttributes( NAV_MESH_JUMP ) then
+		if self:IsOnGround() and myArea:HasAttributes( NAV_MESH_JUMP ) then
 			
 			ShouldJump		=	true
 			
 		end
 		
-		if self:GetLastKnownArea():HasAttributes( NAV_MESH_CROUCH ) and ( !self.Goal or self.Goal.Type == PATH_ON_GROUND ) then
+		if myArea:HasAttributes( NAV_MESH_CROUCH ) and ( !self.Goal or self.Goal.Type == PATH_ON_GROUND ) then
 			
 			ShouldCrouch	=	true
 			
 		end
 		
-		if self:GetLastKnownArea():HasAttributes( NAV_MESH_RUN ) then
+		if myArea:HasAttributes( NAV_MESH_RUN ) then
 			
 			ShouldRun		=	true
 			ShouldWalk		=	false
 			
 		end
 		
-		if self:GetLastKnownArea():HasAttributes( NAV_MESH_WALK ) then
+		if myArea:HasAttributes( NAV_MESH_WALK ) then
 			
 			CanRun			=	false
 			ShouldWalk		=	true
 			
 		end
 		
-		if self:GetLastKnownArea():HasAttributes( NAV_MESH_STAIRS ) then -- The bot shouldn't jump while on stairs
+		if myArea:HasAttributes( NAV_MESH_STAIRS ) then -- The bot shouldn't jump while on stairs
 		
 			ShouldJump		=	false
 		
@@ -1243,12 +1244,13 @@ function BOT:ComputeApproachPoints()
 	local WEST = 3
 	
 	-- Compute encounter spots near the bot
-	if IsValid( self:GetLastKnownArea() ) then
+	local myArea = self:GetLastKnownArea()
+	if IsValid( myArea ) then
 	
 		self.ApproachPoints = {}
 		-- For some reason if there is only once adjacent area no encounter spots will be created
 		-- So I grab the single adjacent area instead and use its encounter and approach spots instead
-		local spotEncounter = Either( self:GetLastKnownArea():GetAdjacentCount() == 1, self:GetLastKnownArea():GetAdjacentAreas()[ 1 ]:GetSpotEncounters(), self:GetLastKnownArea():GetSpotEncounters() )
+		local spotEncounter = Either( myArea:GetAdjacentCount() == 1, myArea:GetAdjacentAreas()[ 1 ]:GetSpotEncounters(), myArea:GetSpotEncounters() )
 		local eye = self:GetShootPos()
 		
 		local ap = Vector()
@@ -1302,12 +1304,13 @@ end
 function BOT:ComputeEncounterSpot()
 	
 	-- Compute encounter spots near the bot
-	if IsValid( self:GetLastKnownArea() ) then
+	local myArea = self:GetLastKnownArea()
+	if IsValid( myArea ) then
 	
 		local EncounterSpots = {}
 		-- For some reason if there is only once adjacent area no encounter spots will be created
 		-- So I grab the single adjacent area instead and use its encounter and approach spots instead
-		local spotEncounter = Either( self:GetLastKnownArea():GetAdjacentCount() == 1, self:GetLastKnownArea():GetAdjacentAreas()[ 1 ]:GetSpotEncounters(), self:GetLastKnownArea():GetSpotEncounters() )
+		local spotEncounter = Either( myArea:GetAdjacentCount() == 1, myArea:GetAdjacentAreas()[ 1 ]:GetSpotEncounters(), myArea:GetSpotEncounters() )
 		
 		if istable( spotEncounter ) then
 		
@@ -3158,6 +3161,8 @@ hook.Add( "EntityRemoved" , "TRizzleBotEntityRemoved" , function( ent, fullUpdat
 
 	for i = 1, game.MaxPlayers() do
 	
+		local bot = Entity( i )
+	
 		if IsValid( bot ) and bot:IsTRizzleBot() then
 		
 			bot.AttackList[ ent ] = nil
@@ -3478,15 +3483,19 @@ hook.Add( "Think" , "TRizzleBotThink" , function()
 							
 							if IsValid( botWeapon ) and botWeapon:IsWeapon() and botWeapon:GetClass() == "weapon_medkit" then
 								
-								if CurTime() >= bot.FireWeaponInterval and bot.HealTarget == bot then
+								if CurTime() >= bot.FireWeaponInterval then 
 								
-									bot:PressSecondaryAttack()
-									bot.FireWeaponInterval = CurTime() + 0.5
+									if bot.HealTarget == bot then
+								
+										bot:PressSecondaryAttack()
+										bot.FireWeaponInterval = CurTime() + 0.5
 									
-								elseif CurTime() >= bot.FireWeaponInterval and bot:GetEyeTrace().Entity == bot.HealTarget then
+									elseif bot:GetEyeTrace().Entity == bot.HealTarget then
 								
-									bot:PressPrimaryAttack()
-									bot.FireWeaponInterval = CurTime() + 0.5
+										bot:PressPrimaryAttack()
+										bot.FireWeaponInterval = CurTime() + 0.5
+										
+									end
 									
 								end
 								
@@ -3933,6 +3942,18 @@ hook.Add( "PlayerSay", "TRizzleBotPlayerSay", function( sender, text, teamChat )
 				
 				bot.HoldPos = pos
 			
+			elseif command == "wait" then
+			
+				local pos = bot:GetPos()
+				local ground = navmesh.GetGroundHeight( pos )
+				if ground then
+				
+					pos.z = ground
+					
+				end
+			
+				bot.HoldPos = pos
+			
 			elseif command == "use" then
 			
 				local useEnt = sender:GetEyeTrace().Entity
@@ -4251,6 +4272,12 @@ end
 function BOT:IsEnemy( target )
 	if !IsValid( target ) or self == target then return false end
 	
+	if self.AttackList[ target ] then
+	
+		return true
+	
+	end
+	
 	if target:IsNPC() then
 	
 		if self:IsTRizzleBot() and IsValid( self.TBotOwner ) and target:Disposition( self.TBotOwner ) == D_HT then
@@ -4285,12 +4312,6 @@ function BOT:IsEnemy( target )
 		
 		end
 		
-	end
-	
-	if self.AttackList[ target ] then
-	
-		return true
-	
 	end
 	
 	return false
