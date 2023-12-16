@@ -1757,9 +1757,11 @@ function BOT:FaceTowards( target )
 		
 	end
 	
-	-- Is this better than the old system?
-	--local look = Vector( target.x, target.y, self:GetShootPos().z )
+	-- TODO: Get the bot to look up and down while swiming
 	local look = self:GetShootPos()
+	look.x = target.x
+	look.y = target.y
+	--[[local look = self:GetShootPos()
 	local targetHeight = look.z - self:GetPos().z
 	local ground = navmesh.GetGroundHeight( target )
 	
@@ -1770,7 +1772,7 @@ function BOT:FaceTowards( target )
 	
 		look.z = ground + targetHeight
 		
-	end
+	end]]
 	
 	self:AimAtPos( look, 0.1, LOW_PRIORITY )
 	
