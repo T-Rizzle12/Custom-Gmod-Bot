@@ -37,7 +37,7 @@ function TRizzleBotCreateMenu( ply, cmd, args )
 	local DModelPanel = vgui.Create( "DModelPanel", Frame )
 	DModelPanel:Dock( RIGHT )
 	DModelPanel:SetSize( 370, 0 )
-	DModelPanel:SetModel( "models/player/alyx.mdl" )
+	DModelPanel:SetModel( "models/player/kleiner.mdl" )
 	DModelPanel:SetAnimated( true )
 	DModelPanel.Angles = angle_zero
 	DModelPanel.DragMousePress = function( self )
@@ -114,7 +114,7 @@ function TRizzleBotCreateMenu( ply, cmd, args )
 	Melee:Dock( TOP )
 	Melee:DockMargin( 0, 0, 0, 5 )
 	Melee:SetSize( 150, 20 )
-	Melee:SetText( "Melee Weapon" )
+	Melee:SetValue( "weapon_crowbar" )
 	
 	for k, wep in pairs( list.Get( "Weapon" ) ) do
 	
@@ -132,7 +132,7 @@ function TRizzleBotCreateMenu( ply, cmd, args )
 	Pistol:Dock( TOP )
 	Pistol:DockMargin( 0, 0, 0, 5 )
 	Pistol:SetSize( 150, 20 )
-	Pistol:SetText( "Pistol" )
+	Pistol:SetText( "weapon_pistol" )
 	
 	for k, wep in pairs( list.Get( "Weapon" ) ) do
 	
@@ -150,7 +150,7 @@ function TRizzleBotCreateMenu( ply, cmd, args )
 	Shotgun:Dock( TOP )
 	Shotgun:DockMargin( 0, 0, 0, 5 )
 	Shotgun:SetSize( 150, 20 )
-	Shotgun:SetText( "Shotgun" )
+	Shotgun:SetValue( "weapon_shotgun" )
 	
 	for k, wep in pairs( list.Get( "Weapon" ) ) do
 	
@@ -168,7 +168,7 @@ function TRizzleBotCreateMenu( ply, cmd, args )
 	Rifle:Dock( TOP )
 	Rifle:DockMargin( 0, 0, 0, 5 )
 	Rifle:SetSize( 150, 20 )
-	Rifle:SetText( "Rifle/SMG" )
+	Rifle:SetValue( "weapon_smg1" )
 	
 	for k, wep in pairs( list.Get( "Weapon" ) ) do
 	
@@ -186,7 +186,7 @@ function TRizzleBotCreateMenu( ply, cmd, args )
 	Grenade:Dock( TOP )
 	Grenade:DockMargin( 0, 0, 0, 5 )
 	Grenade:SetSize( 150, 20 )
-	Grenade:SetText( "Grenade" )
+	Grenade:SetValue( "weapon_frag" )
 	
 	for k, wep in pairs( list.Get( "Weapon" ) ) do
 	
@@ -204,7 +204,7 @@ function TRizzleBotCreateMenu( ply, cmd, args )
 	Sniper:Dock( TOP )
 	Sniper:DockMargin( 0, 0, 0, 5 )
 	Sniper:SetSize( 150, 20 )
-	Sniper:SetText( "Sniper" )
+	Sniper:SetValue( "weapon_crossbow" )
 	
 	for k, wep in pairs( list.Get( "Weapon" ) ) do
 	
@@ -337,12 +337,12 @@ function TRizzleBotCreateMenu( ply, cmd, args )
 			net.WriteString( Name:GetValue() )
 			net.WriteInt( FollowDist:GetValue(), 32 )
 			net.WriteInt( DangerDist:GetValue(), 32 )
-			net.WriteString( Melee:GetOptionText( Melee.selected ) )
-			net.WriteString( Pistol:GetOptionText( Pistol.selected ) )
-			net.WriteString( Shotgun:GetOptionText( Shotgun.selected ) )
-			net.WriteString( Rifle:GetOptionText( Rifle.selected ) )
-			net.WriteString( Grenade:GetOptionText( Grenade.selected ) )
-			net.WriteString( Sniper:GetOptionText( Sniper.selected ) )
+			net.WriteString( Melee:GetOptionText( Melee.selected ) or "weapon_crowbar" )
+			net.WriteString( Pistol:GetOptionText( Pistol.selected ) or "weapon_pistol" )
+			net.WriteString( Shotgun:GetOptionText( Shotgun.selected ) or "weapon_shotgun" )
+			net.WriteString( Rifle:GetOptionText( Rifle.selected ) or "weapon_smg1" )
+			net.WriteString( Grenade:GetOptionText( Grenade.selected ) or "weapon_frag" )
+			net.WriteString( Sniper:GetOptionText( Sniper.selected ) or "weapon_crossbow" )
 			net.WriteBool( SniperScope:GetChecked() )
 			net.WriteInt( MeleeDist:GetValue(), 32 )
 			net.WriteInt( PistolDist:GetValue(), 32 )
@@ -350,7 +350,7 @@ function TRizzleBotCreateMenu( ply, cmd, args )
 			net.WriteInt( RifleDist:GetValue(), 32 )
 			net.WriteInt( HealThreshold:GetValue(), 32 )
 			net.WriteInt( CombatHealThreshold:GetValue(), 32 )
-			net.WriteString( PlayerModel:GetOptionText( PlayerModel.selected ) )
+			net.WriteString( PlayerModel:GetOptionText( PlayerModel.selected ) or "kleiner" )
 			net.WriteBool( SpawnWithPreferredWeapons:GetChecked() )
 		net.SendToServer()
 		Frame:Close()
