@@ -787,25 +787,27 @@ function BOT:HandleButtons()
 	
 	--local door = self:GetEyeTrace().Entity
 	
-	if IsValid( self.Breakable ) then
+	local door = self.Door
+	local breakable = self.Breakable
+	if IsValid( breakable ) then
 	
-		if IsValid( self.HealTarget ) or !self.Breakable:IsBreakable() or self.Breakable:NearestPoint( self:GetPos() ):DistToSqr( self:GetPos() ) > 6400 or !self:IsAbleToSee( self.Breakable ) then
+		if IsValid( self.HealTarget ) or !breakable:IsBreakable() or breakable:NearestPoint( self:GetPos() ):DistToSqr( self:GetPos() ) > 6400 or !self:IsAbleToSee( breakable ) then
 		
 			self.Breakable = nil
 			return
 			
 		end
 		
-		self:AimAtPos( self.Breakable:WorldSpaceCenter(), 0.5, MAXIMUM_PRIORITY )
+		self:AimAtPos( breakable:WorldSpaceCenter(), 0.5, MAXIMUM_PRIORITY )
 		
-		if self:IsLookingAtPosition( self.Breakable:WorldSpaceCenter() ) then
+		if self:IsLookingAtPosition( breakable:WorldSpaceCenter() ) then
 		
 			if IsValid( self.BestWeapon ) and self.BestWeapon:IsWeapon() and self.BestWeapon:GetClass() != "weapon_medkit" then
 			
 				if self.BestWeapon:GetClass() == self.Melee then
 				
-					local rangeToShoot = self:GetShootPos():DistToSqr( self.Breakable:WorldSpaceCenter() )
-					local rangeToStand = self:GetPos():DistToSqr( self.Breakable:WorldSpaceCenter() )
+					local rangeToShoot = self:GetShootPos():DistToSqr( breakable:WorldSpaceCenter() )
+					local rangeToStand = self:GetPos():DistToSqr( breakable:WorldSpaceCenter() )
 					
 					-- If the breakable is on the ground and we are using a melee weapon
 					-- we have to crouch in order to hit it
@@ -877,21 +879,28 @@ function BOT:HandleButtons()
 			
 		end
 	
-	elseif IsValid( self.Door ) then 
+	elseif IsValid( door ) then 
 	
-		if !self.Door:IsDoor() or self.Door:IsDoorOpen() or self.Door:NearestPoint( self:GetPos() ):DistToSqr( self:GetPos() ) > 10000 then 
+		if !door:IsDoor() or door:IsDoorOpen() or door:NearestPoint( self:GetPos() ):DistToSqr( self:GetPos() ) > 10000 then 
 		
 			self.Door = nil
 			return
 			
 		end
 		
-		self:AimAtPos( self.Door:WorldSpaceCenter(), 0.5, MAXIMUM_PRIORITY )
+		self:AimAtPos( door:WorldSpaceCenter(), 0.5, MAXIMUM_PRIORITY )
 		
-		if CurTime() >= self.UseInterval and self:IsLookingAtPosition( self.Door:WorldSpaceCenter() ) then
+		if CurTime() >= self.UseInterval and self:IsLookingAtPosition( door:WorldSpaceCenter() ) then
 			
 			self:PressUse()
 			self.UseInterval = CurTime() + 0.5
+			
+			if door:IsDoorLocked() then
+			
+				self.Door = nil
+				return
+				
+			end
 			
 		end
 		
@@ -3078,6 +3087,13 @@ function Ent:IsDoor()
 	
 end
 
+function Ent:IsDoorLocked()
+	if !self:IsDoor() then return false end
+	
+	return self:GetInternalVariable( "m_bLocked" )
+	
+end
+
 function Ent:IsDoorOpen()
 
 	if self:GetClass() == "func_door" or self:GetClass() == "func_door_rotating" then
@@ -4322,7 +4338,7 @@ function BOT:TBotHoldPositionState()
 		
 	end
 	
-	local goalDist = self:GetPos():DistToSqr( self.HoldPos )
+	local goalDist = self:GetPos():DistToSqr( botHoldPos )
 	if goalDist > TBotGoalTolerance:GetFloat()^2 then
 		
 		if self.RepathTimer <= CurTime() then
@@ -5663,7 +5679,7 @@ function BOT:DoorCheck()
 	local halfWidth = self:GetHullWidth() / 2.0
 	for k, door in ipairs( ents.FindAlongRay( self:GetPos(), self.Goal.Pos, Vector( -halfWidth, -halfWidth, -halfWidth ), Vector( halfWidth, halfWidth, self:GetStandHullHeight() / 2.0 ) ) ) do
 	
-		if IsValid( door ) and door:IsDoor() and !door:IsDoorOpen() and door:NearestPoint( self:GetPos() ):DistToSqr( self:GetPos() ) <= 10000 then
+		if IsValid( door ) and door:IsDoor() and !door:IsDoorLocked() and !door:IsDoorOpen() and door:NearestPoint( self:GetPos() ):DistToSqr( self:GetPos() ) <= 10000 then
 		
 			self.Door = door
 			break
