@@ -36,21 +36,21 @@ CommandName, CommandParameters, Example
 - <code>TBotSetGrenade</code> <code>targetbot</code> <code>grenade</code>
   - TBotSetGrenade Bot weapon_frag
 - <code>TBotSetSniper</code> <code>targetbot</code>  <code>sniper</code> <code>1 or 0</code>  
-  - TBotSetRifle Bot weapon_crossbow 1
+  - TBotSetSniper Bot weapon_crossbow 1
 - <code>TBotSetMeleeDist</code> <code>targetbot</code>  <code>meleedist</code>  
-  - TBotSetMelee Bot 80
+  - TBotSetMeleeDist Bot 80
 - <code>TBotSetPistolDist</code> <code>targetbot</code>  <code>pistoldist</code>  
-  - TBotSetPistol Bot 1300
+  - TBotSetPistolDist Bot 1300
 - <code>TBotSetShotgunDist</code> <code>targetbot</code>  <code>shotgundist</code>  
-  - TBotSetShotgun Bot 300
+  - TBotSetShotgunDist Bot 300
 - <code>TBotSetRifleDist</code> <code>targetbot</code>  <code>rifledist</code>  
-  - TBotSetRifle Bot 900
+  - TBotSetRifleDist Bot 900
 - <code>TBotSetHealThreshold</code> <code>targetbot</code>  <code>healthreshold</code>  
   - TBotSetHealThreshold Bot 100
 - <code>TBotSetCombatHealThreshold</code> <code>targetbot</code>  <code>combathealthreshold</code>  
   - TBotSetCombatHealThreshold Bot 25
 - <code>TBotSetPlayerModel</code> <code>targetbot</code>  <code>playermodel</code>  
-  - TBotSetRifle Bot alyx
+  - TBotSetPlayerModel Bot alyx
 - <code>TBotSpawnWithPreferredWeapons</code> <code>targetbot</code>  <code>1 or 0</code>  
   - TBotSpawnWithPreferredWeapons Bot 1
 - <code>TBotSetModelSkin</code> <code>targetbot</code>  <code>desiredskin</code>  
