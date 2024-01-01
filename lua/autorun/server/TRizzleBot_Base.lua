@@ -25,6 +25,16 @@ local MEDIUM_PRIORITY		=	1
 local HIGH_PRIORITY			=	2
 local MAXIMUM_PRIORITY		=	3
 
+-- Setup Bot States
+local IDLE					=	0
+local HIDE					=	1
+local FOLLOW_OWNER			=	2
+local FOLLOW_GROUP_LEADER	=	3
+local USE_ENTITY			=	4
+local HOLD_POSITION			=	5
+local HEAL_PLAYER			=	6
+local REVIVE_PLAYER			=	7
+
 -- Setup lookat states
 --local NOT_LOOKING_AT_SPOT	=	0
 --local LOOK_TOWARDS_SPOT		=	1
@@ -619,6 +629,7 @@ function BOT:TBotResetAI()
 	--self.WiggleTimer				=	0 -- This helps the bot get unstuck.
 	--self.StuckJumpInterval			=	0 -- Limits how often the bot jumps when stuck.
 	
+	self:TBotSetState( IDLE )
 	self:ComputeApproachPoints()
 	--self:TBotCreateThinking() -- Start our AI
 	
@@ -1950,7 +1961,7 @@ function BOT:IsUnhealthy()
 end
 
 -- This is only needed for some gamemodes as said gamemodes may do certain things with bots.
-local oldIsBot = BOT.IsBot
+local oldIsBot = oldIsBot or BOT.IsBot
 -- This makes the game and other addons think the player being controled is a bot.
 --[[function BOT:IsBot()
 
@@ -1978,7 +1989,7 @@ function BOT:IsTRizzleBot( onlyRealBots )
 	
 end
 
-local oldGetInfo = BOT.GetInfo
+local oldGetInfo = oldGetInfo or BOT.GetInfo
 -- This allows me to set the bot's client convars.
 function BOT:GetInfo( cVarName )
 
@@ -2016,7 +2027,7 @@ function BOT:GetInfo( cVarName )
 
 end
 
-local oldGetInfoNum = BOT.GetInfoNum
+local oldGetInfoNum = oldGetInfoNum or BOT.GetInfoNum
 -- This allows me to set the bot's client convars.
 function BOT:GetInfoNum( cVarName, default )
 
@@ -2460,6 +2471,20 @@ function BOT:IsAbleToSee( pos, checkFOV )
 	end
 	
 	return false
+end
+
+local oldScreenFade = oldScreenFade or BOT.ScreenFade
+-- Basic flashbang support!!!
+function BOT:ScreenFade( flags, clr, fadeTime, fadeHold )
+
+	if self:IsTRizzleBot() then
+
+		self:TBotBlind( fadeHold )
+		
+	end
+	
+	oldScreenFade( self, flags, clr, fadeTime, fadeHold )
+	
 end
 
 -- Blinds the bot for a specified amount of time
@@ -3088,6 +3113,21 @@ function BOT:FindGroupLeader()
 	
 end
 
+-- This changes the bots active state to the one entered
+function BOT:TBotSetState( newState )
+	newState = math.Clamp( tonumber( newState ) or IDLE, IDLE, REVIVE_PLAYER ) -- This is a failsafe!
+
+	self.TBotState = newState
+	
+end
+
+-- This returns the current state of the bot
+function BOT:GetTBotState()
+
+	return self.TBotState
+	
+end
+
 function BOT:TBotSetHidingSpot( spot, reason, time )
 	reason = reason or RETREAT
 	time = time or 10.0
@@ -3336,10 +3376,10 @@ hook.Add( "Think" , "TRizzleBotThink" , function()
 						
 					end
 				
-				elseif IsValid( bot.GroupLeader ) then -- If the bot's owner is alive, the bot should clear its group leader and the hiding spot it was trying to goto
+				--elseif IsValid( bot.GroupLeader ) then -- If the bot's owner is alive, the bot should clear its group leader and the hiding spot it was trying to goto
 					
-					bot.GroupLeader	= nil
-					bot:ClearHidingSpot()
+					--bot.GroupLeader	= nil
+					--bot:ClearHidingSpot()
 					
 				end
 				
@@ -3479,7 +3519,7 @@ hook.Add( "Think" , "TRizzleBotThink" , function()
 						-- If the bot is not in combat then the bot should check if any of its teammates need healing
 						bot.HealTarget = bot:TBotFindHealTarget()
 						
-						if IsValid( bot.HealTarget ) and bot:HasWeapon( "weapon_medkit" ) then
+						--[[if IsValid( bot.HealTarget ) and bot:HasWeapon( "weapon_medkit" ) then
 						
 							bot.BestWeapon = bot:GetWeapon( "weapon_medkit" )
 							
@@ -3506,6 +3546,13 @@ hook.Add( "Think" , "TRizzleBotThink" , function()
 							end
 							
 						else
+						
+							bot:ReloadWeapons()
+							
+						end]]
+						
+						-- Don't attempt to reload weapons while we are healing.
+						if bot:GetTBotState() != HEAL_PLAYER then
 						
 							bot:ReloadWeapons()
 							
@@ -3592,8 +3639,44 @@ hook.Add( "Think" , "TRizzleBotThink" , function()
 					
 				end
 				
+				-- Here is where the bot sets its move goals based on what its doing!
+				local botState = bot:GetTBotState()
+				if botState == IDLE then
+				
+					bot:TBotIdleState()
+					
+				elseif botState == HIDE then
+				
+					bot:TBotHideState()
+					
+				elseif botState == FOLLOW_OWNER then
+				
+					bot:TBotFollowOwnerState()
+					
+				elseif botState == FOLLOW_GROUP_LEADER then
+				
+					bot:TBotFollowGroupLeaderState()
+					
+				elseif botState == USE_ENTITY then
+				
+					bot:TBotUseEntityState()
+					
+				elseif botState == HOLD_POSITION then
+				
+					bot:TBotHoldPositionState()
+					
+				elseif botState == HEAL_PLAYER then
+				
+					bot:TBotHealPlayerState()
+					
+				elseif botState == REVIVE_PLAYER then
+				
+					bot:TBotRevivePlayerState()
+					
+				end
+				
 				-- This is where the bot sets its move goals
-				if isvector( bot.HidingSpot ) then
+				--[[if isvector( bot.HidingSpot ) then
 					
 					if bot.HidingState == MOVE_TO_SPOT then
 						
@@ -3787,7 +3870,7 @@ hook.Add( "Think" , "TRizzleBotThink" , function()
 					
 					end
 					
-				end
+				end]]
 				
 				-- The check CNavArea we are standing on.
 				if !IsValid( bot.currentArea ) or !bot.currentArea:Contains( bot:GetPos() ) then
@@ -3796,7 +3879,7 @@ hook.Add( "Think" , "TRizzleBotThink" , function()
 					
 				end
 				
-				if IsValid( bot.currentArea ) and bot.currentArea != bot:GetLastKnownArea() then
+				if IsValid( bot.currentArea ) and bot.currentArea != bot.lastKnownArea then
 				
 					bot.lastKnownArea = bot.currentArea
 					
@@ -3915,11 +3998,622 @@ hook.Add( "Think" , "TRizzleBotThink" , function()
 	
 end)
 
+-- This is the bot's idle state
+function BOT:TBotIdleState()
+
+	if self:IsHiding() then
+	
+		self:TBotSetState( HIDE )
+		return
+		
+	end
+	
+	local useEnt = self.UseEnt
+	if IsValid( useEnt ) then
+	
+		self:TBotSetState( USE_ENTITY )
+		return
+	
+	end
+	
+	local botReviveTarget = self.ReviveTarget
+	if IsValid( botReviveTarget ) and self:GetKnownCount( nil, false, self.DangerDist ) <= 5 then
+	
+		self:TBotSetState( REVIVE_PLAYER )
+		return
+		
+	end
+	
+	local botHoldPos = self.HoldPos
+	if isvector( botHoldPos ) then
+	
+		self:TBotSetState( HOLD_POSITION )
+		return
+		
+	end
+	
+	local botOwner = self.TBotOwner
+	if IsValid( botOwner ) and botOwner:Alive() then
+	
+		self.GroupLeader = nil
+		local ownerDist = botOwner:GetPos():DistToSqr( self:GetPos() )
+		if ownerDist > self.FollowDist^2 then
+		
+			self:TBotSetState( FOLLOW_OWNER )
+			return
+			
+		end
+	
+	end
+	
+	local botLeader = self.GroupLeader
+	if IsValid( botLeader ) and !self:IsGroupLeader() then
+	
+		local leaderDist = botLeader:GetPos():DistToSqr( self:GetPos() )
+		if leaderDist > self.FollowDist^2 then
+		
+			self:TBotSetState( FOLLOW_GROUP_LEADER )
+			return
+			
+		end
+		
+	end
+	
+	-- These states should only become activate when we are not in combat.
+	if !self:IsInCombat() then
+	
+		local botHealTarget = self.HealTarget
+		if IsValid( botHealTarget ) and self:HasWeapon( "weapon_medkit" ) then
+		
+			self:TBotSetState( HEAL_PLAYER )
+			return
+			
+		end
+		
+	end
+
+end
+
+-- This is the bot's hiding state
+function BOT:TBotHideState()
+
+	-- The hiding state has the most priority so, only when the bot is done hiding 
+	-- is when it should care about anything else.
+	if !self:IsHiding() then
+	
+		self:TBotSetState( IDLE )
+		return
+		
+	end
+
+	local botWeapon = self:GetActiveWeapon()
+	local threat = self:GetPrimaryKnownThreat()
+	if self.HidingState == MOVE_TO_SPOT then
+	
+		local spotDistSq = self:GetPos():DistToSqr( self.HidingSpot )
+		-- When have reached our destination start the wait timer
+		if spotDistSq <= 1024 then
+			
+			self.HidingState = WAIT_AT_SPOT
+			self.HideTime = CurTime() + self.HideTime
+		
+		-- If the bot finished reloading its active weapon it should clear its selected hiding spot!
+		elseif self.HideReason == RELOAD_IN_COVER and ( !IsValid( botWeapon ) or botWeapon:GetClass() == self.Melee or !botWeapon:NeedsToReload() ) then
+		
+			self:ClearHidingSpot()
+			self:TBotSetState( IDLE )
+			return
+		
+		-- If the bot finds an enemy, it should clear its selected hiding spot
+		elseif self.HideReason == SEARCH_AND_DESTORY and self:IsInCombat() then
+		
+			self.NextHuntTime = CurTime() + 10
+			self:TBotClearPath()
+			self:ClearHidingSpot()
+			self:TBotSetState( IDLE )
+			return
+		
+		-- If the bot has a hiding spot it should path there
+		elseif self.RepathTimer <= CurTime() and spotDistSq > 1024 then
+		
+			TRizzleBotPathfinderCheap( self, self.HidingSpot )
+			--bot:TBotCreateNavTimer()
+			self.RepathTimer = CurTime() + math.Rand( 3.0, 5.0 )
+		
+		end
+	
+	elseif self.HidingState == WAIT_AT_SPOT then
+		
+		-- If the bot has finished hiding, it should clear its selected hiding spot
+		if ( self.HideReason == RETREAT or self.HideReason == SEARCH_AND_DESTORY ) and self.HideTime <= CurTime() then
+			
+			self.NextHuntTime = CurTime() + 20.0
+			self:ClearHidingSpot()
+			self:TBotSetState( IDLE )
+			return
+		
+		-- If the bot has finished reloading its active weapon, it should clear its selected hiding spot
+		elseif self.HideReason == RELOAD_IN_COVER and ( !IsValid( botWeapon ) or botWeapon:GetClass() == self.Melee or !botWeapon:NeedsToReload() ) then
+		
+			self:ClearHidingSpot()
+			self:TBotSetState( IDLE )
+			return
+			
+		-- If the bot's hiding spot is no longer safe, it should clear its selected hiding spot
+		elseif !self:IsSpotSafe( self.HidingSpot + HalfHumanHeight ) then
+		
+			self.NextHuntTime = CurTime() + 20.0
+			self:ClearHidingSpot()
+			self:TBotSetState( IDLE )
+			return
+		
+		elseif !IsValid( self:GetLastKnownArea() ) or !self:GetLastKnownArea():HasAttributes( NAV_MESH_STAND ) then
+		
+			-- The bot should crouch once it reaches its selected hiding spot
+			self:PressCrouch()
+		
+		end
+		
+	end
+	
+	if self.HideReason == RELOAD_IN_COVER and IsValid( botWeapon ) and botWeapon:IsWeapon() and CurTime() >= self.ReloadInterval and !self:IsReloading() and botWeapon:GetClass() != "weapon_medkit" and botWeapon:GetClass() != self.Melee and botWeapon:NeedsToReload() then
+		
+		self:PressReload()
+		self.ReloadInterval = CurTime() + 0.5
+		
+	end
+
+end
+
+-- This is the bot's use entity state
+function BOT:TBotUseEntityState()
+
+	-- The hiding state has the most priority so, only when the bot is done hiding 
+	-- is when it should care about anything else.
+	if self:IsHiding() then
+	
+		self.UseEnt = nil
+		self.UseHoldTime = 0
+		self.StartedUse = false
+		self:TBotSetState( HIDE )
+		return
+		
+	end
+
+	local botUseEnt = self.UseEnt
+	if !IsValid( botUseEnt ) or ( self.UseHoldTime <= CurTime() and self.StartedUse ) then
+	
+		self.UseEnt = nil
+		self.UseHoldTime = 0
+		self.StartedUse = false
+		self:TBotSetState( IDLE )
+		return
+	
+	end
+	
+	local useEnt = self:GetUseEntity()
+	if self.RepathTimer <= CurTime() and useEnt != botUseEnt then
+	
+		TRizzleBotPathfinderCheap( self, self.UseEnt:GetPos() )
+		--bot:TBotCreateNavTimer()
+		self.RepathTimer = CurTime() + math.Rand( 3.0, 5.0 )
+	
+	elseif useEnt == botUseEnt then
+	
+		self:PressUse()
+		self.RepathTimer = 0
+		self:TBotClearPath()
+		
+		if !self.StartedUse then
+		
+			self.StartedUse = true
+			self.UseHoldTime = CurTime() + self.UseHoldTime
+			
+		end
+	
+	end
+	
+	if botUseEnt:GetPos():DistToSqr( self:GetPos() ) <= 200^2 and self:IsAbleToSee( botUseEnt ) then
+		
+		self:AimAtPos( botUseEnt:WorldSpaceCenter(), 0.1, HIGH_PRIORITY )
+		
+	end
+	
+end
+
+-- This is the bot's revive player state
+-- NOTE: This only used if the revive mod is installed
+function BOT:TBotRevivePlayerState()
+
+	-- The hiding state has the most priority so, only when the bot is done hiding 
+	-- is when it should care about anything else.
+	if self:IsHiding() then
+	
+		self:TBotSetState( HIDE )
+		return
+		
+	end
+	
+	-- Our owner has told us to use something, its a higher priority than reviving someone.
+	local useEnt = self.UseEnt
+	if IsValid( useEnt ) then
+	
+		self:TBotSetState( USE_ENTITY )
+		return
+	
+	end
+	
+	local botReviveTarget = self.ReviveTarget
+	if !IsValid( botReviveTarget ) or self:GetKnownCount( nil, false, self.DangerDist ) > 5 then
+	
+		self:TBotSetState( IDLE )
+		return
+		
+	end
+	
+	local reviveTargetDist = botReviveTarget:GetPos():DistToSqr( self:GetPos() )
+	if reviveTargetDist > 80^2 or !self:IsLineOfFireClear( botReviveTarget ) then
+		
+		if ( self.ChaseTimer <= CurTime() or ( !self:IsPathValid() or self:IsRepathNeeded( botReviveTarget ) ) ) or self.RepathTimer <= CurTime() then
+			
+			TRizzleBotPathfinderCheap( self, botReviveTarget:GetPos() )
+			--bot:TBotCreateNavTimer()
+			self.RepathTimer = CurTime() + math.Rand( 3.0, 5.0 )
+			self.ChaseTimer = CurTime() + 0.5
+			
+		end
+		
+	elseif self:IsPathValid() then
+		
+		self:TBotClearPath()
+		
+	end
+	
+	if reviveTargetDist <= 100^2 and self:IsAbleToSee( botReviveTarget ) then
+		
+		self:AimAtPos( botReviveTarget:GetPos(), 0.1, HIGH_PRIORITY )
+		
+		if self:IsLookingAtPosition( botReviveTarget:GetPos() ) then
+		
+			self:PressUse()
+			
+		end
+	
+	end
+
+end
+
+-- This is the bot's hold position state
+function BOT:TBotHoldPositionState()
+
+	-- The hiding state has the most priority so, only when the bot is done hiding 
+	-- is when it should care about anything else.
+	if self:IsHiding() then
+	
+		self:TBotSetState( HIDE )
+		return
+		
+	end
+	
+	-- Our owner has told us to use something, its a higher priority than holding our current position.
+	-- We will go back to holding the position set by our owner when we finish.
+	local useEnt = self.UseEnt
+	if IsValid( useEnt ) then
+	
+		self:TBotSetState( USE_ENTITY )
+		return
+	
+	end
+	
+	-- Reviving a player is more important than holding where our owner told us.
+	local botReviveTarget = self.ReviveTarget
+	if IsValid( botReviveTarget ) and self:GetKnownCount( nil, false, self.DangerDist ) <= 5 then
+	
+		self:TBotSetState( REVIVE_PLAYER )
+		return
+		
+	end
+	
+	local botHoldPos = self.HoldPos
+	if !isvector( botHoldPos ) then
+	
+		self:TBotSetState( IDLE )
+		return
+		
+	end
+	
+	local goalDist = self:GetPos():DistToSqr( self.HoldPos )
+	if goalDist > TBotGoalTolerance:GetFloat()^2 then
+		
+		if self.RepathTimer <= CurTime() then
+		
+			TRizzleBotPathfinderCheap( self, botHoldPos )
+			--bot:TBotCreateNavTimer()
+			self.RepathTimer = CurTime() + math.Rand( 3.0, 5.0 )
+		
+		end
+	
+	end
+	
+end
+
+-- This is the bot's heal player state
+function BOT:TBotHealPlayerState()
+
+	-- The hiding state has the most priority so, only when the bot is done hiding 
+	-- is when it should care about anything else.
+	if self:IsHiding() then
+	
+		self:TBotSetState( HIDE )
+		return
+		
+	end
+	
+	-- Our owner has told us to use something, its a higher priority than healing someone.
+	-- We will go back to healing when we finish.
+	local useEnt = self.UseEnt
+	if IsValid( useEnt ) then
+	
+		self:TBotSetState( USE_ENTITY )
+		return
+	
+	end
+	
+	-- Reviving a player is more important than healing someone.
+	local botReviveTarget = self.ReviveTarget
+	if IsValid( botReviveTarget ) and self:GetKnownCount( nil, false, self.DangerDist ) <= 5 then
+	
+		self:TBotSetState( REVIVE_PLAYER )
+		return
+		
+	end
+	
+	-- Following our owner is more important than healing someone.
+	local botOwner = self.TBotOwner
+	if IsValid( botOwner ) and botOwner:Alive() then
+	
+		self.GroupLeader = nil
+		local ownerDist = botOwner:GetPos():DistToSqr( self:GetPos() )
+		if ownerDist > self.FollowDist^2 then
+		
+			self:TBotSetState( FOLLOW_OWNER )
+			return
+			
+		end
+	
+	end
+	
+	-- Following our group leader is more important than healing someone.
+	local botLeader = self.GroupLeader
+	if IsValid( botLeader ) and !self:IsGroupLeader() then
+	
+		local leaderDist = botLeader:GetPos():DistToSqr( self:GetPos() )
+		if leaderDist > self.FollowDist^2 then
+		
+			self:TBotSetState( FOLLOW_GROUP_LEADER )
+			return
+			
+		end
+		
+	end
+	
+	-- The bot shouldn't heal while in combat.
+	if self:IsInCombat() then
+	
+		self:TBotSetState( IDLE )
+		return
+		
+	end
+	
+	local botHealTarget = self.HealTarget
+	if !IsValid( botHealTarget ) or !self:HasWeapon( "weapon_medkit" ) then
+	
+		self:TBotSetState( IDLE )
+		return
+		
+	end
+	
+	self.BestWeapon = self:GetWeapon( "weapon_medkit" )
+	
+	local botWeapon = self:GetActiveWeapon()
+	if IsValid( botWeapon ) and botWeapon:IsWeapon() and botWeapon:GetClass() == "weapon_medkit" then
+		
+		if CurTime() >= self.FireWeaponInterval then 
+			
+			if botHealTarget == self then
+			
+				self:PressSecondaryAttack()
+				self.FireWeaponInterval = CurTime() + 0.5
+			
+			elseif self:GetEyeTrace().Entity == botHealTarget then
+				
+				self:PressPrimaryAttack()
+				self.FireWeaponInterval = CurTime() + 0.5
+				
+			end
+			
+		end
+	
+		if botHealTarget != self then self:AimAtPos( botHealTarget:WorldSpaceCenter(), 0.1, MEDIUM_PRIORITY ) end
+	
+	end
+	
+end
+
+-- This is the bot's follow owner state.
+function BOT:TBotFollowOwnerState()
+
+	-- The hiding state has the most priority so, only when the bot is done hiding 
+	-- is when it should care about anything else.
+	if self:IsHiding() then
+	
+		self:TBotSetState( HIDE )
+		return
+		
+	end
+	
+	-- Our owner has told us to use something, its a higher priority than following its owner.
+	-- We will go back to following when we finish.
+	local useEnt = self.UseEnt
+	if IsValid( useEnt ) then
+	
+		self:TBotSetState( USE_ENTITY )
+		return
+	
+	end
+	
+	-- Reviving a player is more important than following its owner.
+	local botReviveTarget = self.ReviveTarget
+	if IsValid( botReviveTarget ) and self:GetKnownCount( nil, false, self.DangerDist ) <= 5 then
+	
+		self:TBotSetState( REVIVE_PLAYER )
+		return
+		
+	end
+	
+	-- Our owner has told us to wait at a set postion, its a higher priority than following them.
+	local botHoldPos = self.HoldPos
+	if isvector( botHoldPos ) then
+	
+		self:TBotSetState( HOLD_POSITION )
+		return
+		
+	end
+	
+	local botOwner = self.TBotOwner
+	if !IsValid( botOwner ) or !botOwner:Alive() then
+	
+		self:TBotSetState( IDLE )
+		return
+		
+	end
+	
+	local ownerDist = botOwner:GetPos():DistToSqr( self:GetPos() )
+	if ownerDist > self.FollowDist^2 then
+		
+		if ( self.ChaseTimer <= CurTime() or ( !self:IsPathValid() or self:IsRepathNeeded( botOwner ) ) ) or self.RepathTimer <= CurTime() then
+		
+			TRizzleBotPathfinderCheap( self, botOwner:GetPos() )
+			--bot:TBotCreateNavTimer()
+			self.RepathTimer = CurTime() + math.Rand( 3.0, 5.0 )
+			self.ChaseTimer = CurTime() + 0.5
+		
+		end
+	
+	elseif self:IsPathValid() then 
+	
+		if self:IsLineOfFireClear( botOwner ) then -- Is this a good idea? and ownerDist <= ( bot.FollowDist / 2 )^2
+	
+			self:TBotClearPath()
+			self:TBotSetState( IDLE )
+			return
+			
+		end
+	
+	else
+	
+		self:TBotSetState( IDLE ) -- This is a fail safe, so we don't get stuck in this state!
+		return
+	
+	end
+	
+end
+
+-- This is the bot's follow group leader state.
+function BOT:TBotFollowGroupLeaderState()
+
+	-- The hiding state has the most priority so, only when the bot is done hiding 
+	-- is when it should care about anything else.
+	if self:IsHiding() then
+	
+		self:TBotSetState( HIDE )
+		return
+		
+	end
+	
+	-- Our owner has told us to use something, its a higher priority than following our group leader.
+	-- We will go back to following when we finish.
+	local useEnt = self.UseEnt
+	if IsValid( useEnt ) then
+	
+		self:TBotSetState( USE_ENTITY )
+		return
+	
+	end
+	
+	-- Reviving a player is more important than following our group leader.
+	local botReviveTarget = self.ReviveTarget
+	if IsValid( botReviveTarget ) and self:GetKnownCount( nil, false, self.DangerDist ) <= 5 then
+	
+		self:TBotSetState( REVIVE_PLAYER )
+		return
+		
+	end
+	
+	-- Our owner has told us to wait at a set postion, its a higher priority than following them.
+	local botHoldPos = self.HoldPos
+	if isvector( botHoldPos ) then
+	
+		self:TBotSetState( HOLD_POSITION )
+		return
+		
+	end
+	
+	-- Our owner is alive and valid, we should follow them instead.
+	local botOwner = self.TBotOwner
+	if IsValid( botOwner ) and botOwner:Alive() then
+	
+		self.GroupLeader = nil
+		self:TBotSetState( FOLLOW_OWNER )
+		return
+		
+	end
+	
+	local botLeader = self.GroupLeader
+	if !IsValid( botLeader ) or !botLeader:Alive() then
+	
+		self:TBotSetState( IDLE )
+		return
+		
+	end
+	
+	local leaderDist = botLeader:GetPos():DistToSqr( self:GetPos() )
+	if leaderDist > self.FollowDist^2 then
+		
+		if ( self.ChaseTimer <= CurTime() or ( !self:IsPathValid() or self:IsRepathNeeded( botLeader ) ) ) or self.RepathTimer <= CurTime() then
+		
+			TRizzleBotPathfinderCheap( self, botLeader:GetPos() )
+			--bot:TBotCreateNavTimer()
+			self.RepathTimer = CurTime() + math.Rand( 3.0, 5.0 )
+			self.ChaseTimer = CurTime() + 0.5
+		
+		end
+	
+	elseif self:IsPathValid() then 
+	
+		if self:IsLineOfFireClear( botLeader ) then -- Is this a good idea? and leaderDist <= ( bot.FollowDist / 2 )^2
+	
+			self:TBotClearPath()
+			self:TBotSetState( IDLE )
+			return
+			
+		end
+		
+	else
+	
+		self:TBotSetState( IDLE ) -- This is a fail safe, so we don't get stuck in this state!
+		return
+	
+	end
+	
+end
+
 -- Bot chat commands are handled here.
 hook.Add( "PlayerSay", "TRizzleBotPlayerSay", function( sender, text, teamChat ) 
 	if !IsValid( sender ) then return end
 
 	local textTable = string.Explode( " ", text )
+	if !textTable[ 1 ] and !textTable[ 2 ] then return end
 	for k, bot in ipairs( player.GetAll() ) do
 	
 		if IsValid( bot ) and bot:IsTRizzleBot() and sender == bot.TBotOwner and textTable[ 1 ] == bot:Nick() then
@@ -4549,6 +5243,14 @@ function BOT:SelectMoreDangerousThreat( threat1, threat2 )
 	end
 	
 	local closerThreat = self:SelectCloserThreat( threat1, threat2 )
+	
+	local botWeapon = self:GetActiveWeapon()
+	if IsValid( botWeapon ) and botWeapon:IsWeapon() and botWeapon == self.Melee then
+	
+		-- If the bot is using a melee weapon, they should pick the closest enemy!
+		return closerThreat
+		
+	end
 	
 	local isImmediateThreat1 = self:IsImmediateThreat( threat1 )
 	local isImmediateThreat2 = self:IsImmediateThreat( threat2 )
@@ -9954,7 +10656,68 @@ function Test3( absMin, absMax, maxHeightAboveTopArea, ent )
 	
 	end]]
 	
+	print( ent )
+	print( top )
+	print( bottom )
+	print( width )
 	print( normal )
+	
+	navmesh.CreateNavLadder( top, bottom, width, normal, maxHeightAboveTopArea )
+	
+end
+
+concommand.Add( "experiment_auto_build_ladders" , Test4 , nil , "This creates nav ladders on func_useableladders. This is in beta and is very buggy!" )
+concommand.Add( "experiment_create_ladder" , Test5 , nil , "Creates a CNavLadder with the specified parameters!" )
+function Test4( ply, cmd, args )
+	
+	if BRANCH != "dev" then 
+	
+		if IsValid( ply ) then
+		
+			ply:ChatPrint( "This command only works on the dev branch for now..." ) 
+			
+		end
+		
+		return 
+	
+	end
+	
+	for k, ladder in ipairs( ents.FindByClass( "func_useableladder" ) ) do
+	
+		local bottom, top = ladder:GetCollisionBounds()
+		bottom = ladder:LocalToWorld( bottom )
+		top = ladder:LocalToWorld( top )
+		
+		Test3( bottom, top, 0, ladder )
+		
+	end
+	
+end
+
+function Test5( ply, cmd, args )
+
+	if BRANCH != "dev" then 
+	
+		if IsValid( ply ) then
+		
+			ply:ChatPrint( "This command only works on the dev branch for now..." ) 
+			
+		end
+		
+		return 
+	
+	end
+	
+	local top = Vector( args[ 1 ] )
+	local bottom = Vector( args[ 2 ] )
+	local width = tonumber( args[ 3 ] )
+	local normal = Vector( args[ 4 ] )
+	local maxHeightAboveTopArea = tonumber( args[ 5 ] ) or 0
+	
+	if !isvector( top ) then if IsValid( ply ) then ply:ChatPrint( "bad argument #1 to 'navmesh_create_ladder' (Vector expected got " .. type( top ) .. ")" ) end return
+	elseif !isvector( bottom ) then if IsValid( ply ) then ply:ChatPrint( "bad argument #2 to 'navmesh_create_ladder' (Vector expected got " .. type( bottom ) .. ")" ) end return
+	elseif !isnumber( width ) then if IsValid( ply ) then ply:ChatPrint( "bad argument #3 to 'navmesh_create_ladder' (number expected got " .. type( width ) .. ")" ) end return
+	elseif !isvector( normal ) then if IsValid( ply ) then ply:ChatPrint( "bad argument #4 to 'navmesh_create_ladder' (Vector expected got " .. type( normal ) .. ")" ) end return end
 	
 	navmesh.CreateNavLadder( top, bottom, width, normal, maxHeightAboveTopArea )
 	
