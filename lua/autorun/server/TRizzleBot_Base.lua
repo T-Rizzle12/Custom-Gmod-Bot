@@ -4270,7 +4270,7 @@ function BOT:TBotRevivePlayerState()
 	local reviveTargetDist = botReviveTarget:GetPos():DistToSqr( self:GetPos() )
 	if reviveTargetDist > 80^2 or !self:IsLineOfFireClear( botReviveTarget ) then
 		
-		if ( self.ChaseTimer <= CurTime() or ( !self:IsPathValid() or self:IsRepathNeeded( botReviveTarget ) ) ) or self.RepathTimer <= CurTime() then
+		if ( self.ChaseTimer <= CurTime() and ( !self:IsPathValid() or self:IsRepathNeeded( botReviveTarget ) ) ) or self.RepathTimer <= CurTime() then
 			
 			TRizzleBotPathfinderCheap( self, botReviveTarget:GetPos() )
 			--bot:TBotCreateNavTimer()
@@ -4507,7 +4507,7 @@ function BOT:TBotFollowOwnerState()
 	local ownerDist = botOwner:GetPos():DistToSqr( self:GetPos() )
 	if ownerDist > self.FollowDist^2 then
 		
-		if ( self.ChaseTimer <= CurTime() or ( !self:IsPathValid() or self:IsRepathNeeded( botOwner ) ) ) or self.RepathTimer <= CurTime() then
+		if ( self.ChaseTimer <= CurTime() and ( !self:IsPathValid() or self:IsRepathNeeded( botOwner ) ) ) or self.RepathTimer <= CurTime() then
 		
 			TRizzleBotPathfinderCheap( self, botOwner:GetPos() )
 			--bot:TBotCreateNavTimer()
@@ -4596,7 +4596,7 @@ function BOT:TBotFollowGroupLeaderState()
 	local leaderDist = botLeader:GetPos():DistToSqr( self:GetPos() )
 	if leaderDist > self.FollowDist^2 then
 		
-		if ( self.ChaseTimer <= CurTime() or ( !self:IsPathValid() or self:IsRepathNeeded( botLeader ) ) ) or self.RepathTimer <= CurTime() then
+		if ( self.ChaseTimer <= CurTime() and ( !self:IsPathValid() or self:IsRepathNeeded( botLeader ) ) ) or self.RepathTimer <= CurTime() then
 		
 			TRizzleBotPathfinderCheap( self, botLeader:GetPos() )
 			--bot:TBotCreateNavTimer()
@@ -4629,7 +4629,7 @@ hook.Add( "PlayerSay", "TRizzleBotPlayerSay", function( sender, text, teamChat )
 	if !IsValid( sender ) then return end
 
 	local textTable = string.Explode( " ", text )
-	if !textTable[ 1 ] and !textTable[ 2 ] then return end
+	if !textTable[ 1 ] or !textTable[ 2 ] then return end
 	for k, bot in ipairs( player.GetAll() ) do
 	
 		if IsValid( bot ) and bot:IsTRizzleBot() and sender == bot.TBotOwner and textTable[ 1 ] == bot:Nick() then
@@ -5843,6 +5843,179 @@ function TRizzleBotRangeCheck( area , fromArea , ladder , bot , length )
 	
 end
 
+function TRizzleBotRangeCheckRetreat( area , fromArea , ladder , bot , length , threat )
+	
+	local maxThreatRange = 500.0
+	local dangerDensity = 1000.0
+	
+	if area:IsBlocked() then
+	
+		return -1.0
+		
+	end
+	
+	if !IsValid( fromArea ) then
+	
+		if IsValid( threat ) then
+			
+			if area:Contains( threat:GetPos() ) then
+				
+				return dangerDensity * 10
+				
+			else
+				
+				local rangeToThreat = threat:GetPos():Distance( bot:GetPos() )
+
+				if rangeToThreat < maxThreatRange then
+					
+					return dangerDensity * ( 1.0 - ( rangeToThreat / maxThreatRange ) )
+					
+				end
+				
+			end
+			
+		end
+	
+		-- first area in path, no cost
+		return 0
+		
+	elseif fromArea:HasAttributes( NAV_MESH_JUMP ) and area:HasAttributes( NAV_MESH_JUMP ) then
+	
+		-- cannot actually walk in jump areas - disallow moving from jump area to jump area
+		return -1.0
+	
+	else
+	
+		-- compute distance traveled along path so far
+		local dist = 0
+		
+		if IsValid( ladder ) then 
+		
+			dist = ladder:GetLength()
+			
+		elseif isnumber( length ) and length > 0 then
+		
+			-- optimization to avoid recomputing lengths
+			dist = length
+		
+		else
+		
+			dist = area:GetCenter():Distance( fromArea:GetCenter() )
+			
+		end
+		
+		local Height	=	fromArea:ComputeAdjacentConnectionHeightChange( area )
+		local stepHeight = Either( IsValid( bot ), bot:GetStepSize(), 18 )
+		-- Jumping is slower than ground movement.
+		if !IsValid( ladder ) and !fromArea:IsUnderwater() and Height > stepHeight then
+			
+			local maximumJumpHeight = Either( IsValid( bot ), bot:GetMaxJumpHeight(), 64 )
+			if Height > maximumJumpHeight then
+			
+				return -1
+			
+			end
+			
+			--print( "Jump Height: " .. Height )
+			dist	=	dist + ( dist * 2 )
+			
+		-- Falling is risky if the bot might take fall damage.
+		elseif !area:IsUnderwater() and Height < -stepHeight then
+			
+			local fallDistance = -fromArea:ComputeGroundHeightChange( area )
+			
+			if IsValid( ladder ) and ladder:GetBottom().z < fromArea:GetCenter().z and ladder:GetBottom().z > area:GetCenter().z then
+			
+				fallDistance = ladder:GetBottom().z - area:GetCenter().z
+				
+			end
+			
+			--print( "Drop Height: " .. Height )
+			local fallDamage = GetApproximateFallDamage( fallDistance )
+			
+			if fallDamage > 0.0 and IsValid( bot ) then
+			
+				-- if the fall would kill us, don't use it
+				local deathFallMargin = 10.0
+				if fallDamage + deathFallMargin >= bot:Health() then
+				
+					return -1.0
+					
+				end
+				
+				local painTolerance = 25.0
+				if bot:IsUnhealthy() or fallDamage > painTolerance then
+				
+					-- cost is proportional to how much it hurts when we fall
+					-- 10 points - not a big deal, 50 points - ouch
+					dist	=	dist + ( 100 * fallDamage * fallDamage )
+					
+				end
+			
+			end
+			
+		end
+		
+		-- Add in danger cost due to threat
+		-- Assume straight line between areas and find closest point
+		-- to the threat along that line segment. The distance between
+		-- the threat and closest point on the line is the danger cost.	
+		
+		if IsValid( threat ) then
+		
+			local t, Close = CalcClosestPointOnLineSegment( threat:GetPos(), area:GetCenter(), fromArea:GetCenter() )
+			if t < 0.0 then
+				
+				Close = area:GetCenter()
+				
+			elseif t > 1.0 then
+				
+				Close = fromArea:GetCenter()
+				
+			end
+			
+			local rangeToThreat = threat:GetPos():Distance( Close )
+			if rangeToThreat < maxThreatRange then
+				
+				local dangerFactor = 1.0 - ( rangeToThreat / maxThreatRange )
+				dist	=	dist * ( dangerDensity * dangerFactor )
+				
+			end
+			
+		end
+		
+		-- Crawling through a vent is very slow.
+		-- NOTE: The cost is determined by the bot's crouch speed
+		if area:HasAttributes( NAV_MESH_CROUCH ) then 
+			
+			local crouchPenalty = Either( IsValid( bot ), math.floor( 1 / bot:GetCrouchedWalkSpeed() ), 5 )
+			
+			dist	=	dist + ( dist * crouchPenalty )
+			
+		end
+		
+		-- The bot should avoid this area unless alternatives are too dangerous or too far.
+		if area:HasAttributes( NAV_MESH_AVOID ) then 
+			
+			dist	=	dist + ( dist * 20 )
+			
+		end
+		
+		-- We will try not to swim since it can be slower than running on land, it can also be very dangerous, Ex. "Acid, Lava, Etc."
+		if area:IsUnderwater() then
+		
+			dist	=	dist + ( dist * 2 )
+			
+		end
+		
+		--print( "Distance: " .. dist )
+		
+		return dist + fromArea:GetCostSoFar()
+		
+	end
+	
+end
+
 local mp_falldamage = GetConVar( "mp_falldamage" )
 -- Got this from CS:GO Source Code, made some changes so it works for Lua
 -- Returns approximately how much damage will will take from the given fall height
@@ -6001,6 +6174,345 @@ function TRizzleBotPathfinderCheap( bot, goal )
 	bot.Goal = bot:FirstSegment()
 	
 	return pathResult
+	
+end
+
+function TRizzleBotPathfinderRetreat( bot, threat )
+	if !IsValid( bot ) or !IsValid( threat ) then return false end
+
+	local NORTH = 0
+	local EAST = 1
+	local SOUTH = 2
+	local WEST = 3
+	
+	local LADDER_UP = 0
+	local LADDER_DOWN = 1
+
+	local GO_LADDER_UP = 4
+	local GO_LADDER_DOWN = 5
+
+	local startArea = bot:GetLastKnownArea()
+	if !IsValid( startArea ) then
+	
+		return false
+		
+	end
+	
+	local retreatFromArea = navmesh.GetNearestNavArea( threat:GetPos() )
+	if !IsValid( retreatFromArea ) then
+	
+		return false
+		
+	end
+	
+	startArea:SetParent( nil, 9 )
+	
+	startArea:ClearSearchLists()
+	
+	local initCost = TRizzleBotRangeCheckRetreat( startArea, nil, nil, bot, nil, threat )
+	if initCost < 0.0 then
+	
+		return false
+		
+	end
+	
+	startArea:SetTotalCost( initCost )
+	
+	startArea:AddToOpenList()
+	
+	-- Keep track of farthest away from the threat
+	local farthestArea = nil
+	local farthestRange = 0.0
+	
+	--
+	-- Dijkstra's algorithm (since we don't know our goal).
+	-- Build a path as far away from the retreat area as possible.
+	-- Minimize total path length and danger.
+	-- Maximize distance to threat of end of path.
+	--
+	while !startArea:IsOpenListEmpty() do
+	
+		local area = startArea:PopOpenList()
+		
+		area:AddToClosedList()
+		
+		--- don't consider blocked areas
+		if area:IsBlocked() then
+		
+			continue
+			
+		end
+		
+		local adjacentAreas = {}
+		
+		for k, it in ipairs( area:GetAdjacentAreasAtSide( NORTH ) ) do
+		
+			local index = #adjacentAreas
+			if index >= 64 then
+			
+				break
+				
+			end
+			
+			table.insert( adjacentAreas, { area = it, how = NORTH, ladder = nil } )
+			
+		end
+		
+		for k, it in ipairs( area:GetAdjacentAreasAtSide( SOUTH ) ) do
+		
+			local index = #adjacentAreas
+			if index >= 64 then
+			
+				break
+				
+			end
+			
+			table.insert( adjacentAreas, { area = it, how = SOUTH, ladder = nil } )
+			
+		end
+		
+		for k, it in ipairs( area:GetAdjacentAreasAtSide( WEST ) ) do
+		
+			local index = #adjacentAreas
+			if index >= 64 then
+			
+				break
+				
+			end
+			
+			table.insert( adjacentAreas, { area = it, how = WEST, ladder = nil } )
+			
+		end
+		
+		for k, it in ipairs( area:GetAdjacentAreasAtSide( EAST ) ) do
+		
+			local index = #adjacentAreas
+			if index >= 64 then
+			
+				break
+				
+			end
+			
+			table.insert( adjacentAreas, { area = it, how = EAST, ladder = nil } )
+			
+		end
+		
+		for k, it in ipairs( area:GetLaddersAtSide( LADDER_UP ) ) do
+		
+			local index = #adjacentAreas
+			if IsValid( it:GetTopForwardArea() ) and index < 64 then
+			
+				table.insert( adjacentAreas, { area = it:GetTopForwardArea(), how = GO_LADDER_UP, ladder = it } )
+				
+			end
+			
+			if IsValid( it:GetTopLeftArea() ) and index < 64 then
+			
+				table.insert( adjacentAreas, { area = it:GetTopLeftArea(), how = GO_LADDER_UP, ladder = it } )
+				
+			end
+			
+			if IsValid( it:GetTopRightArea() ) and index < 64 then
+			
+				table.insert( adjacentAreas, { area = it:GetTopRightArea(), how = GO_LADDER_UP, ladder = it } )
+				
+			end
+			
+			if IsValid( it:GetTopBehindArea() ) and index < 64 then
+			
+				table.insert( adjacentAreas, { area = it:GetTopBehindArea(), how = GO_LADDER_UP, ladder = it } )
+				
+			end
+			
+		end
+		
+		for k, it in ipairs( area:GetLaddersAtSide( LADDER_DOWN ) ) do
+		
+			local index = #adjacentAreas
+			if index >= 64 then
+			
+				break
+				
+			end
+			
+			if IsValid( it:GetBottomArea() ) then
+			
+				table.insert( adjacentAreas, { area = it:GetBottomArea(), how = GO_LADDER_DOWN, ladder = it } )
+				
+			end
+			
+		end
+		
+		for i = 1, #adjacentAreas do
+		
+			local newArea = adjacentAreas[ i ].area
+		
+			-- only visit each area once
+			if newArea:IsClosed() then
+			
+				continue
+				
+			end
+			
+			-- don't consider blocked areas
+			if newArea:IsBlocked() then
+			
+				continue
+				
+			end
+			
+			-- don't use this area if it is out of range
+			if ( newArea:GetCenter() - bot:GetPos() ):IsLengthGreaterThan( 1000 ) then
+			
+				continue
+				
+			end
+			
+			-- determine cost of traversing this area
+			local newCost = TRizzleBotRangeCheckRetreat( newArea, area, adjacentAreas[ i ].ladder, bot, nil, threat )
+			
+			-- don't use adjacent area if cost functor says it is a dead end
+			if newCost < 0.0 then
+			
+				continue
+				
+			end
+			
+			if newArea:IsOpen() and newArea:GetTotalCost() <= newCost then
+			
+				-- we have already visited this area, and it has a better path
+				continue
+				
+			else
+			
+				-- whether this area has been visited ot not, we now have a better path
+				newArea:SetParent( area, adjacentAreas[ i ].how )
+				newArea:SetTotalCost( newCost )
+				
+				-- use 'cost so far' to hold cumulative cost
+				newArea:SetCostSoFar( newCost )
+				
+				-- tricky bit here - relying on OpenList being sorted by cost
+				if newArea:IsOpen() then
+				
+					-- area already on open list, update the list to keep costs sorted
+					newArea:UpdateOnOpenList()
+					
+				else
+				
+					newArea:AddToOpenList()
+					
+				end
+				
+				-- keep track of area farthest from threat
+				local threatRange = newArea:GetCenter():Distance( threat:GetPos() )
+				if threatRange > farthestRange then
+				
+					farthestArea = newArea
+					farthestRange = threatRange
+					
+				end
+				
+			end
+			
+		end
+		
+	end
+	
+	if IsValid( farthestArea ) then
+	
+		TRizzleBotAssembleRetreatPath( bot, farthestArea:GetCenter(), farthestArea )
+		return true
+		
+	end
+	
+	return false
+
+end
+
+function TRizzleBotAssembleRetreatPath( bot, goal, endArea )
+
+	local start = bot:GetPos()
+	local NUM_TRAVERSE_TYPES = 9
+	
+	-- get count
+	local count = 0
+	local area = endArea
+	while IsValid( area ) do
+	
+		count = count + 1
+		
+		area = area:GetParent()
+		
+	end
+	
+	if count == 0 then
+	
+		return false
+		
+	end
+	
+	if count == 1 then
+	
+		BuildTrivialPath( bot, goal )
+		return true
+		
+	end
+	
+	-- assemble path
+	bot.SegmentCount = count
+	area = endArea
+	while IsValid( area ) and count > 0 do
+	
+		bot.Path[ count ] = {}
+		bot.Path[ count ].Area = area
+		bot.Path[ count ].How = area:GetParentHow()
+		bot.Path[ count ].Type = PATH_ON_GROUND
+		
+		area = area:GetParent()
+		count = count - 1
+		
+	end
+	
+	-- append actual goal position
+	bot.SegmentCount = bot.SegmentCount + 1
+	bot.Path[ bot.SegmentCount ] = {}
+	bot.Path[ bot.SegmentCount ].Area = endArea
+	bot.Path[ bot.SegmentCount ].Pos = goal
+	bot.Path[ bot.SegmentCount ].How = NUM_TRAVERSE_TYPES
+	bot.Path[ bot.SegmentCount ].Type = PATH_ON_GROUND
+	
+	--[[for k,v in ipairs( bot.Path ) do
+	
+		if v.Area == startArea then
+		
+			print( "StartArea at " .. tostring( k ) )
+		
+		elseif v.Area == closestArea then
+		
+			print( "EndArea at " .. tostring( k ) )
+			
+		end
+		
+	end
+	
+	print( "SegmentCount: " .. tostring( bot.SegmentCount ) )
+	print( "Bot Path Length: " .. tostring( #bot.Path ) )]]
+	
+	-- compute path positions
+	if bot:ComputeNavmeshVisibility() == false then
+	
+		bot:TBotClearPath()
+		bot.Goal = bot:FirstSegment()
+		return false
+		
+	end
+	
+	PostProccess( bot )
+	
+	bot.Goal = bot:FirstSegment()
+	
+	return true
 	
 end
 
