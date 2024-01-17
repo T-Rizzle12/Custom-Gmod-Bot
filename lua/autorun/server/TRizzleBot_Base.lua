@@ -6177,6 +6177,16 @@ function TRizzleBotPathfinderCheap( bot, goal )
 	
 end
 
+-- This creates a path to chase the selected subject!
+function TRizzleBotPathfinderChase( bot, subject )
+	if !IsValid( bot ) or !IsValid( subject ) then return false end
+	
+	local pathTarget = TRizzleBotPredictSubjectPosition( bot, subject )
+	return TRizzleBotPathfinderCheap( bot, pathTarget )
+
+end
+
+-- This creates a path to flee from the selected threat!
 function TRizzleBotPathfinderRetreat( bot, threat )
 	if !IsValid( bot ) or !IsValid( threat ) then return false end
 
@@ -6430,6 +6440,8 @@ function TRizzleBotPathfinderRetreat( bot, threat )
 
 end
 
+-- INTERNAL: This is used internaly by TRizzleBotPathfinderRetreat, don't go complaning about having issues
+-- with it if you use this function for other things!
 function TRizzleBotAssembleRetreatPath( bot, goal, endArea )
 
 	local start = bot:GetPos()
@@ -6514,6 +6526,80 @@ function TRizzleBotAssembleRetreatPath( bot, goal, endArea )
 	
 	return true
 	
+end
+
+-- This is used by TRizzleBotPathfinderChase to predict where the subject is moving to cut them off.
+function TRizzleBotPredictSubjectPosition( bot, subject )
+
+	local subjectPos = subject:GetPos()
+	
+	local to = subjectPos - bot:GetPos()
+	to.z = 0.0
+	local flRangeSq = to:LengthSqr()
+	
+	-- The bot shouldn't attempt to cut off their target if they are too far away!
+	if flRangeSq > 500^2 then
+	
+		return subjectPos
+		
+	end
+	
+	local range = math.sqrt( flRangeSq )
+	to = to / ( range + 0.0001 ) -- Avoid divide by zero
+	
+	-- Estimate time to reach subject, assuming maximum speed for now.....
+	local leadTime = 0.5 + ( range / ( bot:GetRunSpeed() + 0.0001 ) )
+	
+	-- Estimate amount to lead the subject
+	local leader = leadTime * subject:GetVelocity()
+	lead.z = 0.0
+	
+	if to:Dot( lead ) < 0.0 then
+	
+		-- The subject is moving towards us - only pay attention
+		-- to his perpendicular velocity for leading
+		local to2D = to:AsVector2D()
+		to2D:Normalize()
+		
+		local perp = Vector( -to2D.y, to2D.x )
+		
+		local enemyGroundSpeed = lead.x * perp.x + lead.y * perp.y
+		
+		lead.x = enemyGroundSpeed * perp.x
+		lead.y = enemyGroundSpeed * perp.y
+		
+	end
+	
+	-- Computer our desired destination
+	local pathTarget = subjectPos + lead
+	
+	-- Validate this destination
+	
+	-- Don't lead through walls
+	if lead:LengthSqr() > 36.0 then
+	
+		local isTraversable, fraction = bot:IsPotentiallyTraversable( subjectPos, pathTarget )
+		if !isTraversable then
+		
+			-- Tried to lead through an unwalkable area - clip to walkable space
+			pathTarget = subjectPos + fraction * ( pathTarget - subjectPos )
+			
+		end
+		
+	end
+	
+	-- Don't lead over cliffs
+	local leadArea = navmesh.GetNearestNavArea( pathTarget )
+	
+	if !IsValid( leadArea ) or leadArea:GetZ( pathTarget ) < pathTarget.z - bot:GetMaxJumpHeight() then
+	
+		-- Would fall off a cliff
+		return subjectPos
+		
+	end
+	
+	return pathTarget
+
 end
 
 --[[
