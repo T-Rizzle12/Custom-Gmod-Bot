@@ -25,6 +25,16 @@ local MEDIUM_PRIORITY		=	1
 local HIGH_PRIORITY			=	2
 local MAXIMUM_PRIORITY		=	3
 
+-- Setup Bot States
+local IDLE					=	0
+local HIDE					=	1
+local FOLLOW_OWNER			=	2
+local FOLLOW_GROUP_LEADER	=	3
+local USE_ENTITY			=	4
+local HOLD_POSITION			=	5
+local HEAL_PLAYER			=	6
+local REVIVE_PLAYER			=	7
+
 -- Setup lookat states
 --local NOT_LOOKING_AT_SPOT	=	0
 --local LOOK_TOWARDS_SPOT		=	1
@@ -619,6 +629,7 @@ function BOT:TBotResetAI()
 	--self.WiggleTimer				=	0 -- This helps the bot get unstuck.
 	--self.StuckJumpInterval			=	0 -- Limits how often the bot jumps when stuck.
 	
+	self:TBotSetState( IDLE )
 	self:ComputeApproachPoints()
 	--self:TBotCreateThinking() -- Start our AI
 	
@@ -776,25 +787,27 @@ function BOT:HandleButtons()
 	
 	--local door = self:GetEyeTrace().Entity
 	
-	if IsValid( self.Breakable ) then
+	local door = self.Door
+	local breakable = self.Breakable
+	if IsValid( breakable ) then
 	
-		if IsValid( self.HealTarget ) or !self.Breakable:IsBreakable() or self.Breakable:NearestPoint( self:GetPos() ):DistToSqr( self:GetPos() ) > 6400 or !self:IsAbleToSee( self.Breakable ) then
+		if IsValid( self.HealTarget ) or !breakable:IsBreakable() or breakable:NearestPoint( self:GetPos() ):DistToSqr( self:GetPos() ) > 6400 or !self:IsAbleToSee( breakable ) then
 		
 			self.Breakable = nil
 			return
 			
 		end
 		
-		self:AimAtPos( self.Breakable:WorldSpaceCenter(), 0.5, MAXIMUM_PRIORITY )
+		self:AimAtPos( breakable:WorldSpaceCenter(), 0.5, MAXIMUM_PRIORITY )
 		
-		if self:IsLookingAtPosition( self.Breakable:WorldSpaceCenter() ) then
+		if self:IsLookingAtPosition( breakable:WorldSpaceCenter() ) then
 		
 			if IsValid( self.BestWeapon ) and self.BestWeapon:IsWeapon() and self.BestWeapon:GetClass() != "weapon_medkit" then
 			
 				if self.BestWeapon:GetClass() == self.Melee then
 				
-					local rangeToShoot = self:GetShootPos():DistToSqr( self.Breakable:WorldSpaceCenter() )
-					local rangeToStand = self:GetPos():DistToSqr( self.Breakable:WorldSpaceCenter() )
+					local rangeToShoot = self:GetShootPos():DistToSqr( breakable:WorldSpaceCenter() )
+					local rangeToStand = self:GetPos():DistToSqr( breakable:WorldSpaceCenter() )
 					
 					-- If the breakable is on the ground and we are using a melee weapon
 					-- we have to crouch in order to hit it
@@ -866,21 +879,28 @@ function BOT:HandleButtons()
 			
 		end
 	
-	elseif IsValid( self.Door ) then 
+	elseif IsValid( door ) then 
 	
-		if !self.Door:IsDoor() or self.Door:IsDoorOpen() or self.Door:NearestPoint( self:GetPos() ):DistToSqr( self:GetPos() ) > 10000 then 
+		if !door:IsDoor() or door:IsDoorOpen() or door:NearestPoint( self:GetPos() ):DistToSqr( self:GetPos() ) > 10000 then 
 		
 			self.Door = nil
 			return
 			
 		end
 		
-		self:AimAtPos( self.Door:WorldSpaceCenter(), 0.5, MAXIMUM_PRIORITY )
+		self:AimAtPos( door:WorldSpaceCenter(), 0.5, MAXIMUM_PRIORITY )
 		
-		if CurTime() >= self.UseInterval and self:IsLookingAtPosition( self.Door:WorldSpaceCenter() ) then
+		if CurTime() >= self.UseInterval and self:IsLookingAtPosition( door:WorldSpaceCenter() ) then
 			
 			self:PressUse()
 			self.UseInterval = CurTime() + 0.5
+			
+			if door:IsDoorLocked() then
+			
+				self.Door = nil
+				return
+				
+			end
 			
 		end
 		
@@ -1950,7 +1970,7 @@ function BOT:IsUnhealthy()
 end
 
 -- This is only needed for some gamemodes as said gamemodes may do certain things with bots.
-local oldIsBot = BOT.IsBot
+local oldIsBot = oldIsBot or BOT.IsBot
 -- This makes the game and other addons think the player being controled is a bot.
 --[[function BOT:IsBot()
 
@@ -1978,7 +1998,7 @@ function BOT:IsTRizzleBot( onlyRealBots )
 	
 end
 
-local oldGetInfo = BOT.GetInfo
+local oldGetInfo = oldGetInfo or BOT.GetInfo
 -- This allows me to set the bot's client convars.
 function BOT:GetInfo( cVarName )
 
@@ -2016,7 +2036,7 @@ function BOT:GetInfo( cVarName )
 
 end
 
-local oldGetInfoNum = BOT.GetInfoNum
+local oldGetInfoNum = oldGetInfoNum or BOT.GetInfoNum
 -- This allows me to set the bot's client convars.
 function BOT:GetInfoNum( cVarName, default )
 
@@ -2460,6 +2480,20 @@ function BOT:IsAbleToSee( pos, checkFOV )
 	end
 	
 	return false
+end
+
+local oldScreenFade = oldScreenFade or BOT.ScreenFade
+-- Basic flashbang support!!!
+function BOT:ScreenFade( flags, clr, fadeTime, fadeHold )
+
+	if self:IsTRizzleBot() then
+
+		self:TBotBlind( fadeHold )
+		
+	end
+	
+	oldScreenFade( self, flags, clr, fadeTime, fadeHold )
+	
 end
 
 -- Blinds the bot for a specified amount of time
@@ -3053,6 +3087,13 @@ function Ent:IsDoor()
 	
 end
 
+function Ent:IsDoorLocked()
+	if !self:IsDoor() then return false end
+	
+	return self:GetInternalVariable( "m_bLocked" )
+	
+end
+
 function Ent:IsDoorOpen()
 
 	if self:GetClass() == "func_door" or self:GetClass() == "func_door_rotating" then
@@ -3085,6 +3126,21 @@ function BOT:FindGroupLeader()
 	end
 
 	return CurrentLeader
+	
+end
+
+-- This changes the bots active state to the one entered
+function BOT:TBotSetState( newState )
+	newState = math.Clamp( tonumber( newState ) or IDLE, IDLE, REVIVE_PLAYER ) -- This is a failsafe!
+
+	self.TBotState = newState
+	
+end
+
+-- This returns the current state of the bot
+function BOT:GetTBotState()
+
+	return self.TBotState
 	
 end
 
@@ -3336,10 +3392,10 @@ hook.Add( "Think" , "TRizzleBotThink" , function()
 						
 					end
 				
-				elseif IsValid( bot.GroupLeader ) then -- If the bot's owner is alive, the bot should clear its group leader and the hiding spot it was trying to goto
+				--elseif IsValid( bot.GroupLeader ) then -- If the bot's owner is alive, the bot should clear its group leader and the hiding spot it was trying to goto
 					
-					bot.GroupLeader	= nil
-					bot:ClearHidingSpot()
+					--bot.GroupLeader	= nil
+					--bot:ClearHidingSpot()
 					
 				end
 				
@@ -3479,7 +3535,7 @@ hook.Add( "Think" , "TRizzleBotThink" , function()
 						-- If the bot is not in combat then the bot should check if any of its teammates need healing
 						bot.HealTarget = bot:TBotFindHealTarget()
 						
-						if IsValid( bot.HealTarget ) and bot:HasWeapon( "weapon_medkit" ) then
+						--[[if IsValid( bot.HealTarget ) and bot:HasWeapon( "weapon_medkit" ) then
 						
 							bot.BestWeapon = bot:GetWeapon( "weapon_medkit" )
 							
@@ -3506,6 +3562,13 @@ hook.Add( "Think" , "TRizzleBotThink" , function()
 							end
 							
 						else
+						
+							bot:ReloadWeapons()
+							
+						end]]
+						
+						-- Don't attempt to reload weapons while we are healing.
+						if bot:GetTBotState() != HEAL_PLAYER then
 						
 							bot:ReloadWeapons()
 							
@@ -3592,8 +3655,44 @@ hook.Add( "Think" , "TRizzleBotThink" , function()
 					
 				end
 				
+				-- Here is where the bot sets its move goals based on what its doing!
+				local botState = bot:GetTBotState()
+				if botState == IDLE then
+				
+					bot:TBotIdleState()
+					
+				elseif botState == HIDE then
+				
+					bot:TBotHideState()
+					
+				elseif botState == FOLLOW_OWNER then
+				
+					bot:TBotFollowOwnerState()
+					
+				elseif botState == FOLLOW_GROUP_LEADER then
+				
+					bot:TBotFollowGroupLeaderState()
+					
+				elseif botState == USE_ENTITY then
+				
+					bot:TBotUseEntityState()
+					
+				elseif botState == HOLD_POSITION then
+				
+					bot:TBotHoldPositionState()
+					
+				elseif botState == HEAL_PLAYER then
+				
+					bot:TBotHealPlayerState()
+					
+				elseif botState == REVIVE_PLAYER then
+				
+					bot:TBotRevivePlayerState()
+					
+				end
+				
 				-- This is where the bot sets its move goals
-				if isvector( bot.HidingSpot ) then
+				--[[if isvector( bot.HidingSpot ) then
 					
 					if bot.HidingState == MOVE_TO_SPOT then
 						
@@ -3787,7 +3886,7 @@ hook.Add( "Think" , "TRizzleBotThink" , function()
 					
 					end
 					
-				end
+				end]]
 				
 				-- The check CNavArea we are standing on.
 				if !IsValid( bot.currentArea ) or !bot.currentArea:Contains( bot:GetPos() ) then
@@ -3796,7 +3895,7 @@ hook.Add( "Think" , "TRizzleBotThink" , function()
 					
 				end
 				
-				if IsValid( bot.currentArea ) and bot.currentArea != bot:GetLastKnownArea() then
+				if IsValid( bot.currentArea ) and bot.currentArea != bot.lastKnownArea then
 				
 					bot.lastKnownArea = bot.currentArea
 					
@@ -3915,11 +4014,622 @@ hook.Add( "Think" , "TRizzleBotThink" , function()
 	
 end)
 
+-- This is the bot's idle state
+function BOT:TBotIdleState()
+
+	if self:IsHiding() then
+	
+		self:TBotSetState( HIDE )
+		return
+		
+	end
+	
+	local useEnt = self.UseEnt
+	if IsValid( useEnt ) then
+	
+		self:TBotSetState( USE_ENTITY )
+		return
+	
+	end
+	
+	local botReviveTarget = self.ReviveTarget
+	if IsValid( botReviveTarget ) and self:GetKnownCount( nil, false, self.DangerDist ) <= 5 then
+	
+		self:TBotSetState( REVIVE_PLAYER )
+		return
+		
+	end
+	
+	local botHoldPos = self.HoldPos
+	if isvector( botHoldPos ) then
+	
+		self:TBotSetState( HOLD_POSITION )
+		return
+		
+	end
+	
+	local botOwner = self.TBotOwner
+	if IsValid( botOwner ) and botOwner:Alive() then
+	
+		self.GroupLeader = nil
+		local ownerDist = botOwner:GetPos():DistToSqr( self:GetPos() )
+		if ownerDist > self.FollowDist^2 then
+		
+			self:TBotSetState( FOLLOW_OWNER )
+			return
+			
+		end
+	
+	end
+	
+	local botLeader = self.GroupLeader
+	if IsValid( botLeader ) and !self:IsGroupLeader() then
+	
+		local leaderDist = botLeader:GetPos():DistToSqr( self:GetPos() )
+		if leaderDist > self.FollowDist^2 then
+		
+			self:TBotSetState( FOLLOW_GROUP_LEADER )
+			return
+			
+		end
+		
+	end
+	
+	-- These states should only become activate when we are not in combat.
+	if !self:IsInCombat() then
+	
+		local botHealTarget = self.HealTarget
+		if IsValid( botHealTarget ) and self:HasWeapon( "weapon_medkit" ) then
+		
+			self:TBotSetState( HEAL_PLAYER )
+			return
+			
+		end
+		
+	end
+
+end
+
+-- This is the bot's hiding state
+function BOT:TBotHideState()
+
+	-- The hiding state has the most priority so, only when the bot is done hiding 
+	-- is when it should care about anything else.
+	if !self:IsHiding() then
+	
+		self:TBotSetState( IDLE )
+		return
+		
+	end
+
+	local botWeapon = self:GetActiveWeapon()
+	local threat = self:GetPrimaryKnownThreat()
+	if self.HidingState == MOVE_TO_SPOT then
+	
+		local spotDistSq = self:GetPos():DistToSqr( self.HidingSpot )
+		-- When have reached our destination start the wait timer
+		if spotDistSq <= 1024 then
+			
+			self.HidingState = WAIT_AT_SPOT
+			self.HideTime = CurTime() + self.HideTime
+		
+		-- If the bot finished reloading its active weapon it should clear its selected hiding spot!
+		elseif self.HideReason == RELOAD_IN_COVER and ( !IsValid( botWeapon ) or botWeapon:GetClass() == self.Melee or !botWeapon:NeedsToReload() ) then
+		
+			self:ClearHidingSpot()
+			self:TBotSetState( IDLE )
+			return
+		
+		-- If the bot finds an enemy, it should clear its selected hiding spot
+		elseif self.HideReason == SEARCH_AND_DESTORY and self:IsInCombat() then
+		
+			self.NextHuntTime = CurTime() + 10
+			self:TBotClearPath()
+			self:ClearHidingSpot()
+			self:TBotSetState( IDLE )
+			return
+		
+		-- If the bot has a hiding spot it should path there
+		elseif self.RepathTimer <= CurTime() and spotDistSq > 1024 then
+		
+			TRizzleBotPathfinderCheap( self, self.HidingSpot )
+			--bot:TBotCreateNavTimer()
+			self.RepathTimer = CurTime() + math.Rand( 3.0, 5.0 )
+		
+		end
+	
+	elseif self.HidingState == WAIT_AT_SPOT then
+		
+		-- If the bot has finished hiding, it should clear its selected hiding spot
+		if ( self.HideReason == RETREAT or self.HideReason == SEARCH_AND_DESTORY ) and self.HideTime <= CurTime() then
+			
+			self.NextHuntTime = CurTime() + 20.0
+			self:ClearHidingSpot()
+			self:TBotSetState( IDLE )
+			return
+		
+		-- If the bot has finished reloading its active weapon, it should clear its selected hiding spot
+		elseif self.HideReason == RELOAD_IN_COVER and ( !IsValid( botWeapon ) or botWeapon:GetClass() == self.Melee or !botWeapon:NeedsToReload() ) then
+		
+			self:ClearHidingSpot()
+			self:TBotSetState( IDLE )
+			return
+			
+		-- If the bot's hiding spot is no longer safe, it should clear its selected hiding spot
+		elseif !self:IsSpotSafe( self.HidingSpot + HalfHumanHeight ) then
+		
+			self.NextHuntTime = CurTime() + 20.0
+			self:ClearHidingSpot()
+			self:TBotSetState( IDLE )
+			return
+		
+		elseif !IsValid( self:GetLastKnownArea() ) or !self:GetLastKnownArea():HasAttributes( NAV_MESH_STAND ) then
+		
+			-- The bot should crouch once it reaches its selected hiding spot
+			self:PressCrouch()
+		
+		end
+		
+	end
+	
+	if self.HideReason == RELOAD_IN_COVER and IsValid( botWeapon ) and botWeapon:IsWeapon() and CurTime() >= self.ReloadInterval and !self:IsReloading() and botWeapon:GetClass() != "weapon_medkit" and botWeapon:GetClass() != self.Melee and botWeapon:NeedsToReload() then
+		
+		self:PressReload()
+		self.ReloadInterval = CurTime() + 0.5
+		
+	end
+
+end
+
+-- This is the bot's use entity state
+function BOT:TBotUseEntityState()
+
+	-- The hiding state has the most priority so, only when the bot is done hiding 
+	-- is when it should care about anything else.
+	if self:IsHiding() then
+	
+		self.UseEnt = nil
+		self.UseHoldTime = 0
+		self.StartedUse = false
+		self:TBotSetState( HIDE )
+		return
+		
+	end
+
+	local botUseEnt = self.UseEnt
+	if !IsValid( botUseEnt ) or ( self.UseHoldTime <= CurTime() and self.StartedUse ) then
+	
+		self.UseEnt = nil
+		self.UseHoldTime = 0
+		self.StartedUse = false
+		self:TBotSetState( IDLE )
+		return
+	
+	end
+	
+	local useEnt = self:GetUseEntity()
+	if self.RepathTimer <= CurTime() and useEnt != botUseEnt then
+	
+		TRizzleBotPathfinderCheap( self, self.UseEnt:GetPos() )
+		--bot:TBotCreateNavTimer()
+		self.RepathTimer = CurTime() + math.Rand( 3.0, 5.0 )
+	
+	elseif useEnt == botUseEnt then
+	
+		self:PressUse()
+		self.RepathTimer = 0
+		self:TBotClearPath()
+		
+		if !self.StartedUse then
+		
+			self.StartedUse = true
+			self.UseHoldTime = CurTime() + self.UseHoldTime
+			
+		end
+	
+	end
+	
+	if botUseEnt:GetPos():DistToSqr( self:GetPos() ) <= 200^2 and self:IsAbleToSee( botUseEnt ) then
+		
+		self:AimAtPos( botUseEnt:WorldSpaceCenter(), 0.1, HIGH_PRIORITY )
+		
+	end
+	
+end
+
+-- This is the bot's revive player state
+-- NOTE: This only used if the revive mod is installed
+function BOT:TBotRevivePlayerState()
+
+	-- The hiding state has the most priority so, only when the bot is done hiding 
+	-- is when it should care about anything else.
+	if self:IsHiding() then
+	
+		self:TBotSetState( HIDE )
+		return
+		
+	end
+	
+	-- Our owner has told us to use something, its a higher priority than reviving someone.
+	local useEnt = self.UseEnt
+	if IsValid( useEnt ) then
+	
+		self:TBotSetState( USE_ENTITY )
+		return
+	
+	end
+	
+	local botReviveTarget = self.ReviveTarget
+	if !IsValid( botReviveTarget ) or self:GetKnownCount( nil, false, self.DangerDist ) > 5 then
+	
+		self:TBotSetState( IDLE )
+		return
+		
+	end
+	
+	local reviveTargetDist = botReviveTarget:GetPos():DistToSqr( self:GetPos() )
+	if reviveTargetDist > 80^2 or !self:IsLineOfFireClear( botReviveTarget ) then
+		
+		if ( self.ChaseTimer <= CurTime() and ( !self:IsPathValid() or self:IsRepathNeeded( botReviveTarget ) ) ) or self.RepathTimer <= CurTime() then
+			
+			TRizzleBotPathfinderCheap( self, botReviveTarget:GetPos() )
+			--bot:TBotCreateNavTimer()
+			self.RepathTimer = CurTime() + math.Rand( 3.0, 5.0 )
+			self.ChaseTimer = CurTime() + 0.5
+			
+		end
+		
+	elseif self:IsPathValid() then
+		
+		self:TBotClearPath()
+		
+	end
+	
+	if reviveTargetDist <= 100^2 and self:IsAbleToSee( botReviveTarget ) then
+		
+		self:AimAtPos( botReviveTarget:GetPos(), 0.1, HIGH_PRIORITY )
+		
+		if self:IsLookingAtPosition( botReviveTarget:GetPos() ) then
+		
+			self:PressUse()
+			
+		end
+	
+	end
+
+end
+
+-- This is the bot's hold position state
+function BOT:TBotHoldPositionState()
+
+	-- The hiding state has the most priority so, only when the bot is done hiding 
+	-- is when it should care about anything else.
+	if self:IsHiding() then
+	
+		self:TBotSetState( HIDE )
+		return
+		
+	end
+	
+	-- Our owner has told us to use something, its a higher priority than holding our current position.
+	-- We will go back to holding the position set by our owner when we finish.
+	local useEnt = self.UseEnt
+	if IsValid( useEnt ) then
+	
+		self:TBotSetState( USE_ENTITY )
+		return
+	
+	end
+	
+	-- Reviving a player is more important than holding where our owner told us.
+	local botReviveTarget = self.ReviveTarget
+	if IsValid( botReviveTarget ) and self:GetKnownCount( nil, false, self.DangerDist ) <= 5 then
+	
+		self:TBotSetState( REVIVE_PLAYER )
+		return
+		
+	end
+	
+	local botHoldPos = self.HoldPos
+	if !isvector( botHoldPos ) then
+	
+		self:TBotSetState( IDLE )
+		return
+		
+	end
+	
+	local goalDist = self:GetPos():DistToSqr( botHoldPos )
+	if goalDist > TBotGoalTolerance:GetFloat()^2 then
+		
+		if self.RepathTimer <= CurTime() then
+		
+			TRizzleBotPathfinderCheap( self, botHoldPos )
+			--bot:TBotCreateNavTimer()
+			self.RepathTimer = CurTime() + math.Rand( 3.0, 5.0 )
+		
+		end
+	
+	end
+	
+end
+
+-- This is the bot's heal player state
+function BOT:TBotHealPlayerState()
+
+	-- The hiding state has the most priority so, only when the bot is done hiding 
+	-- is when it should care about anything else.
+	if self:IsHiding() then
+	
+		self:TBotSetState( HIDE )
+		return
+		
+	end
+	
+	-- Our owner has told us to use something, its a higher priority than healing someone.
+	-- We will go back to healing when we finish.
+	local useEnt = self.UseEnt
+	if IsValid( useEnt ) then
+	
+		self:TBotSetState( USE_ENTITY )
+		return
+	
+	end
+	
+	-- Reviving a player is more important than healing someone.
+	local botReviveTarget = self.ReviveTarget
+	if IsValid( botReviveTarget ) and self:GetKnownCount( nil, false, self.DangerDist ) <= 5 then
+	
+		self:TBotSetState( REVIVE_PLAYER )
+		return
+		
+	end
+	
+	-- Following our owner is more important than healing someone.
+	local botOwner = self.TBotOwner
+	if IsValid( botOwner ) and botOwner:Alive() then
+	
+		self.GroupLeader = nil
+		local ownerDist = botOwner:GetPos():DistToSqr( self:GetPos() )
+		if ownerDist > self.FollowDist^2 then
+		
+			self:TBotSetState( FOLLOW_OWNER )
+			return
+			
+		end
+	
+	end
+	
+	-- Following our group leader is more important than healing someone.
+	local botLeader = self.GroupLeader
+	if IsValid( botLeader ) and !self:IsGroupLeader() then
+	
+		local leaderDist = botLeader:GetPos():DistToSqr( self:GetPos() )
+		if leaderDist > self.FollowDist^2 then
+		
+			self:TBotSetState( FOLLOW_GROUP_LEADER )
+			return
+			
+		end
+		
+	end
+	
+	-- The bot shouldn't heal while in combat.
+	if self:IsInCombat() then
+	
+		self:TBotSetState( IDLE )
+		return
+		
+	end
+	
+	local botHealTarget = self.HealTarget
+	if !IsValid( botHealTarget ) or !self:HasWeapon( "weapon_medkit" ) then
+	
+		self:TBotSetState( IDLE )
+		return
+		
+	end
+	
+	self.BestWeapon = self:GetWeapon( "weapon_medkit" )
+	
+	local botWeapon = self:GetActiveWeapon()
+	if IsValid( botWeapon ) and botWeapon:IsWeapon() and botWeapon:GetClass() == "weapon_medkit" then
+		
+		if CurTime() >= self.FireWeaponInterval then 
+			
+			if botHealTarget == self then
+			
+				self:PressSecondaryAttack()
+				self.FireWeaponInterval = CurTime() + 0.5
+			
+			elseif self:GetEyeTrace().Entity == botHealTarget then
+				
+				self:PressPrimaryAttack()
+				self.FireWeaponInterval = CurTime() + 0.5
+				
+			end
+			
+		end
+	
+		if botHealTarget != self then self:AimAtPos( botHealTarget:WorldSpaceCenter(), 0.1, MEDIUM_PRIORITY ) end
+	
+	end
+	
+end
+
+-- This is the bot's follow owner state.
+function BOT:TBotFollowOwnerState()
+
+	-- The hiding state has the most priority so, only when the bot is done hiding 
+	-- is when it should care about anything else.
+	if self:IsHiding() then
+	
+		self:TBotSetState( HIDE )
+		return
+		
+	end
+	
+	-- Our owner has told us to use something, its a higher priority than following its owner.
+	-- We will go back to following when we finish.
+	local useEnt = self.UseEnt
+	if IsValid( useEnt ) then
+	
+		self:TBotSetState( USE_ENTITY )
+		return
+	
+	end
+	
+	-- Reviving a player is more important than following its owner.
+	local botReviveTarget = self.ReviveTarget
+	if IsValid( botReviveTarget ) and self:GetKnownCount( nil, false, self.DangerDist ) <= 5 then
+	
+		self:TBotSetState( REVIVE_PLAYER )
+		return
+		
+	end
+	
+	-- Our owner has told us to wait at a set postion, its a higher priority than following them.
+	local botHoldPos = self.HoldPos
+	if isvector( botHoldPos ) then
+	
+		self:TBotSetState( HOLD_POSITION )
+		return
+		
+	end
+	
+	local botOwner = self.TBotOwner
+	if !IsValid( botOwner ) or !botOwner:Alive() then
+	
+		self:TBotSetState( IDLE )
+		return
+		
+	end
+	
+	local ownerDist = botOwner:GetPos():DistToSqr( self:GetPos() )
+	if ownerDist > self.FollowDist^2 then
+		
+		if ( self.ChaseTimer <= CurTime() and ( !self:IsPathValid() or self:IsRepathNeeded( botOwner ) ) ) or self.RepathTimer <= CurTime() then
+		
+			TRizzleBotPathfinderCheap( self, botOwner:GetPos() )
+			--bot:TBotCreateNavTimer()
+			self.RepathTimer = CurTime() + math.Rand( 3.0, 5.0 )
+			self.ChaseTimer = CurTime() + 0.5
+		
+		end
+	
+	elseif self:IsPathValid() then 
+	
+		if self:IsLineOfFireClear( botOwner ) then -- Is this a good idea? and ownerDist <= ( bot.FollowDist / 2 )^2
+	
+			self:TBotClearPath()
+			self:TBotSetState( IDLE )
+			return
+			
+		end
+	
+	else
+	
+		self:TBotSetState( IDLE ) -- This is a fail safe, so we don't get stuck in this state!
+		return
+	
+	end
+	
+end
+
+-- This is the bot's follow group leader state.
+function BOT:TBotFollowGroupLeaderState()
+
+	-- The hiding state has the most priority so, only when the bot is done hiding 
+	-- is when it should care about anything else.
+	if self:IsHiding() then
+	
+		self:TBotSetState( HIDE )
+		return
+		
+	end
+	
+	-- Our owner has told us to use something, its a higher priority than following our group leader.
+	-- We will go back to following when we finish.
+	local useEnt = self.UseEnt
+	if IsValid( useEnt ) then
+	
+		self:TBotSetState( USE_ENTITY )
+		return
+	
+	end
+	
+	-- Reviving a player is more important than following our group leader.
+	local botReviveTarget = self.ReviveTarget
+	if IsValid( botReviveTarget ) and self:GetKnownCount( nil, false, self.DangerDist ) <= 5 then
+	
+		self:TBotSetState( REVIVE_PLAYER )
+		return
+		
+	end
+	
+	-- Our owner has told us to wait at a set postion, its a higher priority than following them.
+	local botHoldPos = self.HoldPos
+	if isvector( botHoldPos ) then
+	
+		self:TBotSetState( HOLD_POSITION )
+		return
+		
+	end
+	
+	-- Our owner is alive and valid, we should follow them instead.
+	local botOwner = self.TBotOwner
+	if IsValid( botOwner ) and botOwner:Alive() then
+	
+		self.GroupLeader = nil
+		self:TBotSetState( FOLLOW_OWNER )
+		return
+		
+	end
+	
+	local botLeader = self.GroupLeader
+	if !IsValid( botLeader ) or !botLeader:Alive() then
+	
+		self:TBotSetState( IDLE )
+		return
+		
+	end
+	
+	local leaderDist = botLeader:GetPos():DistToSqr( self:GetPos() )
+	if leaderDist > self.FollowDist^2 then
+		
+		if ( self.ChaseTimer <= CurTime() and ( !self:IsPathValid() or self:IsRepathNeeded( botLeader ) ) ) or self.RepathTimer <= CurTime() then
+		
+			TRizzleBotPathfinderCheap( self, botLeader:GetPos() )
+			--bot:TBotCreateNavTimer()
+			self.RepathTimer = CurTime() + math.Rand( 3.0, 5.0 )
+			self.ChaseTimer = CurTime() + 0.5
+		
+		end
+	
+	elseif self:IsPathValid() then 
+	
+		if self:IsLineOfFireClear( botLeader ) then -- Is this a good idea? and leaderDist <= ( bot.FollowDist / 2 )^2
+	
+			self:TBotClearPath()
+			self:TBotSetState( IDLE )
+			return
+			
+		end
+		
+	else
+	
+		self:TBotSetState( IDLE ) -- This is a fail safe, so we don't get stuck in this state!
+		return
+	
+	end
+	
+end
+
 -- Bot chat commands are handled here.
 hook.Add( "PlayerSay", "TRizzleBotPlayerSay", function( sender, text, teamChat ) 
 	if !IsValid( sender ) then return end
 
 	local textTable = string.Explode( " ", text )
+	if !textTable[ 1 ] or !textTable[ 2 ] then return end
 	for k, bot in ipairs( player.GetAll() ) do
 	
 		if IsValid( bot ) and bot:IsTRizzleBot() and sender == bot.TBotOwner and textTable[ 1 ] == bot:Nick() then
@@ -4550,6 +5260,14 @@ function BOT:SelectMoreDangerousThreat( threat1, threat2 )
 	
 	local closerThreat = self:SelectCloserThreat( threat1, threat2 )
 	
+	local botWeapon = self:GetActiveWeapon()
+	if IsValid( botWeapon ) and botWeapon:IsWeapon() and botWeapon == self.Melee then
+	
+		-- If the bot is using a melee weapon, they should pick the closest enemy!
+		return closerThreat
+		
+	end
+	
 	local isImmediateThreat1 = self:IsImmediateThreat( threat1 )
 	local isImmediateThreat2 = self:IsImmediateThreat( threat2 )
 	
@@ -4961,7 +5679,7 @@ function BOT:DoorCheck()
 	local halfWidth = self:GetHullWidth() / 2.0
 	for k, door in ipairs( ents.FindAlongRay( self:GetPos(), self.Goal.Pos, Vector( -halfWidth, -halfWidth, -halfWidth ), Vector( halfWidth, halfWidth, self:GetStandHullHeight() / 2.0 ) ) ) do
 	
-		if IsValid( door ) and door:IsDoor() and !door:IsDoorOpen() and door:NearestPoint( self:GetPos() ):DistToSqr( self:GetPos() ) <= 10000 then
+		if IsValid( door ) and door:IsDoor() and !door:IsDoorLocked() and !door:IsDoorOpen() and door:NearestPoint( self:GetPos() ):DistToSqr( self:GetPos() ) <= 10000 then
 		
 			self.Door = door
 			break
@@ -5120,6 +5838,179 @@ function TRizzleBotRangeCheck( area , fromArea , ladder , bot , length )
 		--print( "Total Cost: " .. cost )
 		
 		return cost + fromArea:GetCostSoFar()
+		
+	end
+	
+end
+
+function TRizzleBotRangeCheckRetreat( area , fromArea , ladder , bot , length , threat )
+	
+	local maxThreatRange = 500.0
+	local dangerDensity = 1000.0
+	
+	if area:IsBlocked() then
+	
+		return -1.0
+		
+	end
+	
+	if !IsValid( fromArea ) then
+	
+		if IsValid( threat ) then
+			
+			if area:Contains( threat:GetPos() ) then
+				
+				return dangerDensity * 10
+				
+			else
+				
+				local rangeToThreat = threat:GetPos():Distance( bot:GetPos() )
+
+				if rangeToThreat < maxThreatRange then
+					
+					return dangerDensity * ( 1.0 - ( rangeToThreat / maxThreatRange ) )
+					
+				end
+				
+			end
+			
+		end
+	
+		-- first area in path, no cost
+		return 0
+		
+	elseif fromArea:HasAttributes( NAV_MESH_JUMP ) and area:HasAttributes( NAV_MESH_JUMP ) then
+	
+		-- cannot actually walk in jump areas - disallow moving from jump area to jump area
+		return -1.0
+	
+	else
+	
+		-- compute distance traveled along path so far
+		local dist = 0
+		
+		if IsValid( ladder ) then 
+		
+			dist = ladder:GetLength()
+			
+		elseif isnumber( length ) and length > 0 then
+		
+			-- optimization to avoid recomputing lengths
+			dist = length
+		
+		else
+		
+			dist = area:GetCenter():Distance( fromArea:GetCenter() )
+			
+		end
+		
+		local Height	=	fromArea:ComputeAdjacentConnectionHeightChange( area )
+		local stepHeight = Either( IsValid( bot ), bot:GetStepSize(), 18 )
+		-- Jumping is slower than ground movement.
+		if !IsValid( ladder ) and !fromArea:IsUnderwater() and Height > stepHeight then
+			
+			local maximumJumpHeight = Either( IsValid( bot ), bot:GetMaxJumpHeight(), 64 )
+			if Height > maximumJumpHeight then
+			
+				return -1
+			
+			end
+			
+			--print( "Jump Height: " .. Height )
+			dist	=	dist + ( dist * 2 )
+			
+		-- Falling is risky if the bot might take fall damage.
+		elseif !area:IsUnderwater() and Height < -stepHeight then
+			
+			local fallDistance = -fromArea:ComputeGroundHeightChange( area )
+			
+			if IsValid( ladder ) and ladder:GetBottom().z < fromArea:GetCenter().z and ladder:GetBottom().z > area:GetCenter().z then
+			
+				fallDistance = ladder:GetBottom().z - area:GetCenter().z
+				
+			end
+			
+			--print( "Drop Height: " .. Height )
+			local fallDamage = GetApproximateFallDamage( fallDistance )
+			
+			if fallDamage > 0.0 and IsValid( bot ) then
+			
+				-- if the fall would kill us, don't use it
+				local deathFallMargin = 10.0
+				if fallDamage + deathFallMargin >= bot:Health() then
+				
+					return -1.0
+					
+				end
+				
+				local painTolerance = 25.0
+				if bot:IsUnhealthy() or fallDamage > painTolerance then
+				
+					-- cost is proportional to how much it hurts when we fall
+					-- 10 points - not a big deal, 50 points - ouch
+					dist	=	dist + ( 100 * fallDamage * fallDamage )
+					
+				end
+			
+			end
+			
+		end
+		
+		-- Add in danger cost due to threat
+		-- Assume straight line between areas and find closest point
+		-- to the threat along that line segment. The distance between
+		-- the threat and closest point on the line is the danger cost.	
+		
+		if IsValid( threat ) then
+		
+			local t, Close = CalcClosestPointOnLineSegment( threat:GetPos(), area:GetCenter(), fromArea:GetCenter() )
+			if t < 0.0 then
+				
+				Close = area:GetCenter()
+				
+			elseif t > 1.0 then
+				
+				Close = fromArea:GetCenter()
+				
+			end
+			
+			local rangeToThreat = threat:GetPos():Distance( Close )
+			if rangeToThreat < maxThreatRange then
+				
+				local dangerFactor = 1.0 - ( rangeToThreat / maxThreatRange )
+				dist	=	dist * ( dangerDensity * dangerFactor )
+				
+			end
+			
+		end
+		
+		-- Crawling through a vent is very slow.
+		-- NOTE: The cost is determined by the bot's crouch speed
+		if area:HasAttributes( NAV_MESH_CROUCH ) then 
+			
+			local crouchPenalty = Either( IsValid( bot ), math.floor( 1 / bot:GetCrouchedWalkSpeed() ), 5 )
+			
+			dist	=	dist + ( dist * crouchPenalty )
+			
+		end
+		
+		-- The bot should avoid this area unless alternatives are too dangerous or too far.
+		if area:HasAttributes( NAV_MESH_AVOID ) then 
+			
+			dist	=	dist + ( dist * 20 )
+			
+		end
+		
+		-- We will try not to swim since it can be slower than running on land, it can also be very dangerous, Ex. "Acid, Lava, Etc."
+		if area:IsUnderwater() then
+		
+			dist	=	dist + ( dist * 2 )
+			
+		end
+		
+		--print( "Distance: " .. dist )
+		
+		return dist + fromArea:GetCostSoFar()
 		
 	end
 	
@@ -5284,6 +6175,431 @@ function TRizzleBotPathfinderCheap( bot, goal )
 	
 	return pathResult
 	
+end
+
+-- This creates a path to chase the selected subject!
+function TRizzleBotPathfinderChase( bot, subject )
+	if !IsValid( bot ) or !IsValid( subject ) then return false end
+	
+	local pathTarget = TRizzleBotPredictSubjectPosition( bot, subject )
+	return TRizzleBotPathfinderCheap( bot, pathTarget )
+
+end
+
+-- This creates a path to flee from the selected threat!
+function TRizzleBotPathfinderRetreat( bot, threat )
+	if !IsValid( bot ) or !IsValid( threat ) then return false end
+
+	local NORTH = 0
+	local EAST = 1
+	local SOUTH = 2
+	local WEST = 3
+	
+	local LADDER_UP = 0
+	local LADDER_DOWN = 1
+
+	local GO_LADDER_UP = 4
+	local GO_LADDER_DOWN = 5
+
+	local startArea = bot:GetLastKnownArea()
+	if !IsValid( startArea ) then
+	
+		return false
+		
+	end
+	
+	local retreatFromArea = navmesh.GetNearestNavArea( threat:GetPos() )
+	if !IsValid( retreatFromArea ) then
+	
+		return false
+		
+	end
+	
+	startArea:SetParent( nil, 9 )
+	
+	startArea:ClearSearchLists()
+	
+	local initCost = TRizzleBotRangeCheckRetreat( startArea, nil, nil, bot, nil, threat )
+	if initCost < 0.0 then
+	
+		return false
+		
+	end
+	
+	startArea:SetTotalCost( initCost )
+	
+	startArea:AddToOpenList()
+	
+	-- Keep track of farthest away from the threat
+	local farthestArea = nil
+	local farthestRange = 0.0
+	
+	--
+	-- Dijkstra's algorithm (since we don't know our goal).
+	-- Build a path as far away from the retreat area as possible.
+	-- Minimize total path length and danger.
+	-- Maximize distance to threat of end of path.
+	--
+	while !startArea:IsOpenListEmpty() do
+	
+		local area = startArea:PopOpenList()
+		
+		area:AddToClosedList()
+		
+		--- don't consider blocked areas
+		if area:IsBlocked() then
+		
+			continue
+			
+		end
+		
+		local adjacentAreas = {}
+		
+		for k, it in ipairs( area:GetAdjacentAreasAtSide( NORTH ) ) do
+		
+			local index = #adjacentAreas
+			if index >= 64 then
+			
+				break
+				
+			end
+			
+			table.insert( adjacentAreas, { area = it, how = NORTH, ladder = nil } )
+			
+		end
+		
+		for k, it in ipairs( area:GetAdjacentAreasAtSide( SOUTH ) ) do
+		
+			local index = #adjacentAreas
+			if index >= 64 then
+			
+				break
+				
+			end
+			
+			table.insert( adjacentAreas, { area = it, how = SOUTH, ladder = nil } )
+			
+		end
+		
+		for k, it in ipairs( area:GetAdjacentAreasAtSide( WEST ) ) do
+		
+			local index = #adjacentAreas
+			if index >= 64 then
+			
+				break
+				
+			end
+			
+			table.insert( adjacentAreas, { area = it, how = WEST, ladder = nil } )
+			
+		end
+		
+		for k, it in ipairs( area:GetAdjacentAreasAtSide( EAST ) ) do
+		
+			local index = #adjacentAreas
+			if index >= 64 then
+			
+				break
+				
+			end
+			
+			table.insert( adjacentAreas, { area = it, how = EAST, ladder = nil } )
+			
+		end
+		
+		for k, it in ipairs( area:GetLaddersAtSide( LADDER_UP ) ) do
+		
+			local index = #adjacentAreas
+			if IsValid( it:GetTopForwardArea() ) and index < 64 then
+			
+				table.insert( adjacentAreas, { area = it:GetTopForwardArea(), how = GO_LADDER_UP, ladder = it } )
+				
+			end
+			
+			if IsValid( it:GetTopLeftArea() ) and index < 64 then
+			
+				table.insert( adjacentAreas, { area = it:GetTopLeftArea(), how = GO_LADDER_UP, ladder = it } )
+				
+			end
+			
+			if IsValid( it:GetTopRightArea() ) and index < 64 then
+			
+				table.insert( adjacentAreas, { area = it:GetTopRightArea(), how = GO_LADDER_UP, ladder = it } )
+				
+			end
+			
+			if IsValid( it:GetTopBehindArea() ) and index < 64 then
+			
+				table.insert( adjacentAreas, { area = it:GetTopBehindArea(), how = GO_LADDER_UP, ladder = it } )
+				
+			end
+			
+		end
+		
+		for k, it in ipairs( area:GetLaddersAtSide( LADDER_DOWN ) ) do
+		
+			local index = #adjacentAreas
+			if index >= 64 then
+			
+				break
+				
+			end
+			
+			if IsValid( it:GetBottomArea() ) then
+			
+				table.insert( adjacentAreas, { area = it:GetBottomArea(), how = GO_LADDER_DOWN, ladder = it } )
+				
+			end
+			
+		end
+		
+		for i = 1, #adjacentAreas do
+		
+			local newArea = adjacentAreas[ i ].area
+		
+			-- only visit each area once
+			if newArea:IsClosed() then
+			
+				continue
+				
+			end
+			
+			-- don't consider blocked areas
+			if newArea:IsBlocked() then
+			
+				continue
+				
+			end
+			
+			-- don't use this area if it is out of range
+			if ( newArea:GetCenter() - bot:GetPos() ):IsLengthGreaterThan( 1000 ) then
+			
+				continue
+				
+			end
+			
+			-- determine cost of traversing this area
+			local newCost = TRizzleBotRangeCheckRetreat( newArea, area, adjacentAreas[ i ].ladder, bot, nil, threat )
+			
+			-- don't use adjacent area if cost functor says it is a dead end
+			if newCost < 0.0 then
+			
+				continue
+				
+			end
+			
+			if newArea:IsOpen() and newArea:GetTotalCost() <= newCost then
+			
+				-- we have already visited this area, and it has a better path
+				continue
+				
+			else
+			
+				-- whether this area has been visited ot not, we now have a better path
+				newArea:SetParent( area, adjacentAreas[ i ].how )
+				newArea:SetTotalCost( newCost )
+				
+				-- use 'cost so far' to hold cumulative cost
+				newArea:SetCostSoFar( newCost )
+				
+				-- tricky bit here - relying on OpenList being sorted by cost
+				if newArea:IsOpen() then
+				
+					-- area already on open list, update the list to keep costs sorted
+					newArea:UpdateOnOpenList()
+					
+				else
+				
+					newArea:AddToOpenList()
+					
+				end
+				
+				-- keep track of area farthest from threat
+				local threatRange = newArea:GetCenter():Distance( threat:GetPos() )
+				if threatRange > farthestRange then
+				
+					farthestArea = newArea
+					farthestRange = threatRange
+					
+				end
+				
+			end
+			
+		end
+		
+	end
+	
+	if IsValid( farthestArea ) then
+	
+		TRizzleBotAssembleRetreatPath( bot, farthestArea:GetCenter(), farthestArea )
+		return true
+		
+	end
+	
+	return false
+
+end
+
+-- INTERNAL: This is used internaly by TRizzleBotPathfinderRetreat, don't go complaning about having issues
+-- with it if you use this function for other things!
+function TRizzleBotAssembleRetreatPath( bot, goal, endArea )
+
+	local start = bot:GetPos()
+	local NUM_TRAVERSE_TYPES = 9
+	
+	-- get count
+	local count = 0
+	local area = endArea
+	while IsValid( area ) do
+	
+		count = count + 1
+		
+		area = area:GetParent()
+		
+	end
+	
+	if count == 0 then
+	
+		return false
+		
+	end
+	
+	if count == 1 then
+	
+		BuildTrivialPath( bot, goal )
+		return true
+		
+	end
+	
+	-- assemble path
+	bot.SegmentCount = count
+	area = endArea
+	while IsValid( area ) and count > 0 do
+	
+		bot.Path[ count ] = {}
+		bot.Path[ count ].Area = area
+		bot.Path[ count ].How = area:GetParentHow()
+		bot.Path[ count ].Type = PATH_ON_GROUND
+		
+		area = area:GetParent()
+		count = count - 1
+		
+	end
+	
+	-- append actual goal position
+	bot.SegmentCount = bot.SegmentCount + 1
+	bot.Path[ bot.SegmentCount ] = {}
+	bot.Path[ bot.SegmentCount ].Area = endArea
+	bot.Path[ bot.SegmentCount ].Pos = goal
+	bot.Path[ bot.SegmentCount ].How = NUM_TRAVERSE_TYPES
+	bot.Path[ bot.SegmentCount ].Type = PATH_ON_GROUND
+	
+	--[[for k,v in ipairs( bot.Path ) do
+	
+		if v.Area == startArea then
+		
+			print( "StartArea at " .. tostring( k ) )
+		
+		elseif v.Area == closestArea then
+		
+			print( "EndArea at " .. tostring( k ) )
+			
+		end
+		
+	end
+	
+	print( "SegmentCount: " .. tostring( bot.SegmentCount ) )
+	print( "Bot Path Length: " .. tostring( #bot.Path ) )]]
+	
+	-- compute path positions
+	if bot:ComputeNavmeshVisibility() == false then
+	
+		bot:TBotClearPath()
+		bot.Goal = bot:FirstSegment()
+		return false
+		
+	end
+	
+	PostProccess( bot )
+	
+	bot.Goal = bot:FirstSegment()
+	
+	return true
+	
+end
+
+-- This is used by TRizzleBotPathfinderChase to predict where the subject is moving to cut them off.
+function TRizzleBotPredictSubjectPosition( bot, subject )
+
+	local subjectPos = subject:GetPos()
+	
+	local to = subjectPos - bot:GetPos()
+	to.z = 0.0
+	local flRangeSq = to:LengthSqr()
+	
+	-- The bot shouldn't attempt to cut off their target if they are too far away!
+	if flRangeSq > 500^2 then
+	
+		return subjectPos
+		
+	end
+	
+	local range = math.sqrt( flRangeSq )
+	to = to / ( range + 0.0001 ) -- Avoid divide by zero
+	
+	-- Estimate time to reach subject, assuming maximum speed for now.....
+	local leadTime = 0.5 + ( range / ( bot:GetRunSpeed() + 0.0001 ) )
+	
+	-- Estimate amount to lead the subject
+	local leader = leadTime * subject:GetVelocity()
+	lead.z = 0.0
+	
+	if to:Dot( lead ) < 0.0 then
+	
+		-- The subject is moving towards us - only pay attention
+		-- to his perpendicular velocity for leading
+		local to2D = to:AsVector2D()
+		to2D:Normalize()
+		
+		local perp = Vector( -to2D.y, to2D.x )
+		
+		local enemyGroundSpeed = lead.x * perp.x + lead.y * perp.y
+		
+		lead.x = enemyGroundSpeed * perp.x
+		lead.y = enemyGroundSpeed * perp.y
+		
+	end
+	
+	-- Computer our desired destination
+	local pathTarget = subjectPos + lead
+	
+	-- Validate this destination
+	
+	-- Don't lead through walls
+	if lead:LengthSqr() > 36.0 then
+	
+		local isTraversable, fraction = bot:IsPotentiallyTraversable( subjectPos, pathTarget )
+		if !isTraversable then
+		
+			-- Tried to lead through an unwalkable area - clip to walkable space
+			pathTarget = subjectPos + fraction * ( pathTarget - subjectPos )
+			
+		end
+		
+	end
+	
+	-- Don't lead over cliffs
+	local leadArea = navmesh.GetNearestNavArea( pathTarget )
+	
+	if !IsValid( leadArea ) or leadArea:GetZ( pathTarget ) < pathTarget.z - bot:GetMaxJumpHeight() then
+	
+		-- Would fall off a cliff
+		return subjectPos
+		
+	end
+	
+	return pathTarget
+
 end
 
 --[[
@@ -9954,7 +11270,68 @@ function Test3( absMin, absMax, maxHeightAboveTopArea, ent )
 	
 	end]]
 	
+	print( ent )
+	print( top )
+	print( bottom )
+	print( width )
 	print( normal )
+	
+	navmesh.CreateNavLadder( top, bottom, width, normal, maxHeightAboveTopArea )
+	
+end
+
+concommand.Add( "experiment_auto_build_ladders" , Test4 , nil , "This creates nav ladders on func_useableladders. This is in beta and is very buggy!" )
+concommand.Add( "experiment_create_ladder" , Test5 , nil , "Creates a CNavLadder with the specified parameters!" )
+function Test4( ply, cmd, args )
+	
+	if BRANCH != "dev" then 
+	
+		if IsValid( ply ) then
+		
+			ply:ChatPrint( "This command only works on the dev branch for now..." ) 
+			
+		end
+		
+		return 
+	
+	end
+	
+	for k, ladder in ipairs( ents.FindByClass( "func_useableladder" ) ) do
+	
+		local bottom, top = ladder:GetCollisionBounds()
+		bottom = ladder:LocalToWorld( bottom )
+		top = ladder:LocalToWorld( top )
+		
+		Test3( bottom, top, 0, ladder )
+		
+	end
+	
+end
+
+function Test5( ply, cmd, args )
+
+	if BRANCH != "dev" then 
+	
+		if IsValid( ply ) then
+		
+			ply:ChatPrint( "This command only works on the dev branch for now..." ) 
+			
+		end
+		
+		return 
+	
+	end
+	
+	local top = Vector( args[ 1 ] )
+	local bottom = Vector( args[ 2 ] )
+	local width = tonumber( args[ 3 ] )
+	local normal = Vector( args[ 4 ] )
+	local maxHeightAboveTopArea = tonumber( args[ 5 ] ) or 0
+	
+	if !isvector( top ) then if IsValid( ply ) then ply:ChatPrint( "bad argument #1 to 'navmesh_create_ladder' (Vector expected got " .. type( top ) .. ")" ) end return
+	elseif !isvector( bottom ) then if IsValid( ply ) then ply:ChatPrint( "bad argument #2 to 'navmesh_create_ladder' (Vector expected got " .. type( bottom ) .. ")" ) end return
+	elseif !isnumber( width ) then if IsValid( ply ) then ply:ChatPrint( "bad argument #3 to 'navmesh_create_ladder' (number expected got " .. type( width ) .. ")" ) end return
+	elseif !isvector( normal ) then if IsValid( ply ) then ply:ChatPrint( "bad argument #4 to 'navmesh_create_ladder' (Vector expected got " .. type( normal ) .. ")" ) end return end
 	
 	navmesh.CreateNavLadder( top, bottom, width, normal, maxHeightAboveTopArea )
 	
