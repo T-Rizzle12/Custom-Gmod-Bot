@@ -1270,7 +1270,18 @@ function BOT:ComputeApproachPoints()
 		self.ApproachPoints = {}
 		-- For some reason if there is only once adjacent area no encounter spots will be created
 		-- So I grab the single adjacent area instead and use its encounter and approach spots instead
-		local spotEncounter = Either( myArea:GetAdjacentCount() == 1, myArea:GetAdjacentAreas()[ 1 ]:GetSpotEncounters(), myArea:GetSpotEncounters() )
+		local spotEncounter = nil
+		
+		if myArea:GetAdjacentCount() == 1 then 
+		
+			spotEncounter = myArea:GetAdjacentAreas()[ 1 ]:GetSpotEncounters() 
+			
+		else
+		
+			spotEncounter = myArea:GetSpotEncounters()
+			
+		end
+		
 		local eye = self:GetShootPos()
 		
 		local ap = Vector()
@@ -1330,7 +1341,17 @@ function BOT:ComputeEncounterSpot()
 		local EncounterSpots = {}
 		-- For some reason if there is only once adjacent area no encounter spots will be created
 		-- So I grab the single adjacent area instead and use its encounter and approach spots instead
-		local spotEncounter = Either( myArea:GetAdjacentCount() == 1, myArea:GetAdjacentAreas()[ 1 ]:GetSpotEncounters(), myArea:GetSpotEncounters() )
+		local spotEncounter = nil
+		
+		if myArea:GetAdjacentCount() == 1 then 
+		
+			spotEncounter = myArea:GetAdjacentAreas()[ 1 ]:GetSpotEncounters() 
+			
+		else
+		
+			spotEncounter = myArea:GetSpotEncounters()
+			
+		end
 		
 		if istable( spotEncounter ) then
 		
@@ -5073,7 +5094,16 @@ function BOT:IsThreatAimingTowardMe( threat, cosTolerance )
 	local to = self:GetPos() - threat:GetPos()
 	local threatRange = to:Length()
 	to:Normalize()
-	local forward = Either( threat:IsPlayer() or threat:IsNPC(), threat:GetAimVector(), threat:EyeAngles():Forward() )
+	local forward = nil
+	if threat:IsPlayer() or threat:IsNPC() then 
+	
+		forward = threat:GetAimVector() 
+		
+	else
+	
+		forward = threat:EyeAngles():Forward()
+		
+	end
 	
 	if to:Dot( forward ) > cosTolerance then
 	
@@ -5491,7 +5521,7 @@ function BOT:UpdateKnownEntities()
 		
 			if self.AttackList[ pit ] or ( pit:IsNPC() and pit:IsAlive() ) or ( pit:IsPlayer() and pit:Alive() ) or ( pit:IsNextBot() and pit:Health() > 0 ) then
 				
-				if !self:IsIgnored( pit ) and self:IsEnemy( pit ) and self:IsAbleToSee( pit, true ) then
+				if !self:IsIgnored( pit ) and self:IsAbleToSee( pit, true ) then
 				
 					table.insert( visibleNow, pit )
 					visibleNow2[ pit ] = true
@@ -5607,7 +5637,7 @@ function BOT:TBotFindHealTarget()
 			
 			if teammatedistsqr < targetdistsqr then 
 				target = ply
-				targetdist = teammatedist
+				targetdistsqr = teammatedistsqr
 			end
 		end
 	end
@@ -5743,11 +5773,15 @@ function TRizzleBotRangeCheck( area , fromArea , ladder , bot , length )
 		end
 		
 		local Height	=	fromArea:ComputeAdjacentConnectionHeightChange( area )
-		local stepHeight = Either( IsValid( bot ), bot:GetStepSize(), 18 )
+		local stepHeight = 18
+		if IsValid( bot ) then stepHeight = bot:GetStepSize() end
+		
 		-- Jumping is slower than ground movement.
 		if !IsValid( ladder ) and !fromArea:IsUnderwater() and Height > stepHeight then
 			
-			local maximumJumpHeight = Either( IsValid( bot ), bot:GetMaxJumpHeight(), 64 )
+			local maximumJumpHeight = 64
+			if IsValid( bot ) then maximumJumpHeight = bot:GetMaxJumpHeight() end
+			
 			if Height > maximumJumpHeight then
 			
 				return -1
@@ -5812,7 +5846,8 @@ function TRizzleBotRangeCheck( area , fromArea , ladder , bot , length )
 		-- NOTE: The cost is determined by the bot's crouch speed
 		if area:HasAttributes( NAV_MESH_CROUCH ) then 
 			
-			local crouchPenalty = Either( IsValid( bot ), math.floor( 1 / bot:GetCrouchedWalkSpeed() ), 5 )
+			local crouchPenalty = 5
+			if IsValid( bot ) then crouchPenalty = math.floor( 1 / bot:GetCrouchedWalkSpeed() ) end
 			
 			dist	=	dist + ( dist * crouchPenalty )
 			
@@ -5905,11 +5940,15 @@ function TRizzleBotRangeCheckRetreat( area , fromArea , ladder , bot , length , 
 		end
 		
 		local Height	=	fromArea:ComputeAdjacentConnectionHeightChange( area )
-		local stepHeight = Either( IsValid( bot ), bot:GetStepSize(), 18 )
+		local stepHeight = 18
+		if IsValid( bot ) then stepHeight = bot:GetStepSize() end
+		
 		-- Jumping is slower than ground movement.
 		if !IsValid( ladder ) and !fromArea:IsUnderwater() and Height > stepHeight then
 			
-			local maximumJumpHeight = Either( IsValid( bot ), bot:GetMaxJumpHeight(), 64 )
+			local maximumJumpHeight = 64
+			if IsValid( bot ) then maximumJumpHeight = bot:GetMaxJumpHeight() end
+			
 			if Height > maximumJumpHeight then
 			
 				return -1
@@ -5988,7 +6027,8 @@ function TRizzleBotRangeCheckRetreat( area , fromArea , ladder , bot , length , 
 		-- NOTE: The cost is determined by the bot's crouch speed
 		if area:HasAttributes( NAV_MESH_CROUCH ) then 
 			
-			local crouchPenalty = Either( IsValid( bot ), math.floor( 1 / bot:GetCrouchedWalkSpeed() ), 5 )
+			local crouchPenalty = 5
+			if IsValid( bot ) then crouchPenalty = math.floor( 1 / bot:GetCrouchedWalkSpeed() ) end
 			
 			dist	=	dist + ( dist * crouchPenalty )
 			
@@ -6041,7 +6081,7 @@ function GetApproximateFallDamage( height )
 end
 
 -- This is a hybrid version of pathfollower, it can use ladders and is very optimized
-function TRizzleBotPathfinderCheap( bot, goal )
+function TRizzleBotPathfinderCheap( bot, goal, costFunc )
 	
 	bot:TBotClearPath()
 	local NUM_TRAVERSE_TYPES = 9
@@ -6076,7 +6116,7 @@ function TRizzleBotPathfinderCheap( bot, goal )
 		
 	end
 	
-	local pathResult, closestArea = NavAreaBuildPath( startArea, goalArea, Vector( goal ), bot )
+	local pathResult, closestArea = NavAreaBuildPath( startArea, goalArea, Vector( goal ), bot, costFunc )
 	
 	-- Failed?
 	if !IsValid( closestArea ) then
@@ -6187,9 +6227,12 @@ function TRizzleBotPathfinderChase( bot, subject )
 end
 
 -- This creates a path to flee from the selected threat!
-function TRizzleBotPathfinderRetreat( bot, threat )
+function TRizzleBotPathfinderRetreat( bot, threat, costFunc )
 	if !IsValid( bot ) or !IsValid( threat ) then return false end
 
+	costFunc = costFunc or TRizzleBotRangeCheckRetreat
+
+	bot:TBotClearPath()
 	local NORTH = 0
 	local EAST = 1
 	local SOUTH = 2
@@ -6219,7 +6262,7 @@ function TRizzleBotPathfinderRetreat( bot, threat )
 	
 	startArea:ClearSearchLists()
 	
-	local initCost = TRizzleBotRangeCheckRetreat( startArea, nil, nil, bot, nil, threat )
+	local initCost = costFunc( startArea, nil, nil, bot, nil, threat )
 	if initCost < 0.0 then
 	
 		return false
@@ -6379,7 +6422,7 @@ function TRizzleBotPathfinderRetreat( bot, threat )
 			end
 			
 			-- determine cost of traversing this area
-			local newCost = TRizzleBotRangeCheckRetreat( newArea, area, adjacentAreas[ i ].ladder, bot, nil, threat )
+			local newCost = costFunc( newArea, area, adjacentAreas[ i ].ladder, bot, nil, threat )
 			
 			-- don't use adjacent area if cost functor says it is a dead end
 			if newCost < 0.0 then
@@ -6551,7 +6594,7 @@ function TRizzleBotPredictSubjectPosition( bot, subject )
 	local leadTime = 0.5 + ( range / ( bot:GetRunSpeed() + 0.0001 ) )
 	
 	-- Estimate amount to lead the subject
-	local leader = leadTime * subject:GetVelocity()
+	local lead = leadTime * subject:GetVelocity()
 	lead.z = 0.0
 	
 	if to:Dot( lead ) < 0.0 then
@@ -6615,6 +6658,7 @@ If 'maxPathLength' is nonzero, path building will stop when this length is reach
 Returns true if a path exists.	
 ]]
 function NavAreaBuildPath( startArea, goalArea, goalPos, bot, costFunc )
+	costFunc = costFunc or TRizzleBotRangeCheck
 	
 	local closestArea = startArea
 	
@@ -6655,7 +6699,7 @@ function NavAreaBuildPath( startArea, goalArea, goalPos, bot, costFunc )
 	
 	startArea:SetTotalCost( startArea:GetCenter():Distance( actualGoalPos ) )
 	
-	local initCost = TRizzleBotRangeCheck( startArea, nil, nil, bot )
+	local initCost = costFunc( startArea, nil, nil, bot )
 	if initCost < 0.0 then
 	
 		return false, closestArea
@@ -6845,7 +6889,7 @@ function NavAreaBuildPath( startArea, goalArea, goalPos, bot, costFunc )
 				
 			end
 			
-			local NewCostSoFar		=	TRizzleBotRangeCheck( newArea , Current , ladder , bot , length )
+			local NewCostSoFar		=	costFunc( newArea , Current , ladder , bot , length )
 			
 			-- inf really mess up this function up causing tough to track down hangs. If
 			--  we get inf back, clamp it down to a really high number.
@@ -7152,7 +7196,13 @@ end
 
 function BOT:GetPathAge()
 
-	return Either( isnumber( self.PathAge ), CurTime() - self.PathAge, 99999.9 )
+	if isnumber( self.PathAge ) then
+	
+		return CurTime() - self.PathAge 
+	
+	end
+
+	return 99999.9
 	
 end
 
@@ -7186,7 +7236,17 @@ function BOT:IsCrossingLineOfFire( startPos, endPos )
 		end
 		
 		local enemy = known:GetEntity()
-		local viewForward = Either( enemy:IsPlayer() or enemy:IsNPC(), enemy:GetAimVector(), enemy:EyeAngles():Forward() )
+		local viewForward = nil
+		if enemy:IsPlayer() or enemy:IsNPC() then
+		
+			viewForward = enemy:GetAimVector()
+		
+		else
+		
+			viewForward = enemy:EyeAngles():Forward() 
+		
+		end
+		
 		local target = enemy:WorldSpaceCenter() + 5000 * viewForward
 		
 		local IsIntersecting = false
@@ -7593,6 +7653,7 @@ function BOT:ComputeNavmeshVisibility()
 	self.Path[ 1 ].How = NUM_TRAVERSE_TYPES
 	self.Path[ 1 ].Type = PATH_ON_GROUND
 	
+	local hullWidth = self:GetHullWidth() + 5.0 -- Inflate hull width slightly as a safety margin!
 	local index = 2
 	while index <= #self.Path do
 		
@@ -7646,8 +7707,8 @@ function BOT:ComputeNavmeshVisibility()
 				end
 				
 				local inc = 10
-				local maxPushDist = 2.0 * self:GetHullWidth()
-				local halfWidth = self:GetHullWidth() / 2.0
+				local maxPushDist = 2.0 * hullWidth
+				local halfWidth = hullWidth / 2.0
 				local hullHeight = self:GetCrouchHullHeight()
 				
 				local pushDist = 0
