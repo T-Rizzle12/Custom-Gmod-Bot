@@ -7654,6 +7654,8 @@ function BOT:ComputeNavmeshVisibility()
 	self.Path[ 1 ].Type = PATH_ON_GROUND
 	
 	local hullWidth = self:GetHullWidth() + 5.0 -- Inflate hull width slightly as a safety margin!
+	local stepHeight = self:GetStepSize()
+	
 	local index = 2
 	while index <= #self.Path do
 		
@@ -7717,7 +7719,7 @@ function BOT:ComputeNavmeshVisibility()
 					local pos = to.Pos + Vector( pushDist * dir.x, pushDist * dir.y, 0 )
 					local lowerPos = Vector( pos.x, pos.y, toPos.z )
 					local ground = {}
-					util.TraceHull( { start = pos, endpos = lowerPos, mins = Vector( -halfWidth, -halfWidth, 0 ), maxs = Vector( halfWidth, halfWidth, hullHeight ), mask = MASK_PLAYERSOLID, filter = TBotTraversableFilter, output = ground } )
+					util.TraceHull( { start = pos, endpos = lowerPos, mins = Vector( -halfWidth, -halfWidth, stepHeight ), maxs = Vector( halfWidth, halfWidth, hullHeight ), mask = MASK_PLAYERSOLID, filter = TBotTraversableFilter, output = ground } )
 					
 					--print( "Ground Fraction: " .. tostring( ground.Fraction ) )
 					--print( "Started Solid: " .. tostring( ground.StartSolid ) )
