@@ -6218,11 +6218,11 @@ function TRizzleBotPathfinderCheap( bot, goal, costFunc )
 end
 
 -- This creates a path to chase the selected subject!
-function TRizzleBotPathfinderChase( bot, subject )
+function TRizzleBotPathfinderChase( bot, subject, costFunc )
 	if !IsValid( bot ) or !IsValid( subject ) then return false end
 	
 	local pathTarget = TRizzleBotPredictSubjectPosition( bot, subject )
-	return TRizzleBotPathfinderCheap( bot, pathTarget )
+	return TRizzleBotPathfinderCheap( bot, pathTarget, costFunc )
 
 end
 
