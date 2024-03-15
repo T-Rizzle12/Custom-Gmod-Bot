@@ -104,7 +104,7 @@ function TRizzleBotCreateMenu( ply, cmd, args )
 	DangerDist:SetMax( math.huge )
 	DangerDist:SetValue( 300 )
 	
-	label = vgui.Create( "DLabel", DScrollPanel )
+	--[[label = vgui.Create( "DLabel", DScrollPanel )
 	label:Dock( TOP )
 	label:DockMargin( 0, 0, 0, 5 )
 	label:SetSize( 150, 20 )
@@ -218,7 +218,43 @@ function TRizzleBotCreateMenu( ply, cmd, args )
 	SniperScope:SetSize( 150, 20 )
 	SniperScope:SetText( "Does the sniper have a scope?" )
 	SniperScope:SetValue( true )
-	SniperScope:SizeToContents()
+	SniperScope:SizeToContents()]]
+	
+	label = vgui.Create( "DLabel", DScrollPanel )
+	label:Dock( TOP )
+	label:DockMargin( 0, 0, 0, 5 )
+	label:SetSize( 150, 20 )
+	label:SetText( "Bot Weapons:" )
+	
+	local weaponList = vgui.Create( "DListView", DScrollPanel )
+	weaponList:Dock( TOP )
+	weaponList:DockMargin( 0, 0, 0, 5 )
+	weaponList:SetSize( 150, 100 )
+	weaponList:AddColumn( "Available Weapons" )
+	
+	for k, wep in pairs( list.Get( "Weapon" ) ) do
+	
+		weaponList:AddLine( wep.ClassName )
+		
+	end
+	
+	local preferredWeaponList = vgui.Create( "DListView", DScrollPanel )
+	preferredWeaponList:Dock( TOP )
+	preferredWeaponList:DockMargin( 0, 0, 0, 5 )
+	preferredWeaponList:SetSize( 150, 100 )
+	preferredWeaponList:AddColumn( "Preferred Weapons" )
+	preferredWeaponList.DoDoubleClick = function( self, lineID, line )
+	
+		weaponList:AddLine( line:GetColumnText( 1 ) )
+		preferredWeaponList:RemoveLine( lineID )
+	
+	end
+	weaponList.DoDoubleClick = function( self, lineID, line )
+	
+		preferredWeaponList:AddLine( line:GetColumnText( 1 ) )
+		weaponList:RemoveLine( lineID )
+	
+	end
 	
 	label = vgui.Create( "DLabel", DScrollPanel )
 	label:Dock( TOP )
@@ -333,17 +369,25 @@ function TRizzleBotCreateMenu( ply, cmd, args )
 	DButton:Dock( TOP )
 	DButton:DockMargin( 0, 0, 0, 5 )
 	DButton.DoClick = function( self )
-		net.Start( "TRizzleCreateBotMenu" )
+		local weaponTable = {}
+		for k, line in ipairs( preferredWeaponList:GetLines() ) do
+			
+			table.insert( weaponTable, line:GetValue( 1 ) )
+			
+		end
+		net.Start( "TRizzleBotVGUIMenu" )
+			net.WriteUInt( 0, 1 ) -- Mark this is as a create bot VGUI so the server knows what to do with this data!
 			net.WriteString( Name:GetValue() )
 			net.WriteInt( FollowDist:GetValue(), 32 )
 			net.WriteInt( DangerDist:GetValue(), 32 )
-			net.WriteString( Melee:GetOptionText( Melee.selected ) or "weapon_crowbar" )
+			--[[net.WriteString( Melee:GetOptionText( Melee.selected ) or "weapon_crowbar" )
 			net.WriteString( Pistol:GetOptionText( Pistol.selected ) or "weapon_pistol" )
 			net.WriteString( Shotgun:GetOptionText( Shotgun.selected ) or "weapon_shotgun" )
 			net.WriteString( Rifle:GetOptionText( Rifle.selected ) or "weapon_smg1" )
 			net.WriteString( Grenade:GetOptionText( Grenade.selected ) or "weapon_frag" )
 			net.WriteString( Sniper:GetOptionText( Sniper.selected ) or "weapon_crossbow" )
-			net.WriteBool( SniperScope:GetChecked() )
+			net.WriteBool( SniperScope:GetChecked() )]]
+			net.WriteTable( weaponTable, true )
 			net.WriteInt( MeleeDist:GetValue(), 32 )
 			net.WriteInt( PistolDist:GetValue(), 32 )
 			net.WriteInt( ShotgunDist:GetValue(), 32 )
@@ -358,4 +402,163 @@ function TRizzleBotCreateMenu( ply, cmd, args )
 
 end
 
+function TRizzleBotRegisterWeaponMenu( ply, cmd, args )
+
+	local Frame = vgui.Create( "DFrame" )
+    Frame:SetPos( ScrW()/2-300, ScrH()/2-300 )
+    Frame:SetSize( 600, 600 )
+    Frame:SetTitle( "TRizzle Bot Weapon Registration Menu" )
+    Frame:SetVisible( true )
+    Frame:SetDraggable( true )
+    Frame:ShowCloseButton( true )
+    Frame:MakePopup()
+    Frame.Paint = function(self,w,h)
+		surface.SetDrawColor(0, 0, 0, 255)
+		surface.DrawRect(0, 0, w, h)
+		surface.SetDrawColor(0, 0, 255, 20)
+		surface.DrawRect(0, 0, w, 30)
+    end
+	
+	--[[local DModelPanel = vgui.Create( "DModelPanel", Frame )
+	DModelPanel:Dock( RIGHT )
+	DModelPanel:SetSize( 370, 0 )
+	DModelPanel:SetModel( "" )
+	DModelPanel:SetAnimated( true )
+	DModelPanel.Angles = angle_zero
+	DModelPanel.DragMousePress = function( self )
+		self.PressX, self.PressY = input.GetCursorPos()
+		self.Pressed = true
+	end
+	DModelPanel.DragMouseRelease = function( self )
+		self.Pressed = false
+	end
+	DModelPanel.LayoutEntity = function( self, ent )
+		if self.bAnimated then self:RunAnimation() end
+		
+		if self.Pressed then
+			local mx, my = input.GetCursorPos()
+			self.Angles = self.Angles - Angle( 0, ( ( self.PressX or mx ) - mx ) / 2, 0 )
+			
+			self.PressX, self.PressY = mx, my
+			
+		end
+		
+		ent:SetAngles( self.Angles )
+		
+	end]]
+	
+	local DScrollPanel = vgui.Create( "DScrollPanel", Frame )
+	--DScrollPanel:Dock( LEFT )
+	DScrollPanel:Dock( FILL )
+	DScrollPanel:SetSize( 230, 0 )
+	
+	local label = vgui.Create( "DLabel", DScrollPanel )
+	label:Dock( TOP )
+	label:DockMargin( 0, 0, 0, 5 )
+	label:SetSize( 150, 20 )
+	label:SetText( "Available Weapons:" )
+	
+	local WeaponList = vgui.Create( "DComboBox", DScrollPanel )
+	WeaponList:Dock( TOP )
+	WeaponList:DockMargin( 0, 0, 0, 5 )
+	WeaponList:SetSize( 150, 100 )
+	
+	for k, wep in pairs( list.Get( "Weapon" ) ) do
+	
+		WeaponList:AddChoice( wep.ClassName )
+		
+	end
+	
+	local label = vgui.Create( "DLabel", DScrollPanel )
+	label:Dock( TOP )
+	label:DockMargin( 0, 0, 0, 5 )
+	label:SetSize( 150, 20 )
+	label:SetText( "Weapon Type:" )
+	
+	local WeaponType = vgui.Create( "DComboBox", DScrollPanel )
+	WeaponType:Dock( TOP )
+	WeaponType:DockMargin( 0, 0, 0, 5 )
+	WeaponType:SetSize( 150, 20 )
+	WeaponType:SetText( "Rifle" )
+	
+	WeaponType:AddChoice( "Rifle", nil, true )
+	WeaponType:AddChoice( "Melee" )
+	WeaponType:AddChoice( "Pistol" )
+	WeaponType:AddChoice( "Sniper" )
+	WeaponType:AddChoice( "Shotgun" )
+	WeaponType:AddChoice( "Explosive" )
+	WeaponType:AddChoice( "Grenade" )
+	
+	local HasScope = vgui.Create( "DCheckBoxLabel", DScrollPanel )
+	HasScope:Dock( TOP )
+	HasScope:DockMargin( 0, 0, 0, 5 )
+	HasScope:SetSize( 150, 20 )
+	HasScope:SetText( "Does the weapon have a scope?" )
+	HasScope:SetValue( false )
+	HasScope:SizeToContents()
+	
+	local HasSecondaryAttack = vgui.Create( "DCheckBoxLabel", DScrollPanel )
+	HasSecondaryAttack:Dock( TOP )
+	HasSecondaryAttack:DockMargin( 0, 0, 0, 5 )
+	HasSecondaryAttack:SetSize( 150, 20 )
+	HasSecondaryAttack:SetText( "Does the weapon have a secondary attack?" )
+	HasSecondaryAttack:SetValue( false )
+	HasSecondaryAttack:SizeToContents()
+	
+	label = vgui.Create( "DLabel", DScrollPanel )
+	label:Dock( TOP )
+	label:DockMargin( 0, 0, 0, 5 )
+	label:SetSize( 150, 20 )
+	label:SetText( "Secondary Attack Cooldown:" )
+	
+	local SecondaryAttackCooldown = vgui.Create( "DNumberWang", DScrollPanel )
+	SecondaryAttackCooldown:Dock( TOP )
+	SecondaryAttackCooldown:DockMargin( 0, 0, 0, 5 )
+	SecondaryAttackCooldown:SetSize( 150, 20 )
+	SecondaryAttackCooldown:SetText( "Secondary Attack Cooldown" )
+	SecondaryAttackCooldown:SetMax( math.huge )
+	SecondaryAttackCooldown:SetValue( 30.0 )
+	
+	label = vgui.Create( "DLabel", DScrollPanel )
+	label:Dock( TOP )
+	label:DockMargin( 0, 0, 0, 5 )
+	label:SetSize( 150, 20 )
+	label:SetText( "Maximum Stored Ammo:" )
+	
+	local MaxStoredAmmo = vgui.Create( "DNumberWang", DScrollPanel )
+	MaxStoredAmmo:Dock( TOP )
+	MaxStoredAmmo:DockMargin( 0, 0, 0, 5 )
+	MaxStoredAmmo:SetSize( 150, 20 )
+	MaxStoredAmmo:SetMax( math.huge )
+	MaxStoredAmmo:SetValue( 0 )
+	
+	local IgnoreAutomaticRange = vgui.Create( "DCheckBoxLabel", DScrollPanel )
+	IgnoreAutomaticRange:Dock( TOP )
+	IgnoreAutomaticRange:DockMargin( 0, 0, 0, 5 )
+	IgnoreAutomaticRange:SetSize( 150, 20 )
+	IgnoreAutomaticRange:SetText( "Should the bot always press and hold its attack button if the weapon is automatic?" )
+	IgnoreAutomaticRange:SetValue( false )
+	IgnoreAutomaticRange:SizeToContents()
+	
+	local DButton = vgui.Create( "DButton", DScrollPanel )
+	DButton:SetText( "Register/Update Weapon" )
+	DButton:Dock( TOP )
+	DButton:DockMargin( 0, 0, 0, 5 )
+	DButton.DoClick = function( self )
+		net.Start( "TRizzleBotVGUIMenu" )
+			net.WriteUInt( 1, 1 ) -- Mark this is as a register weapon VGUI so the server knows what to do with this data!
+			net.WriteString( WeaponList:GetOptionText( WeaponList.selected ) )
+			net.WriteString( WeaponType:GetValue() )
+			net.WriteBool( HasScope:GetChecked() )
+			net.WriteBool( HasSecondaryAttack:GetChecked() )
+			net.WriteInt( SecondaryAttackCooldown:GetValue(), 32 )
+			net.WriteInt( MaxStoredAmmo:GetValue(), 32 )
+			net.WriteBool( IgnoreAutomaticRange:GetChecked() )
+		net.SendToServer()
+		Frame:Close()
+	end
+
+end
+
 concommand.Add( "TRizzleBotCreateMenu", TRizzleBotCreateMenu, nil, "Opens a derma menu that assists with creating a TRizzleBot." )
+concommand.Add( "TRizzleBotRegisterWeaponMenu", TRizzleBotRegisterWeaponMenu, nil, "Opens a derma menu that assists with registering a weapon." )
