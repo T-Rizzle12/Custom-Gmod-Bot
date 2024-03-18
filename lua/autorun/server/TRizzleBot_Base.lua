@@ -5068,16 +5068,27 @@ end
 hook.Add( "PlayerSay", "TRizzleBotPlayerSay", function( sender, text, teamChat ) 
 	if !IsValid( sender ) then return end
 
-	local textTable = string.Explode( " ", text )
-	if !textTable[ 1 ] or !textTable[ 2 ] then return end
+	--local textTable = string.Explode( " ", text )
+	--if !textTable[ 1 ] or !textTable[ 2 ] then return end
 	for k, bot in player.Iterator() do
 	
-		if IsValid( bot ) and bot:IsTRizzleBot() then 
+		if IsValid( bot ) and bot:IsTRizzleBot() and ( !teamChat or bot:Team() == sender:Team() ) then 
 		
 			local botTable = bot:GetTable()
-			if sender == botTable.TBotOwner and textTable[ 1 ] == bot:Nick() then
+			local startpos, endpos, botName = string.find( text, bot:Nick() )
+			local textTable
+			local command
+			
+			if isnumber( startpos ) and startpos == 1 then -- Only run the command if the bot name was said first!
+			
+				textTable = string.Explode( " ", string.sub( text, endpos + 1 ) ) -- Grab everything else after the name!
+				table.remove( textTable, 1 ) -- Remove the unnecessary whitespace
+				command = textTable[ 1 ]:lower()
+				
+			end
+			
+			if sender == botTable.TBotOwner and isstring( command ) then
 		
-				local command = textTable[ 2 ]:lower()
 				if command == "follow" then
 				
 					botTable.UseEnt = nil
@@ -5118,9 +5129,9 @@ hook.Add( "PlayerSay", "TRizzleBotPlayerSay", function( sender, text, teamChat )
 						botTable.UseEnt = useEnt
 						botTable.StartedUse = false
 						
-						if textTable[ 3 ] then
+						if textTable[ 2 ] then
 						
-							botTable.UseHoldTime = tonumber( textTable[ 3 ] ) or 0.1
+							botTable.UseHoldTime = tonumber( textTable[ 2 ] ) or 0.1
 							
 						else
 						
@@ -5140,6 +5151,18 @@ hook.Add( "PlayerSay", "TRizzleBotPlayerSay", function( sender, text, teamChat )
 						botTable.AttackList[ enemy ] = true
 						
 					end
+				
+				elseif command == "clear" and textTable[ 2 ] then
+				
+					if textTable[ 2 ]:lower() == "attack" then
+					
+						botTable.AttackList = {}
+						
+					end
+				
+				elseif command == "alert" then
+				
+					botTable.LastCombatTime = CurTime() - 5.0
 				
 				elseif command == "warp" then
 				
