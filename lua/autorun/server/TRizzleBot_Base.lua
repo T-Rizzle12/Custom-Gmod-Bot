@@ -5128,16 +5128,7 @@ hook.Add( "PlayerSay", "TRizzleBotPlayerSay", function( sender, text, teamChat )
 					
 						botTable.UseEnt = useEnt
 						botTable.StartedUse = false
-						
-						if textTable[ 2 ] then
-						
-							botTable.UseHoldTime = tonumber( textTable[ 2 ] ) or 0.1
-							
-						else
-						
-							botTable.UseHoldTime = 0.1
-							
-						end
+						botTable.UseHoldTime = tonumber( textTable[ 2 ] ) or 0.1
 						
 					end
 				
@@ -5152,7 +5143,7 @@ hook.Add( "PlayerSay", "TRizzleBotPlayerSay", function( sender, text, teamChat )
 						
 					end
 				
-				elseif command == "clear" and textTable[ 2 ] then
+				elseif command == "clear" and isstring( textTable[ 2 ] ) then
 				
 					if textTable[ 2 ]:lower() == "attack" then
 					
@@ -5935,23 +5926,51 @@ function BOT:IsVisibleEntityNoticed( subject )
 
 end
 
+-- This is used by the vision interface to check if the bot should consider the entered entity!
+function BOT:IsValidVisionTarget( pit )
+
+	if self.AttackList[ pit ] then 
+	
+		return true
+		
+	end
+	
+	if pit:IsNPC() and pit:IsAlive() then 
+	
+		return true
+		
+	end
+	
+	if pit:IsPlayer() and pit:Alive() then 
+	
+		return true
+	
+	end
+	
+	if pit:IsNextBot() and pit:Health() > 0 then
+	
+		return true
+		
+	end
+
+	return false
+
+end
+
 function BOT:UpdateKnownEntities()
 
 	local visibleNow = {}
 	local visibleNow2 = {}
+	local knownEntities = {}
 	local botTable = self:GetTable()
 	for k, pit in ents.Iterator() do
 	
-		if IsValid( pit ) and pit != self then 
+		if IsValid( pit ) and pit != self and self:IsValidVisionTarget( pit ) then 
 		
-			if botTable.AttackList[ pit ] or ( pit:IsNPC() and pit:IsAlive() ) or ( pit:IsPlayer() and pit:Alive() ) or ( pit:IsNextBot() and pit:Health() > 0 ) then
+			if !self:IsIgnored( pit ) and self:IsAbleToSee( pit, true ) then
 				
-				if !self:IsIgnored( pit ) and self:IsAbleToSee( pit, true ) then
-				
-					table.insert( visibleNow, pit )
-					visibleNow2[ pit ] = true
-					
-				end
+				table.insert( visibleNow, pit )
+				visibleNow2[ pit ] = true
 				
 			end
 			
@@ -5971,7 +5990,10 @@ function BOT:UpdateKnownEntities()
 			
 		end
 		
-		-- NOTE: Valve reiterates through the list to check IsAbleToSee.....
+		-- NOTE: I create a list of every entity already on the enemy list so we don't have loop again if we need to add something not on the list!
+		knownEntities[ known:GetEntity() ] = true
+		
+		-- NOTE: Valve reiterates through the table to check IsAbleToSee.....
 		-- I choose to create both a table and a list so I don't have to do that. :)
 		if tobool( visibleNow2[ known:GetEntity() ] ) then
 		
@@ -5979,7 +6001,7 @@ function BOT:UpdateKnownEntities()
 			known:UpdateVisibilityStatus( true )
 			
 			-- Has our reaction time just elapsed?
-			if CurTime() - known:GetTimeWhenBecameVisible() >= self:GetMinRecognizeTime() and self.LastVisionUpdateTimestamp - known:GetTimeWhenBecameVisible() < self:GetMinRecognizeTime() then
+			if CurTime() - known:GetTimeWhenBecameVisible() >= self:GetMinRecognizeTime() and botTable.LastVisionUpdateTimestamp - known:GetTimeWhenBecameVisible() < self:GetMinRecognizeTime() then
 			
 				self:OnSight( known:GetEntity() )
 				
@@ -6013,7 +6035,7 @@ function BOT:UpdateKnownEntities()
 	i = 1
 	while i <= #visibleNow do
 	
-		local j = 1
+		--[[local j = 1
 		while j <= #botTable.EnemyList do
 		
 			if visibleNow[ i ] == botTable.EnemyList[ j ]:GetEntity() then
@@ -6027,6 +6049,16 @@ function BOT:UpdateKnownEntities()
 		end
 		
 		if j > #botTable.EnemyList then
+		
+			local known = TBotKnownEntity( visibleNow[ i ] )
+			known:UpdatePosition()
+			known:UpdateVisibilityStatus( true )
+			table.insert( botTable.EnemyList, known )
+			
+		end]]
+		
+		-- NOTE: This is WAY faster than the code above since we don't have to iterate throught the entire known enemy list more than once!
+		if !knownEntities[ visibleNow[ i ] ] then
 		
 			local known = TBotKnownEntity( visibleNow[ i ] )
 			known:UpdatePosition()
