@@ -3070,7 +3070,7 @@ RegisterTBotWeapon( { ClassName = "weapon_357_hl1", WeaponType = "Pistol" } )
 RegisterTBotWeapon( { ClassName = "weapon_rpg_hl1", WeaponType = "Explosive" } )
 RegisterTBotWeapon( { ClassName = "weapon_glock_hl1", WeaponType = "Pistol" } )
 RegisterTBotWeapon( { ClassName = "weapon_crossbow_hl1", WeaponType = "Sniper", HasScope = true, MaxStoredAmmo = 12 } )
-RegisterTBotWeapon( { ClassName = "weapon_gauss", WeaponType = "Rifle", MaxStoredAmmo = 250 )
+RegisterTBotWeapon( { ClassName = "weapon_gauss", WeaponType = "Rifle", MaxStoredAmmo = 250 } )
 RegisterTBotWeapon( { ClassName = "weapon_egon", WeaponType = "Rifle", MaxStoredAmmo = 250, IgnoreAutomaticRange = true } )
 RegisterTBotWeapon( { ClassName = "weapon_crowbar_hl1", WeaponType = "Melee" } )
 
