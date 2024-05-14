@@ -3064,7 +3064,7 @@ RegisterTBotWeapon( { ClassName = "weapon_357", WeaponType = "Pistol" } )
 -- Register Half-Life 1 weapons!
 RegisterTBotWeapon( { ClassName = "weapon_handgrenade", WeaponType = "Grenade" } )
 RegisterTBotWeapon( { ClassName = "weapon_mp5_hl1", WeaponType = "Rifle", HasSecondaryAttack = true } )
-RegisterTBotWeapon( { ClassName = "weapon_shotgun_hl1", WeaponType = "Shotgun", HasSecondaryAttack = true,  SecondaryAttackCooldown = 10.0 )
+RegisterTBotWeapon( { ClassName = "weapon_shotgun_hl1", WeaponType = "Shotgun", HasSecondaryAttack = true,  SecondaryAttackCooldown = 10.0 } )
 RegisterTBotWeapon( { ClassName = "weapon_hornetgun", WeaponType = "Rifle" } )
 RegisterTBotWeapon( { ClassName = "weapon_357_hl1", WeaponType = "Pistol" } )
 RegisterTBotWeapon( { ClassName = "weapon_rpg_hl1", WeaponType = "Explosive" } )
