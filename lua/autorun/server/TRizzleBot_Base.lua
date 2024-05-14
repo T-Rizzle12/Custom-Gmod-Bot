@@ -610,7 +610,7 @@ net.Receive( "TRizzleBotVGUIMenu", function( _, ply )
 	
 end)
 
-concommand.Add( "TRizzleCreateBot" , TBotCreate , nil , "Creates a TRizzle Bot with the specified parameters. Example: TRizzleCreateBot <botname> <followdist> <dangerdist> <melee> <pistol> <shotgun> <rifle> <grenade> <sniper> <hasScope> <meleedist> <pistoldist> <shotgundist> <rifledist> <healthreshold> <combathealthreshold> <playermodel> <spawnwithpreferredweapons> Example2: TRizzleCreateBot Bot 200 300 weapon_crowbar weapon_pistol weapon_shotgun weapon_smg1 weapon_frag weapon_crossbow 1 80 1300 300 900 100 25 alyx 1" )
+concommand.Add( "TRizzleCreateBot" , TBotCreate , nil , "Creates a TRizzle Bot with the specified parameters. Example: TRizzleCreateBot <botname> <followdist> <dangerdist> <meleedist> <pistoldist> <shotgundist> <rifledist> <healthreshold> <combathealthreshold> <playermodel> <spawnwithpreferredweapons> Example2: TRizzleCreateBot Bot 200 300 80 1300 300 900 100 25 alyx 1" )
 concommand.Add( "TBotSetFollowDist" , TBotSetFollowDist , nil , "Changes the specified bot's how close it should be to its owner. If only the bot is specified the value will revert back to the default." )
 concommand.Add( "TBotSetDangerDist" , TBotSetDangerDist , nil , "Changes the specified bot's how far the bot can be from its owner while in combat. If only the bot is specified the value will revert back to the default." )
 --[[concommand.Add( "TBotSetMelee" , TBotSetMelee , nil , "Changes the specified bot's preferred melee weapon. If only the bot is specified the value will revert back to the default." )
@@ -621,7 +621,7 @@ concommand.Add( "TBotSetGrenade" , TBotSetGrenade , nil , "Changes the specified
 concommand.Add( "TBotSetSniper" , TBotSetSniper , nil , "Changes the specified bot's preferred sniper. If only the bot is specified the value will revert back to the default." )]]
 concommand.Add( "TBotAddPreferredWeapon" , TBotAddPreferredWeapon , nil , "Add a new weapon to the bot's preferred weapon list." )
 concommand.Add( "TBotRemovePreferredWeapon" , TBotRemovePreferredWeapon , nil , "Removes a weapon from the bot's preferred weapon list." )
-concommand.Add( "TBotClearPreferredWeaponList" , TBotClearPreferredWeaponList , nil , "Clears the entire bot's preferred weaon list." )
+concommand.Add( "TBotClearPreferredWeaponList" , TBotClearPreferredWeaponList , nil , "Clears the entire bot's preferred weapon list." )
 concommand.Add( "TBotSetMeleeDist" , TBotSetMeleeDist , nil , "Changes the distance for when the bot should use it's melee weapon. If only the bot is specified the value will revert back to the default." )
 concommand.Add( "TBotSetPistolDist" , TBotSetPistolDist , nil , "Changes the distance for when the bot should use it's pistol. If only the bot is specified the value will revert back to the default." )
 concommand.Add( "TBotSetShotgunDist" , TBotSetShotgunDist , nil , "Changes the distance for when the bot should use it's shotgun. If only the bot is specified the value will revert back to the default." )
@@ -955,39 +955,6 @@ function BOT:HandleButtons()
 			else
 			
 				local bestWeapon		=	nil
-				--[[local pistol			=	self:GetWeapon( self.Pistol )
-				local rifle				=	self:GetWeapon( self.Rifle )
-				local shotgun			=	self:GetWeapon( self.Shotgun )
-				local sniper			=	self:GetWeapon( self.Sniper )
-				local melee				=	self:GetWeapon( self.Melee )
-			
-				if IsValid( pistol ) and pistol:HasPrimaryAmmo() then
-					
-					bestWeapon = pistol
-					
-				elseif IsValid( sniper ) and sniper:HasPrimaryAmmo() then
-			
-					bestWeapon = sniper
-				
-				end
-				
-				if IsValid( rifle ) and rifle:HasPrimaryAmmo() and !IsValid( bestWeapon ) then
-				
-					bestWeapon = rifle
-					
-				end
-				
-				if IsValid( shotgun ) and shotgun:HasPrimaryAmmo() and !IsValid( bestWeapon ) then
-					
-					bestWeapon = shotgun
-					
-				end
-				
-				if IsValid( melee ) and !IsValid( bestWeapon ) then
-
-					bestWeapon = melee
-					
-				end]]
 				
 				for k, weapon in ipairs( self:GetWeapons() ) do
 		
@@ -2933,10 +2900,10 @@ function BOT:SelectBestWeapon( target, enemydistsqr )
 	if ( self.MinEquipInterval > CurTime() and !self:IsActiveWeaponClipEmpty() ) or ( !isnumber( enemydistsqr ) and !IsValid( target ) ) then return end
 	
 	enemydistsqr			=	enemydistsqr or target:GetPos():DistToSqr( self:GetPos() ) -- Only compute this once, there is no point in recomputing it multiple times as doing so is a waste of computer resources
-	local oldBestWeapon 	= 	self.BestWeapon
+	local botTable			=	self:GetTable()
+	local oldBestWeapon 	= 	botTable.BestWeapon
 	local minEquipInterval	=	0
 	local bestWeapon		=	nil
-	local botTable			=	self:GetTable()
 	--local pistol			=	self:GetWeapon( self.Pistol )
 	--local rifle				=	self:GetWeapon( self.Rifle )
 	--local shotgun			=	self:GetWeapon( self.Shotgun )
@@ -2951,76 +2918,25 @@ function BOT:SelectBestWeapon( target, enemydistsqr )
 		botTable.BestWeapon = medkit
 	
 	else
-		-- I use multiple if statements instead of elseifs
-		-- If an enemy is very far away, the bot should use its sniper
-		--[[if IsValid( sniper ) and sniper:HasPrimaryAmmo() then
-			
-			bestWeapon = sniper
-			minEquipInterval = 5.0
-			
-		end
-		
-		-- If an enemy is far the bot, the bot should use its pistol
-		if IsValid( pistol ) and pistol:HasPrimaryAmmo() and ( enemydistsqr < self.PistolDist * self.PistolDist or !IsValid( bestWeapon ) ) then
-			
-			bestWeapon = pistol
-			minEquipInterval = 5.0
-			
-		end
-		
-		-- If an enemy gets too far but is still close, the bot should use its rifle
-		if IsValid( rifle ) and rifle:HasPrimaryAmmo() and ( enemydistsqr < self.RifleDist * self.RifleDist or !IsValid( bestWeapon ) ) then
-		
-			bestWeapon = rifle
-			minEquipInterval = 5.0
-			
-		end
-		
-		-- If an enemy gets close, the bot should use its shotgun
-		if IsValid( shotgun ) and shotgun:HasPrimaryAmmo() and ( enemydistsqr < self.ShotgunDist * self.ShotgunDist or !IsValid( bestWeapon ) ) then
-			
-			bestWeapon = shotgun
-			minEquipInterval = 5.0
-			
-		end
-		
-		if IsValid( grenade ) and self.GrenadeInterval <= CurTime() and enemydistsqr > 40000 and self:GetKnownCount( nil, true, -1 ) >= 5 then
-		
-			bestWeapon = grenade
-			minEquipInterval = 5.0
-			
-		end
-		
-		-- If an enemy gets too close, the bot should use its melee
-		if IsValid( melee ) and ( ( enemydistsqr < self.MeleeDist * self.MeleeDist and self:GetKnownCount( nil, true, -1 ) < 5 ) or !IsValid( bestWeapon ) ) then
-
-			bestWeapon = melee
-			minEquipInterval = 2.0
-			
-		end]]
 		
 		-- FIXME: This really should be neater.....
 		-- Maybe in its own function?
 		local desiredWeaponType = "Sniper"
-		--local desiredRange = 5
 		if enemydistsqr < botTable.PistolDist^2 then
 		
 			desiredWeaponType = "Pistol"
-			--desiredRange = 4
 			
 		end
 		
 		if enemydistsqr < botTable.RifleDist^2 then
 		
 			desiredWeaponType = "Rifle"
-			--desiredRange = 3
 			
 		end
 		
 		if enemydistsqr < botTable.ShotgunDist^2 then
 		
 			desiredWeaponType = "Shotgun"
-			--desiredRange = 2
 			
 		end
 		
@@ -3120,59 +3036,43 @@ concommand.Add( "TBotRegisterWeapon", TBotRegisterWeaponCommand, nil, "Registers
 -- Explosive: The bot should not use this when an enemy is nearby and will not fire this weapon when too close to its selected enemy.
 -- Grenade: The bot will assume the weapon is a grenade and use the grenade AI.
 --
-function RegisterTBotWeapon( newWeapon, weaponType, hasScope, hasSecondaryAttack, secondaryAttackCooldown, maxStoredAmmo, ignoreAutomaticRange )
-	if !istable( newWeapon ) and !isstring( newWeapon ) then error( "bad argument #1 to 'RegisterTBotWeapon' (Table or string expected got " .. type( newWeapon ) .. ")" ) end
+function RegisterTBotWeapon( newWeapon )
+	if !istable( newWeapon ) then error( "bad argument #1 to 'RegisterTBotWeapon' (Table expected got " .. type( newWeapon ) .. ")" ) end
 
-	if istable( newWeapon ) then
-	
-		if TBotWeaponTable[ newWeapon.ClassName ] then
+	if TBotWeaponTable[ newWeapon.ClassName ] then
 		
-			print( "[INFORMATION] Overriding already registered weapon!" )
+		print( "[INFORMATION] Overriding already registered weapon!" )
 		
-		end
-	
-		TBotWeaponTable[ newWeapon.ClassName ] = { WeaponType = newWeapon.WeaponType or "Rifle", HasScope = tobool( newWeapon.HasScope ), HasSecondaryAttack = tobool( newWeapon.HasSecondaryAttack ), SecondaryAttackCooldown = tonumber( newWeapon.SecondaryAttackCooldown ) or 30.0, MaxStoredAmmo = tonumber( newWeapon.MaxStoredAmmo ), IgnoreAutomaticRange = tobool( newWeapon.IgnoreAutomaticRange ) }
-	
-	else
-	
-		if TBotWeaponTable[ newWeapon ] then
-		
-			print( "[INFORMATION] Overriding already registered weapon!" )
-		
-		end
-	
-		-- If we were just given the classname assume the default parameters
-		TBotWeaponTable[ newWeapon ] = { WeaponType = weaponType or "Rifle", HasScope = tobool( hasScope ), HasSecondaryAttack = tobool( hasSecondaryAttack ), SecondaryAttackCooldown = tonumber( secondaryAttackCooldown ) or 30.0, MaxStoredAmmo = tonumber( maxStoredAmmo ), IgnoreAutomaticRange = tobool( ignoreAutomaticRange ) }
-	
 	end
+	
+	TBotWeaponTable[ newWeapon.ClassName ] = { WeaponType = newWeapon.WeaponType or "Rifle", HasScope = tobool( newWeapon.HasScope ), HasSecondaryAttack = tobool( newWeapon.HasSecondaryAttack ), SecondaryAttackCooldown = tonumber( newWeapon.SecondaryAttackCooldown ) or 30.0, MaxStoredAmmo = tonumber( newWeapon.MaxStoredAmmo ), IgnoreAutomaticRange = tobool( newWeapon.IgnoreAutomaticRange ) }
 
 end
 
 -- Register the default weapons!
-RegisterTBotWeapon( "weapon_stunstick", "Melee" )
-RegisterTBotWeapon( "weapon_frag", "Grenade" )
-RegisterTBotWeapon( "weapon_crossbow", "Sniper", true, false, nil, 12 )
-RegisterTBotWeapon( "weapon_rpg", "Explosive" )
-RegisterTBotWeapon( "weapon_crowbar", "Melee" )
-RegisterTBotWeapon( "weapon_shotgun", "Shotgun", false, true, 10.0 )
-RegisterTBotWeapon( "weapon_pistol", "Pistol" )
-RegisterTBotWeapon( "weapon_smg1", "Rifle" )
-RegisterTBotWeapon( "weapon_ar2", "Rifle", false, true, 30.0 )
-RegisterTBotWeapon( "weapon_357", "Pistol" )
+RegisterTBotWeapon( { ClassName = "weapon_stunstick", WeaponType = "Melee" } )
+RegisterTBotWeapon( { ClassName = "weapon_frag", WeaponType = "Grenade" } )
+RegisterTBotWeapon( { ClassName = "weapon_crossbow", WeaponType = "Sniper", HasScope = true, MaxStoredAmmo = 12 } )
+RegisterTBotWeapon( { ClassName = "weapon_rpg", WeaponType = "Explosive" } )
+RegisterTBotWeapon( { ClassName = "weapon_crowbar", WeaponType = "Melee" } )
+RegisterTBotWeapon( { ClassName = "weapon_shotgun", WeaponType = "Shotgun", HasSecondaryAttack = true, SecondaryAttackCooldown = 10.0 } )
+RegisterTBotWeapon( { ClassName = "weapon_pistol", WeaponType = "Pistol" } )
+RegisterTBotWeapon( { ClassName = "weapon_smg1", WeaponType = "Rifle" } )
+RegisterTBotWeapon( { ClassName = "weapon_ar2", WeaponType = "Rifle", HasSecondaryAttack = true } )
+RegisterTBotWeapon( { ClassName = "weapon_357", WeaponType = "Pistol" } )
 
 -- Register Half-Life 1 weapons!
-RegisterTBotWeapon( "weapon_handgrenade", "Grenade" )
-RegisterTBotWeapon( "weapon_mp5_hl1", "Rifle", false, true, 30.0 )
-RegisterTBotWeapon( "weapon_shotgun_hl1", "Shotgun", false, true, 10.0 )
-RegisterTBotWeapon( "weapon_hornetgun", "Rifle" )
-RegisterTBotWeapon( "weapon_crowbar_hl1", "Sniper", true )
-RegisterTBotWeapon( "weapon_357_hl1", "Pistol" )
-RegisterTBotWeapon( "weapon_rpg_hl1", "Explosive" )
-RegisterTBotWeapon( "weapon_glock_hl1", "Pistol" )
-RegisterTBotWeapon( "weapon_crossbow_hl1", "Sniper", true, false, nil, 12 )
-RegisterTBotWeapon( "weapon_gauss", "Rifle", false, false, nil, 250 )
-RegisterTBotWeapon( "weapon_egon", "Rifle", false, false, nil, 250, true )
-RegisterTBotWeapon( "weapon_crowbar_hl1", "Melee" )
+RegisterTBotWeapon( { ClassName = "weapon_handgrenade", WeaponType = "Grenade" } )
+RegisterTBotWeapon( { ClassName = "weapon_mp5_hl1", WeaponType = "Rifle", HasSecondaryAttack = true } )
+RegisterTBotWeapon( { ClassName = "weapon_shotgun_hl1", WeaponType = "Shotgun", HasSecondaryAttack = true,  SecondaryAttackCooldown = 10.0 )
+RegisterTBotWeapon( { ClassName = "weapon_hornetgun", WeaponType = "Rifle" } )
+RegisterTBotWeapon( { ClassName = "weapon_357_hl1", WeaponType = "Pistol" } )
+RegisterTBotWeapon( { ClassName = "weapon_rpg_hl1", WeaponType = "Explosive" } )
+RegisterTBotWeapon( ( ClassName = "weapon_glock_hl1", WeaponType = "Pistol" } )
+RegisterTBotWeapon( { ClassName = "weapon_crossbow_hl1", WeaponType = "Sniper", HasScope = true, MaxStoredAmmo = 12 } )
+RegisterTBotWeapon( { ClassName = "weapon_gauss", WeaponType = "Rifle", MaxStoredAmmo = 250 )
+RegisterTBotWeapon( { ClassName = "weapon_egon", WeaponType = "Rifle", MaxStoredAmmo = 250, IgnoreAutomaticRange = true } )
+RegisterTBotWeapon( { ClassName = "weapon_crowbar_hl1", WeaponType = "Melee" } )
 
 -- Returns a table with the registered weapon's info.
 -- If the weapon is not registered it returns an empty table.
@@ -3400,29 +3300,6 @@ function BOT:ReloadWeapons()
 	local botTable = self:GetTable()
 	if IsValid( botWeapon ) and botWeapon:GetClass() != "weapon_medkit" and botWeapon:NeedsToReload() then return end
 	
-	--[[local pistol		=	self:GetWeapon( self.Pistol )
-	local rifle			=	self:GetWeapon( self.Rifle )
-	local shotgun		=	self:GetWeapon( self.Shotgun )
-	local sniper		=	self:GetWeapon( self.Sniper )
-	
-	if IsValid( sniper ) and sniper:NeedsToReload() then
-		
-		self.BestWeapon = sniper
-		
-	elseif IsValid( pistol ) and pistol:NeedsToReload() then
-		
-		self.BestWeapon = pistol
-		
-	elseif IsValid( rifle ) and rifle:NeedsToReload() then
-		
-		self.BestWeapon = rifle
-		
-	elseif IsValid( shotgun ) and shotgun:NeedsToReload() then
-		
-		self.BestWeapon = shotgun
-		
-	end]]
-	
 	for k, weapon in ipairs( self:GetWeapons() ) do
 	
 		if IsValid( weapon ) and weapon:IsTBotRegisteredWeapon() and weapon:NeedsToReload() then
@@ -3438,54 +3315,6 @@ end
 
 -- This is kind of a cheat, but the bot will only slowly recover ammo when not in combat
 function BOT:RestoreAmmo()
-	
-	--[[local pistol		=	self:GetWeapon( self.Pistol )
-	local rifle			=	self:GetWeapon( self.Rifle )
-	local shotgun		=	self:GetWeapon( self.Shotgun )
-	local sniper		=	self:GetWeapon( self.Sniper )
-	local grenade		=	self:GetWeapon( self.Grenade )
-	local pistol_ammo
-	local rifle_ammo
-	local shotgun_ammo
-	local sniper_ammo
-	local grenade_ammo
-	
-	if IsValid( pistol ) then pistol_ammo		=	self:GetAmmoCount( pistol:GetPrimaryAmmoType() ) end
-	if IsValid( rifle ) then rifle_ammo		=	self:GetAmmoCount( rifle:GetPrimaryAmmoType() ) end
-	if IsValid( shotgun ) then shotgun_ammo		=	self:GetAmmoCount( shotgun:GetPrimaryAmmoType() ) end
-	if IsValid( sniper ) then sniper_ammo		=	self:GetAmmoCount( sniper:GetPrimaryAmmoType() ) end
-	if IsValid( grenade ) then grenade_ammo		=	self:GetAmmoCount( grenade:GetPrimaryAmmoType() ) end
-	
-	if isnumber( pistol_ammo ) and pistol:UsesPrimaryAmmo() and ( pistol:UsesClipsForAmmo1() and pistol_ammo < ( pistol:GetMaxClip1() * 6 ) or !pistol:UsesClipsForAmmo1() and pistol_ammo < 6 ) then
-		
-		self:GiveAmmo( 1, pistol:GetPrimaryAmmoType(), true )
-		
-	end
-	
-	if isnumber( rifle_ammo ) and rifle:UsesPrimaryAmmo() and ( rifle:UsesClipsForAmmo1() and rifle_ammo < ( rifle:GetMaxClip1() * 6 ) or !rifle:UsesClipsForAmmo1() and rifle_ammo < 6 ) then
-		
-		self:GiveAmmo( 1, rifle:GetPrimaryAmmoType(), true )
-		
-	end
-	
-	if isnumber( shotgun_ammo ) and shotgun:UsesPrimaryAmmo() and ( shotgun:UsesClipsForAmmo1() and shotgun_ammo < ( shotgun:GetMaxClip1() * 6 ) or !shotgun:UsesClipsForAmmo1() and shotgun_ammo < 6 ) then
-		
-		self:GiveAmmo( 1, shotgun:GetPrimaryAmmoType(), true )
-		
-	end
-	
-	if isnumber( sniper_ammo ) and sniper:UsesPrimaryAmmo() and ( sniper:UsesClipsForAmmo1() and sniper_ammo < ( sniper:GetMaxClip1() * 6 ) or !sniper:UsesClipsForAmmo1() and sniper_ammo < 6 ) then
-		
-		self:GiveAmmo( 1, sniper:GetPrimaryAmmoType(), true )
-		
-	end
-	
-	-- The bot wont regenerate ammo for their grenade unless they feel safe.
-	if isnumber( grenade_ammo ) and self:IsSafe() and grenade:UsesPrimaryAmmo() and grenade_ammo < 6 then
-	
-		self:GiveAmmo( 1, grenade:GetPrimaryAmmoType(), true )
-		
-	end]]
 	
 	for k, weapon in ipairs( self:GetWeapons() ) do
 	
@@ -3948,64 +3777,6 @@ hook.Add( "Think" , "TRizzleBotThink" , function()
 					end
 					
 					if IsValid( botWeapon ) and botWeapon:IsWeapon() then
-					
-						--[[if bot.FullReload and ( !botWeapon:NeedsToReload() or botWeapon:GetClass() != bot.Shotgun ) then bot.FullReload = false end -- Fully reloaded :)
-						
-						if CurTime() >= bot.ScopeInterval and botWeapon:GetClass() == bot.Sniper and bot.SniperScope and !bot:IsUsingScope() then
-						
-							bot:PressSecondaryAttack()
-							bot.ScopeInterval = CurTime() + 0.4
-							bot.FireWeaponInterval = CurTime() + 0.4
-						
-						end
-						
-						if CurTime() >= bot.FireWeaponInterval and !bot:IsReloading() and !bot.FullReload and !botWeapon:IsPrimaryClipEmpty() and botWeapon:GetClass() != "weapon_medkit" and ( botWeapon:GetClass() != bot.Grenade or ( bot.GrenadeInterval <= CurTime() and botWeapon:GetNextPrimaryFire() <= CurTime() ) ) and ( botWeapon:GetClass() != bot.Melee or enemyDist <= bot.MeleeDist * bot.MeleeDist ) and bot:IsCursorOnTarget( enemy ) then
-							
-							bot:PressPrimaryAttack()
-							
-							-- The bot should throw a grenade then swap to another weapon
-							if botWeapon:GetClass() == bot.Grenade and bot.GrenadeInterval <= CurTime() then
-							
-								bot.GrenadeInterval = CurTime() + 22.0
-								bot.MinEquipInterval = CurTime() + 2.0
-								
-							end
-							
-							-- If the bot's active weapon is automatic the bot should just press and hold its attack button if their current enemy is close enough
-							if bot:IsActiveWeaponAutomatic() and enemyDist < 160000 then
-								
-								bot.FireWeaponInterval = CurTime()
-								
-							elseif enemyDist < 640000 then
-								
-								bot.FireWeaponInterval = CurTime() + math.Rand( 0.15 , 0.25 )
-								
-							else
-								
-								bot.FireWeaponInterval = CurTime() + math.Rand( 0.3 , 0.7 )
-								
-							end
-							
-							-- Subtract system latency
-							bot.FireWeaponInterval = bot.FireWeaponInterval - BotUpdateInterval
-							
-						end
-						
-						if CurTime() >= bot.FireWeaponInterval and botWeapon:GetClass() == "weapon_medkit" and bot.CombatHealThreshold > bot:Health() then
-							
-							bot:PressSecondaryAttack()
-							bot.FireWeaponInterval = CurTime() + 0.5
-							
-						end
-						
-						if CurTime() >= bot.ReloadInterval and !bot:IsReloading() and botWeapon:GetClass() != "weapon_medkit" and botWeapon:GetClass() != bot.Melee and botWeapon:IsPrimaryClipEmpty() then
-							
-							if botWeapon:GetClass() == bot.Shotgun then bot.FullReload = true end
-							
-							bot:PressReload()
-							bot.ReloadInterval = CurTime() + 0.5
-							
-						end]]
 						
 						local weaponTable = GetTBotRegisteredWeapon( botWeapon:GetClass() )
 						local weaponType = weaponTable.WeaponType
@@ -4016,8 +3787,8 @@ hook.Add( "Think" , "TRizzleBotThink" , function()
 							if !bot:IsUsingScope() and enemyDist >= 400^2 or bot:IsUsingScope() and enemyDist < 400^2 then
 						
 								bot:PressSecondaryAttack()
-								bot.ScopeInterval = CurTime() + 0.4
-								bot.FireWeaponInterval = CurTime() + 0.4
+								botTable.ScopeInterval = CurTime() + 0.4
+								botTable.FireWeaponInterval = CurTime() + 0.4
 								
 							end
 						
@@ -4113,38 +3884,6 @@ hook.Add( "Think" , "TRizzleBotThink" , function()
 						-- If the bot is not in combat then the bot should check if any of its teammates need healing
 						botTable.HealTarget = bot:TBotFindHealTarget()
 						
-						--[[if IsValid( bot.HealTarget ) and bot:HasWeapon( "weapon_medkit" ) then
-						
-							bot.BestWeapon = bot:GetWeapon( "weapon_medkit" )
-							
-							if IsValid( botWeapon ) and botWeapon:IsWeapon() and botWeapon:GetClass() == "weapon_medkit" then
-								
-								if CurTime() >= bot.FireWeaponInterval then 
-								
-									if bot.HealTarget == bot then
-								
-										bot:PressSecondaryAttack()
-										bot.FireWeaponInterval = CurTime() + 0.5
-									
-									elseif bot:GetEyeTrace().Entity == bot.HealTarget then
-								
-										bot:PressPrimaryAttack()
-										bot.FireWeaponInterval = CurTime() + 0.5
-										
-									end
-									
-								end
-								
-								if bot.HealTarget != bot then bot:AimAtPos( bot.HealTarget:WorldSpaceCenter(), 0.1, MEDIUM_PRIORITY ) end
-								
-							end
-							
-						else
-						
-							bot:ReloadWeapons()
-							
-						end]]
-						
 						-- Don't attempt to reload weapons while we are healing.
 						if bot:GetTBotState() != HEAL_PLAYER then
 						
@@ -4153,20 +3892,6 @@ hook.Add( "Think" , "TRizzleBotThink" , function()
 						end
 						
 						if IsValid( botWeapon ) and botWeapon:IsWeapon() then 
-							
-							--[[if CurTime() >= bot.ReloadInterval and !bot:IsReloading() and botWeapon:GetClass() != "weapon_medkit" and botWeapon:GetClass() != bot.Melee and botWeapon:NeedsToReload() then
-						
-								bot:PressReload()
-								bot.ReloadInterval = CurTime() + 0.5
-								
-							end
-							
-							if CurTime() >= bot.ScopeInterval and botWeapon:GetClass() == bot.Sniper and bot.SniperScope and bot:IsUsingScope() then
-								
-								bot:PressSecondaryAttack()
-								bot.ScopeInterval = CurTime() + 1.0
-								
-							end]]
 							
 							local weaponTable = GetTBotRegisteredWeapon( botWeapon:GetClass() )
 							local weaponType = weaponTable.WeaponType
@@ -5084,7 +4809,18 @@ hook.Add( "PlayerSay", "TRizzleBotPlayerSay", function( sender, text, teamChat )
 				textTable = string.Explode( " ", string.sub( text, endpos + 1 ) ) -- Grab everything else after the name!
 				table.remove( textTable, 1 ) -- Remove the unnecessary whitespace
 				command = textTable[ 1 ]:lower()
+			
+			else
+			
+				startpos, endpos, botName = string.find( text:lower(), "bots" )
+				if isnumber( startpos ) and startpos == 1 then -- Check to see if the player is commanding every bot!
 				
+					textTable = string.Explode( " ", string.sub( text, endpos + 1 ) ) -- Grab everything else after the name!
+					table.remove( textTable, 1 ) -- Remove the unnecessary whitespace
+					command = textTable[ 1 ]:lower()
+					
+				end
+			
 			end
 			
 			if sender == botTable.TBotOwner and isstring( command ) then
@@ -5179,163 +4915,6 @@ hook.Add( "PlayerSpawn" , "TRizzleBotSpawnHook" , function( ply )
 	end
 	
 end)
-
--- The main AI is here.
--- Deprecated: I have a newer think function, that is more responsive and optimized
---[[function BOT:TBotCreateThinking()
-	
-	local index		=	self:EntIndex()
-	local timer_time	=	math.Rand( 0.08 , 0.15 )
-	
-	-- I used math.Rand as a personal preference, It just prevents all the timers being ran at the same time
-	-- as other bots timers.
-	timer.Create( "trizzle_bot_think" .. index , timer_time * 3 , 0 , function()
-		
-		if IsValid( self ) and self:Alive() and self.IsTRizzleBot then
-			
-			-- A quick condition statement to check if our enemy is no longer a threat.
-			self:CheckCurrentEnemyStatus()
-			self:TBotFindClosestEnemy()
-			self:TBotCheckEnemyList()
-			
-			if !self:IsInCombat() then
-			
-				-- If the bot is not in combat then the bot should check if any of its teammates need healing
-				self.HealTarget = self:TBotFindClosestTeammate()
-				local botWeapon = self:GetActiveWeapon()
-				if IsValid( self.HealTarget ) then
-				
-					self:SelectMedkit()
-					
-					if IsValid( botWeapon ) and botWeapon:IsWeapon() and botWeapon:GetClass() == "weapon_medkit" then
-						
-						if CurTime() > self.FireWeaponInterval and self.HealTarget == self then
-						
-							self.FireWeaponInterval = CurTime() + 0.5
-							self:PressSecondaryAttack()
-							
-						elseif CurTime() > self.FireWeaponInterval and self:GetEyeTrace().Entity == self.HealTarget then
-						
-							self.FireWeaponInterval = CurTime() + 0.5
-							self:PressPrimaryAttack()
-							
-						end
-						
-						if botWeapon:GetClass() == "weapon_medkit" and self.HealTarget != self then self:AimAtPos( self.HealTarget:WorldSpaceCenter(), CurTime() + 0.1, MEDIUM_PRIORITY ) end
-						
-					end
-					
-				else
-				
-					self:ReloadWeapons()
-					
-				end
-				
-				if IsValid( botWeapon ) and botWeapon:IsWeapon() and CurTime() > self.ReloadInterval and !botWeapon:GetInternalVariable( "m_bInReload" ) and botWeapon:GetClass() != "weapon_medkit" and botWeapon:Clip1() < botWeapon:GetMaxClip1() then
-					self:PressReload()
-					self.ReloadInterval = CurTime() + 1.0
-				end
-				
-				self:RestoreAmmo() 
-				
-			elseif IsValid( self.Enemy ) then
-			
-				local trace = util.TraceLine( { start = self:GetShootPos(), endpos = self.Enemy:EyePos(), filter = self, mask = MASK_SHOT } )
-				
-				if trace.Entity == self.Enemy then
-					
-					self.AimForHead = true
-					
-				else
-					
-					self.AimForHead = false
-					
-				end
-				
-				-- Turn and face our enemy!
-				if self.AimForHead and !self:IsActiveWeaponRecoilHigh() then
-				
-					-- Can we aim the enemy's head?
-					self:AimAtPos( self.Enemy:EyePos(), CurTime() + 0.1, HIGH_PRIORITY )
-				
-				else
-					
-					-- If we can't aim at our enemy's head aim at the center of their body instead.
-					self:AimAtPos( self.Enemy:WorldSpaceCenter(), CurTime() + 0.1, HIGH_PRIORITY )
-				
-				end
-				
-				local botWeapon = self:GetActiveWeapon()
-				
-				if IsValid( botWeapon ) and botWeapon:IsWeapon() and self.FullReload and ( botWeapon:Clip1() >= botWeapon:GetMaxClip1() or self:GetAmmoCount( botWeapon:GetPrimaryAmmoType() ) <= botWeapon:Clip1() or botWeapon:GetClass() != self.Shotgun ) then self.FullReload = false end -- Fully reloaded :)
-				
-				if IsValid( botWeapon ) and botWeapon:IsWeapon() and CurTime() > self.FireWeaponInterval and !botWeapon:GetInternalVariable( "m_bInReload" ) and !self.FullReload and botWeapon:GetClass() != "weapon_medkit" and ( self:GetEyeTraceNoCursor().Entity == self.Enemy or self:IsCursorOnTarget() or (self.Enemy:GetPos() - self:GetPos()):LengthSqr() < self.MeleeDist * self.MeleeDist ) then
-					self:PressPrimaryAttack()
-					self.FireWeaponInterval = CurTime() + math.Rand( 0.15 , 0.4 )
-				end
-				
-				if IsValid( botWeapon ) and botWeapon:IsWeapon() and CurTime() > self.FireWeaponInterval and botWeapon:GetClass() == "weapon_medkit" and self.CombatHealThreshold > self:Health() then
-					self:PressSecondaryAttack()
-					self.FireWeaponInterval = CurTime() + 0.5
-				end
-				
-				if IsValid( botWeapon ) and botWeapon:IsWeapon() and CurTime() > self.ReloadInterval and !botWeapon:GetInternalVariable( "m_bInReload" ) and botWeapon:Clip1() == 0 then
-					if botWeapon:GetClass() == self.Shotgun then self.FullReload = true end
-					self:PressReload()
-					self.ReloadInterval = CurTime() + 1.0
-				end
-				
-				self:SelectBestWeapon()
-			
-			end
-			
-			if self.Owner:InVehicle() and !self:InVehicle() then
-			
-				local vehicle = self:FindNearbySeat()
-				
-				if IsValid( vehicle ) then self:EnterVehicle( vehicle ) end -- I should make the bot press its use key instead of this hack
-			
-			end
-			
-			if !self.Owner:InVehicle() and self:InVehicle() then
-			
-				self:ExitVehicle() -- Should I make the bot press its use key instead?
-			
-			end
-			
-			if self.SpawnWithWeapons then
-				
-				if !self:HasWeapon( self.Pistol ) then self:Give( self.Pistol ) end
-				if !self:HasWeapon( self.Shotgun ) then self:Give( self.Shotgun ) end
-				if !self:HasWeapon( self.Rifle ) then self:Give( self.Rifle ) end
-				if !self:HasWeapon( self.Sniper ) then self:Give( self.Sniper ) end
-				if !self:HasWeapon( self.Melee ) then self:Give( self.Melee ) end
-				if !self:HasWeapon( "weapon_medkit" ) then self:Give( "weapon_medkit" ) end
-				
-			end
-			
-			-- I have to set the flashlight state because some addons have mounted flashlights and I can't check if they are on or not, "This will prevent the flashlight on and off spam"
-			if self:CanUseFlashlight() and !self:FlashlightIsOn() and self.Light and self:GetSuitPower() > 50 then
-				
-				self:Flashlight( true )
-				
-			elseif self:CanUseFlashlight() and self:FlashlightIsOn() and !self.Light then
-				
-				self:Flashlight( false )
-				
-			end
-			
-			self:HandleButtons()
-			
-		else
-			
-			timer.Remove( "trizzle_bot_think" .. index ) -- We don't need to think while dead.
-			
-		end
-		
-	end)
-	
-end]]
 
 -- Makes the bot react to damage taken by enemies
 hook.Add( "PlayerHurt" , "TRizzleBotPlayerHurt" , function( victim, attacker )
@@ -6058,7 +5637,7 @@ function BOT:UpdateKnownEntities()
 		end]]
 		
 		-- NOTE: This is WAY faster than the code above since we don't have to iterate throught the entire known enemy list more than once!
-		if !knownEntities[ visibleNow[ i ] ] then
+		if !tobool( knownEntities[ visibleNow[ i ] ] ) then
 		
 			local known = TBotKnownEntity( visibleNow[ i ] )
 			known:UpdatePosition()
@@ -6329,7 +5908,7 @@ function TRizzleBotRangeCheck( area, fromArea, ladder, portal, bot, length )
 			
 		end
 		
-		-- If this area might damage us if we walk through it we shoul avoid it at all costs.
+		-- If this area might damage us if we walk through it we should avoid it at all costs.
 		if area:IsDamaging() then
 		
 			dist	=	dist + ( dist * 100.0 )
@@ -6530,7 +6109,7 @@ function TRizzleBotRangeCheckRetreat( area, fromArea, ladder, portal, bot, lengt
 			
 		end
 		
-		-- If this area might damage us if we walk through it we shoul avoid it at all costs.
+		-- If this area might damage us if we walk through it we should avoid it at all costs.
 		if area:IsDamaging() then
 		
 			dist	=	dist + ( dist * 100.0 )
@@ -7923,7 +7502,7 @@ function BOT:ClearHidingSpot()
 end
 
 -- Returns a table of hiding spots.
-function BOT:FindSpots( tbl, secondAttempt )
+function BOT:FindSpots( tbl )
 
 	--local startTime = SysTime()
 	local tbl = tbl or {}
@@ -7982,11 +7561,11 @@ function BOT:FindSpots( tbl, secondAttempt )
 			-- when called multiple times per frame, I need to find a better way to implement this.
 			--local pathLength = NavAreaTravelDistance( startArea, area, self )
 			-- For now I will do distance checks the same way Valve does it in CS:GO
-			local pathLength = tbl.pos:Distance( vec )
+			local pathLength = tbl.pos:DistToSqr( vec )
 			--print("Path Length: " .. pathLength )
 			
 			-- If the hiding spot is further than tbl.range, the bot shouldn't consider it
-			if tbl.radius < pathLength then 
+			if tbl.radius^2 < pathLength then 
 			
 				continue
 			
@@ -8016,21 +7595,23 @@ function BOT:FindSpots( tbl, secondAttempt )
 
 	end
 	
-	if ( !found or #found == 0 ) and ( !found2 or #found2 == 0 ) and !secondAttempt then
+	if ( !found or #found == 0 ) and ( !found2 or #found2 == 0 ) and !tbl.secondAttempt then
 	
 		-- If we didn't find any hiding spots then look for sniper spots instead
 		if tbl.spotType == "hiding" then
 		
 			tbl.spotType = "sniper"
+			tbl.secondAttempt = true
 			
-			return self:FindSpots( tbl, true )
+			return self:FindSpots( tbl )
 			
 		-- If we didn't find any sniper spots then look for hiding spots instead
 		elseif tbl.spotType == "sniper" then
 		
 			tbl.spotType = "hiding"
+			tbl.secondAttempt = true
 			
-			return self:FindSpots( tbl, true )
+			return self:FindSpots( tbl )
 			
 		end
 		
@@ -8067,99 +7648,6 @@ function BOT:FindSpot( type, options )
 	return spots[ math.random( 1, #spots ) ].vector
 
 end
-
--- A handy function for range checking.
-local function IsVecCloseEnough( start , endpos , dist )
-	
-	return start:DistToSqr( endpos ) < dist * dist
-	
-end
-
-local function CheckLOS( val , pos1 , pos2 )
-	
-	local Trace				=	util.TraceLine({
-		
-		start				=	pos1 + Vector( val , 0 , 0 ),
-		endpos				=	pos2 + Vector( val , 0 , 0 ),
-		collisiongroup 		=	COLLISION_GROUP_DEBRIS,
-		
-	})
-	
-	if Trace.Hit then return false end
-	
-	Trace					=	util.TraceLine({
-		
-		start				=	pos1 + Vector( -val , 0 , 0 ),
-		endpos				=	pos2 + Vector( -val , 0 , 0 ),
-		collisiongroup 		=	COLLISION_GROUP_DEBRIS,
-		
-	})
-	
-	if Trace.Hit then return false end
-	
-	
-	Trace					=	util.TraceLine({
-		
-		start				=	pos1 + Vector( 0 , val , 0 ),
-		endpos				=	pos2 + Vector( 0 , val , 0 ),
-		collisiongroup 		=	COLLISION_GROUP_DEBRIS,
-		
-	})
-	
-	if Trace.Hit then return false end
-	
-	Trace					=	util.TraceLine({
-		
-		start				=	pos1 + Vector( 0 , -val , 0 ),
-		endpos				=	pos2 + Vector( 0 , -val , 0 ),
-		collisiongroup 		=	COLLISION_GROUP_DEBRIS,
-		
-	})
-	
-	if Trace.Hit then return false end
-	
-	return true
-end
-
-local function SendBoxedLine( pos1 , pos2 )
-	if !isvector( pos1 ) or !isvector( pos2 ) then return false end
-	
-	local Trace				=	util.TraceLine({
-		
-		start				=	pos1 + Vector( 0 , 0 , 15 ),
-		endpos				=	pos2 + Vector( 0 , 0 , 15 ),
-		
-		filter				=	self,
-		collisiongroup 		=	COLLISION_GROUP_DEBRIS,
-		
-	})
-	
-	if Trace.Hit then return false end
-	
-	for i = 1, 12 do
-		
-		if CheckLOS( 3 * i , pos1 , pos2 ) == false then return false end
-		
-	end
-	
-	local HullTrace			=	util.TraceHull({
-		
-		mins				=	Vector( -16 , -16 , 0 ),
-		maxs				=	Vector( 16 , 16 , 71 ),
-		
-		start				=	position,
-		endpos				=	position,
-		
-		filter				=	self,
-		collisiongroup 		=	COLLISION_GROUP_DEBRIS,
-		
-	})
-	
-	if HullTrace.Hit then return false end
-	
-	return true
-end
-
 
 local dir			=	Vector()
 -- Creates waypoints using the nodes.
@@ -11268,6 +10756,17 @@ function BOT:IsClimbingOrJumping()
 	
 end
 
+-- TODO: I should really make this dynamic?
+-- Would this function work?
+-- I would also have to make it account for the hl2 jump boost in game....
+--[[function GetJumpHeight(ply)
+    local g = GetConVar("sv_gravity"):GetFloat() * ply:GetGravity()
+    local j = ply:GetJumpPower()
+
+    j = j - g * 0.5 * engine.TickInterval() --source moment ¯\_(ツ)_/¯
+    
+    return math.Round(j * j / 2 / g / engine.TickInterval()) * engine.TickInterval() --clamp to tick rate
+end]]
 function BOT:GetMaxJumpHeight()
 
 	return 64
