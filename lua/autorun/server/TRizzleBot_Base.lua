@@ -3324,7 +3324,7 @@ function BOT:RestoreAmmo()
 		if isnumber( weapon_ammo ) and ( self:IsSafe() or TBotWeaponTable[ weapon:GetClass() ].WeaponType != "Grenade" ) and weapon:UsesPrimaryAmmo() then 
 			
 			local maxStoredAmmo = tonumber( TBotWeaponTable[ weapon:GetClass() ].MaxStoredAmmo )
-			if isnumber( maxStoredAmmo ) then
+			if isnumber( maxStoredAmmo ) and maxStoredAmmo > 0 then
 				
 				if weapon_ammo < maxStoredAmmo then
 				
