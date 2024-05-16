@@ -19,24 +19,18 @@ This is also a base bot addon, I will use this addon to make bots for other game
 
 # Commands
 CommandName, CommandParameters, Example
-- <code>TRizzleCreateBot</code> <code>botname</code> <code>followdist</code> <code>dangerdist</code> <code>melee</code> <code>pistol</code> <code>shotgun</code> <code>rifle</code> <code>grenade</code> <code>sniper</code> <code>hasScope</code> <code>meleedist</code> <code>pistoldist</code> <code>shotgundist</code> <code>rifledist</code> <code>healthreshold</code> <code>combathealthreshold</code> <code>playermodel</code> <code>spawnwithpreferredweapons</code>
-  - TRizzleCreateBot Bot 200 300 weapon_crowbar weapon_pistol weapon_shotgun weapon_smg1 weapon_frag weapon_crossbow 1 80 1300 300 900 100 25 alyx 1
+- <code>TRizzleCreateBot</code> <code>botname</code> <code>followdist</code> <code>dangerdist</code> <code>meleedist</code> <code>pistoldist</code> <code>shotgundist</code> <code>rifledist</code> <code>healthreshold</code> <code>combathealthreshold</code> <code>playermodel</code> <code>spawnwithpreferredweapons</code>
+  - TRizzleCreateBot Bot 200 300 80 1300 300 900 100 25 alyx 1
 - <code>TBotSetFollowDist</code> <code>targetbot</code> <code>followdist</code> 
   -  TBotSetFollowDist Bot 200
 - <code>TBotSetDangerDist</code> <code>targetbot</code> <code>dangerdist</code> 
   - TBotSetDangerDist Bot 300
-- <code>TBotSetMelee</code> <code>targetbot</code> <code>melee</code> 
-  - TBotSetMelee Bot weapon_crowbar
-- <code>TBotSetPistol</code> <code>targetbot</code>  <code>pistol</code>  
-  - TBotSetPistol Bot weapon_pistol
-- <code>TBotSetShotgun</code> <code>targetbot</code>  <code>shotgun</code>  
-  - TBotSetShotgun Bot weapon_shotgun
-- <code>TBotSetRifle</code> <code>targetbot</code>  <code>rifle</code>  
-  - TBotSetRifle Bot weapon_smg1
-- <code>TBotSetGrenade</code> <code>targetbot</code> <code>grenade</code>
-  - TBotSetGrenade Bot weapon_frag
-- <code>TBotSetSniper</code> <code>targetbot</code>  <code>sniper</code> <code>1 or 0</code>  
-  - TBotSetSniper Bot weapon_crossbow 1
+- <code>TBotAddPreferredWeapon</code> <code>targetbot</code> <code>weapon</code>
+  - TBotAddPreferredWeapon Bot weapon_crossbow
+- <code>TBotRemovePreferredWeapon</code> <code>targetbot</code> <code>weapon</code>
+  - TBotRemovePreferredWeapon Bot weapon_crossbow
+- <code>TBotClearPreferredWeaponList</code> <code>targetbot</code>
+  - TBotAddPreferredWeapon Bot
 - <code>TBotSetMeleeDist</code> <code>targetbot</code>  <code>meleedist</code>  
   - TBotSetMeleeDist Bot 80
 - <code>TBotSetPistolDist</code> <code>targetbot</code>  <code>pistoldist</code>  
