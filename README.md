@@ -25,8 +25,8 @@ CommandName, CommandParameters, Example
   -  TBotSetFollowDist Bot 200
 - <code>TBotSetDangerDist</code> <code>targetbot</code> <code>dangerdist</code> 
   - TBotSetDangerDist Bot 300
-- <code>TBotRegisterWeapon</code> <code>targetbot</code>  <code>weapon</code> <code>weaponType</code> <code>hasScope</code> <code>hasSecondaryAttack</code> <code>SecondaryAttackCooldown</code> <code>maxStoredAmmo</code>
-  - TBotRegisterWeapon Bot weapon_crossbow Sniper true false 30.0 12
+- <code>TBotRegisterWeapon</code> <code>weapon</code> <code>weaponType</code> <code>hasScope</code> <code>hasSecondaryAttack</code> <code>SecondaryAttackCooldown</code> <code>maxStoredAmmo</code>
+  - TBotRegisterWeapon weapon_crossbow Sniper true false 30.0 12
 - <code>TBotAddPreferredWeapon</code> <code>targetbot</code> <code>weapon</code>
   - TBotAddPreferredWeapon Bot weapon_crossbow
 - <code>TBotRemovePreferredWeapon</code> <code>targetbot</code> <code>weapon</code>
