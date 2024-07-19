@@ -2,6 +2,49 @@
 -- Purpose: This is a base that can be modified to play other gamemodes
 -- Author: T-Rizzle
 
+-- This currently only Exists in the dev branch, so we don't break other player games! We recreate it here!
+if !isfunction( RegisterMetaTable ) then
+
+	function RegisterMetaTable( metaName, metaTable )
+	
+		debug.getregistry()[ metaName ] = metaTable
+	
+	end
+	
+end
+
+-- Ok, so now need need to include the base class stuff here so nothing breaks on initialization.
+include( "Path/TBotPath.lua" )
+include( "Path/TBotPathFollower.lua" )
+include( "Action/TBotBaseAction.lua" )
+
+-- Now that we added the base class stuff we can add everything else!
+-- First, lets add all the interfaces!
+include( "Interface/TBotBody.lua" )
+include( "Interface/TBotLocomotion.lua" )
+include( "Interface/TBotKnownEntity.lua" )
+include( "Interface/TBotVision.lua" )
+
+-- Next the rest of the paths!
+include( "Path/TBotChasePath.lua" )
+include( "Path/TBotRetreatPath.lua" )
+
+-- Finally, lets add all the actions!
+include( "Action/TBotMainAction.lua" )
+include( "Action/TBotTacticalMonitor.lua" )
+include( "Action/TBotScenarioMonitor.lua" )
+include( "Action/TBotDead.lua" )
+include( "Action/TBotFollowOwner.lua" )
+include( "Action/TBotFollowGroupLeader.lua" )
+include( "Action/TBotHealPlayer.lua" )
+include( "Action/TBotRetreatToCover.lua" )
+include( "Action/TBotReloadInCover.lua" )
+include( "Action/TBotRevivePlayer.lua" )
+include( "Action/TBotSearchAndDestory.lua" )
+include( "Action/TBotUseEntity.lua" )
+--[[include( "Action/TBotBreakEntity.lua" ) -- NEEDTOVALIDATE: Currently, this is handled by the path system. I need to make sure this doesn't create issues!
+include( "Action/TBotOpenDoor.lua" )]]
+
 -- Grab the needed metatables
 local BOT			=	FindMetaTable( "Player" )
 local Ent			=	FindMetaTable( "Entity" )
@@ -19,12 +62,6 @@ local PATH_LADDER_UP			=	4
 local PATH_LADDER_DOWN			=	5
 local PATH_USE_PORTAL			=	6
 --local PATH_LADDER_MOUNT			=	6
-
--- Setup lookatpriority level variables
-local LOW_PRIORITY			=	0
-local MEDIUM_PRIORITY		=	1
-local HIGH_PRIORITY			=	2
-local MAXIMUM_PRIORITY		=	3
 
 -- Setup Bot States
 local IDLE					=	0
@@ -53,7 +90,7 @@ local MOVE_TO_SPOT			=	1
 local WAIT_AT_SPOT			=	2
 
 -- Setup bot think variables
-local BotUpdateSkipCount	=	2 -- This is how many upkeep events must be skipped before another update event can be run
+local BotUpdateSkipCount	=	7 -- This is how many upkeep events must be skipped before another update event can be run. Used to be 2, but it made the addon very laggy at times!
 local BotUpdateInterval		=	0
 
 -- Setup the "global" weapon table
@@ -640,114 +677,259 @@ concommand.Add( "TBotSetDefault" , TBotSetDefault , nil , "Set the specified bot
 
 function BOT:TBotResetAI()
 	
+	-- TODO: Move most of this stuff into its own interfaces to reduce collision with other addons!!!!
 	local botTable						=	self:GetTable() -- This is used so I don't have to keep dipping into C every time since it is VERY SLOW!
-	botTable.buttonFlags				=	0 -- These are the buttons the bot is going to press.
-	botTable.impulseFlags				=	0 -- This is the impuse command the bot is going to press.
-	botTable.forwardMovement			=	0 -- This tells the bot to move either forward or backwards.
-	botTable.strafeMovement				=	0 -- This tells the bot to move left or right.
-	botTable.GroupLeader				=	nil -- If the bot's owner is dead, this bot will take charge in combat and leads other bots with the same "owner". 
-	botTable.UseEnt						=	nil -- This is the entity this bot is trying to use.
-	botTable.UseHoldTime				=	0 -- This is how long the bot should press its use key on UseEnt.
-	botTable.StartedUse					=	false -- Has the bot started to press its use key on UseEnt.
-	botTable.HoldPos					=	nil -- This is the position the bot will wait at.
-	botTable.EnemyList					=	{} -- This is the list of enemies the bot knows about.
-	botTable.AttackList					=	{} -- This is the list of entities the bot has been told to attack.
-	botTable.AimForHead					=	false -- Should the bot aim for the head?
-	botTable.TimeInCombat				=	0 -- This is how long the bot has been in combat.
-	botTable.LastCombatTime				=	0 -- This is the last time the bot was in combat.
-	botTable.BestWeapon					=	nil -- This is the weapon the bot currently wants to equip.
-	botTable.MinEquipInterval			=	0 -- Throttles how often equipping is allowed.
-	botTable.HealTarget					=	nil -- This is the player the bot is trying to heal.
-	botTable.ReviveTarget				=	nil -- This is the player the bot is trying to revive. -- NOTE: This is only for incapacitation addons
-	botTable.TRizzleBotBlindTime		=	0 -- This is how long the bot should be blind
-	botTable.LastVisionUpdateTimestamp	=	0 -- This is the last time the bot updated its list of known enemies
-	botTable.IsJumping					=	false -- Is the bot currently jumping?
-	botTable.NextJump					=	0 -- This is the next time the bot is allowed to jump.
-	botTable.HoldAttack					=	0 -- This is how long the bot should hold its attack button.
-	botTable.HoldAttack2				=	0 -- This is how long the bot should hold its attack2 button.
-	botTable.HoldReload					=	0 -- This is how long the bot should hold its reload button.
-	botTable.HoldForward				=	0 -- This is how long the bot should hold its forward button.
-	botTable.HoldBack					=	0 -- This is how long the bot should hold its back button.
-	botTable.HoldLeft					=	0 -- This is how long the bot should hold its left button.
-	botTable.HoldRight					=	0 -- This is how long the bot should hold its right button.
-	botTable.HoldRun					=	0 -- This is how long the bot should hold its run button.
-	botTable.HoldWalk					=	0 -- This is how long the bot should hold its walk button.
-	botTable.HoldJump					=	0 -- This is how long the bot should hold its jump button.
-	botTable.HoldCrouch					=	0 -- This is how long the bot should hold its crouch button.
-	botTable.HoldUse					=	0 -- This is how long the bot should hold its use button.
-	botTable.FullReload					=	false -- This tells the bot not to press its attack button until its current weapon is fully reloaded.
-	botTable.FireWeaponInterval			=	0 -- Limits how often the bot presses its attack button.
-	botTable.SecondaryInterval			=	0 -- Limits how often the bot uses its secondary attack.
-	botTable.ReloadInterval				=	0 -- Limits how often the bot can press its reload button.
-	botTable.ScopeInterval				=	0 -- Limits how often the bot can press its scope button.
-	botTable.UseInterval				=	0 -- Limits how often the bot can press its use button.
-	botTable.GrenadeInterval			=	0 -- Limits how often the bot will throw a grenade.
-	botTable.ExplosiveInterval			=	0 -- Limits how often the bot will use explosive weapons.
-	botTable.ImpulseInterval			=	0 -- Limits how often the bot can press any impuse command.
-	botTable.Light						=	false -- Tells the bot if it should have its flashlight on or off.
+	botTable.buttonFlags					=	0 -- These are the buttons the bot is going to press.
+	botTable.impulseFlags					=	0 -- This is the impuse command the bot is going to press.
+	botTable.forwardMovement				=	0 -- This tells the bot to move either forward or backwards.
+	botTable.strafeMovement					=	0 -- This tells the bot to move left or right.
+	botTable.GroupLeader					=	nil -- If the bot's owner is dead, this bot will take charge in combat and leads other bots with the same "owner". 
+	botTable.UseEnt							=	nil -- This is the entity this bot is trying to use.
+	botTable.UseHoldTime					=	0 -- This is how long the bot should press its use key on UseEnt.
+	botTable.StartedUse						=	false -- Has the bot started to press its use key on UseEnt.
+	botTable.HoldPos						=	nil -- This is the position the bot will wait at.
+	botTable.EnemyList						=	{} -- This is the list of enemies the bot knows about.
+	botTable.AttackList						=	{} -- This is the list of entities the bot has been told to attack.
+	botTable.AimForHead						=	false -- Should the bot aim for the head?
+	botTable.TimeInCombat					=	0 -- This is how long the bot has been in combat.
+	botTable.LastCombatTime					=	0 -- This is the last time the bot was in combat.
+	botTable.BestWeapon						=	nil -- This is the weapon the bot currently wants to equip.
+	botTable.MinEquipInterval				=	0 -- Throttles how often equipping is allowed.
+	botTable.HealTarget						=	nil -- This is the player the bot is trying to heal.
+	botTable.ReviveTarget					=	nil -- This is the player the bot is trying to revive. -- NOTE: This is only for incapacitation addons
+	botTable.TRizzleBotBlindTime			=	0 -- This is how long the bot should be blind
+	botTable.LastVisionUpdateTimestamp		=	0 -- This is the last time the bot updated its list of known enemies
+	botTable.IsJumping						=	false -- Is the bot currently jumping?
+	botTable.NextJump						=	0 -- This is the next time the bot is allowed to jump.
+	botTable.HoldAttack						=	0 -- This is how long the bot should hold its attack button.
+	botTable.HoldAttack2					=	0 -- This is how long the bot should hold its attack2 button.
+	botTable.HoldReload						=	0 -- This is how long the bot should hold its reload button.
+	botTable.HoldForward					=	0 -- This is how long the bot should hold its forward button.
+	botTable.HoldBack						=	0 -- This is how long the bot should hold its back button.
+	botTable.HoldLeft						=	0 -- This is how long the bot should hold its left button.
+	botTable.HoldRight						=	0 -- This is how long the bot should hold its right button.
+	botTable.HoldRun						=	0 -- This is how long the bot should hold its run button.
+	botTable.HoldWalk						=	0 -- This is how long the bot should hold its walk button.
+	botTable.HoldJump						=	0 -- This is how long the bot should hold its jump button.
+	botTable.HoldCrouch						=	0 -- This is how long the bot should hold its crouch button.
+	botTable.HoldUse						=	0 -- This is how long the bot should hold its use button.
+	botTable.FullReload						=	false -- This tells the bot not to press its attack button until its current weapon is fully reloaded.
+	botTable.FireWeaponInterval				=	0 -- Limits how often the bot presses its attack button.
+	botTable.SecondaryInterval				=	0 -- Limits how often the bot uses its secondary attack.
+	botTable.ReloadInterval					=	0 -- Limits how often the bot can press its reload button.
+	botTable.ScopeInterval					=	0 -- Limits how often the bot can press its scope button.
+	botTable.UseInterval					=	0 -- Limits how often the bot can press its use button.
+	botTable.GrenadeInterval				=	0 -- Limits how often the bot will throw a grenade.
+	botTable.ExplosiveInterval				=	0 -- Limits how often the bot will use explosive weapons.
+	botTable.ImpulseInterval				=	0 -- Limits how often the bot can press any impuse command.
+	botTable.Light							=	false -- Tells the bot if it should have its flashlight on or off.
 	--self.LookYawVel					=	0 -- This is the current yaw velocity of the bot.
 	--self.LookPitchVel				=	0 -- This is the current pitch velocity of the bot.
-	botTable.AimErrorAngle				=	0 -- This is the current error the bot has while aiming.
-	botTable.AimErrorRadius				=	0 -- This is the radius of the error the bot has while aiming.
-	botTable.AimAdjustTimer				=	0 -- This is the next time the bot will update its aim error.
-	botTable.LookTarget					=	vector_origin -- This is the position the bot is currently trying to look at.
-	botTable.LookTargetSubject			=	nil -- This is the current entity the bot is trying to look at.
-	botTable.LookTargetVelocity			=	0 -- Used to update subject tracking.
-	botTable.LookTargetTrackingTimer	=	0 -- Used to update subject tracking.
+	botTable.AimErrorAngle					=	0 -- This is the current error the bot has while aiming.
+	botTable.AimErrorRadius					=	0 -- This is the radius of the error the bot has while aiming.
+	botTable.AimAdjustTimer					=	0 -- This is the next time the bot will update its aim error.
+	botTable.LookTarget						=	vector_origin -- This is the position the bot is currently trying to look at.
+	botTable.LookTargetSubject				=	nil -- This is the current entity the bot is trying to look at.
+	botTable.LookTargetVelocity				=	0 -- Used to update subject tracking.
+	botTable.LookTargetTrackingTimer		=	0 -- Used to update subject tracking.
+	botTable.m_isLookingAroundForEnemies	=	true -- Is the bot looking around for enemies?
 	--self.LookTargetState			=	NOT_LOOKING_AT_SPOT -- This is the bot's current look at state.
-	botTable.IsSightedIn				=	false -- Is the bot looking at its current target.
-	botTable.HasBeenSightedIn			=	false -- Has the bot looked at the current target.
-	botTable.AnchorForward				=	vector_origin -- Used to simulate the bot recentering its vitural mouse.
-	botTable.AnchorRepositionTimer		=	nil -- This is used to simulate the bot recentering its vitural mouse.
-	botTable.PriorAngles				=	angle_zero	-- This was the bot's eye angles last UpdateAim.
-	botTable.LookTargetExpire			=	0 -- This is how long the bot will look at the position the bot is currently trying to look at.
-	botTable.LookTargetDuration			=	0 -- This is how long since the bot started looking at the target pos.
+	botTable.IsSightedIn					=	false -- Is the bot looking at its current target.
+	botTable.HasBeenSightedIn				=	false -- Has the bot looked at the current target.
+	botTable.AnchorForward					=	vector_origin -- Used to simulate the bot recentering its vitural mouse.
+	botTable.AnchorRepositionTimer			=	nil -- This is used to simulate the bot recentering its vitural mouse.
+	botTable.PriorAngles					=	angle_zero	-- This was the bot's eye angles last UpdateAim.
+	botTable.LookTargetExpire				=	0 -- This is how long the bot will look at the position the bot is currently trying to look at.
+	botTable.LookTargetDuration				=	0 -- This is how long since the bot started looking at the target pos.
 	--self.LookTargetTolerance		=	0 -- This is how close the bot must aim at LookTarget before starting LookTargetTimestamp.
 	--self.LookTargetTimestamp		=	0 -- This is the timestamp the bot started staring at LookTarget.
-	botTable.LookTargetPriority			=	LOW_PRIORITY -- This is how important the position the bot is currently trying to look at is.
-	botTable.HeadSteadyTimer			=	nil -- This checks if the bot is not rapidly turning to look somehwere else.
-	botTable.CheckedEncounterSpots		=	{} -- This stores every encounter spot and when the spot was checked.
-	botTable.PeripheralTimestamp		=	0 -- This limits how often UpdatePeripheralVision is run.
-	botTable.NextEncounterTime			=	0 -- This is the next time the bot is allowed to look at another encounter spot.
-	botTable.ApproachViewPosition		=	self:GetPos() -- This is the position used to compute approach points.
-	botTable.ApproachPoints				=	{} -- This stores all the approach points leading to the bot.
-	botTable.HidingSpot					=	nil -- This is the current hiding/sniper spot the bot wants to goto.
-	botTable.HidingState				=	FINISHED_HIDING -- This is the current hiding state the bot is currently in.
-	botTable.HideReason					=	NONE -- This is the bot's reason for hiding.
-	botTable.NextHuntTime				=	CurTime() + 10 -- This is the next time the bot will pick a random sniper spot and look for enemies.
-	botTable.HidingSpotInterval			=	0 -- Limits how often the bot can set its selected hiding spot.
-	botTable.HideTime					=	0 -- This is how long the bot will stay at its current hiding spot.
-	botTable.ReturnPos					=	nil -- This is the spot the will back to after hiding, "Example, If the bot went into cover to reload."
-	botTable.Goal						=	nil -- The current path segment the bot is on.
-	botTable.Path						=	{} -- The nodes converted into waypoints by our visiblilty checking.
-	botTable.PathAge					=	0 -- This is how old the current bot's path is.
-	botTable.IsJumpingAcrossGap			=	false -- Is the bot trying to jump over a gap.
-	botTable.IsClimbingUpToLedge		=	false -- Is the bot trying to jump up to a ledge. 
-	botTable.HasLeftTheGround			=	false -- Used by the bot check if it has left the ground while gap jumping and jumping up to a ledge.
-	--self.CurrentSegment				=	1 -- This is the current segment the bot is on.
-	botTable.SegmentCount				=	0 -- This is how many nodes the bot's current path has.
-	botTable.LadderState				=	NO_LADDER -- This is the current ladder state of the bot.
-	botTable.LadderInfo					=	nil -- This is the current ladder the bot is trying to use.
-	botTable.LadderDismountGoal			=	nil -- This is the bot's goal once it reaches the end of its selected ladder.
-	botTable.LadderTimer				=	0 -- This helps the bot leave the ladder state if it somehow gets stuck.
-	botTable.MotionVector				=	Vector( 1.0, 0, 0 ) -- This is the bot's current movement as a vector.
-	botTable.RepathTimer				=	CurTime() + 0.5 -- This will limit how often the path gets recreated.
-	botTable.ChaseTimer					=	CurTime() + 0.5 -- This will limit how often the bot repaths while chasing something.
-	botTable.AvoidTimer					=	0 -- Limits how often the bot avoid checks are run.
-	botTable.IsStuck					=	false -- Is the bot stuck.
-	botTable.StuckPos					=	self:GetPos() -- Used when checking if the bot is stuck or not.
-	botTable.StuckTimer					=	CurTime() -- Used when checking if the bot is stuck or not.
-	botTable.StillStuckTimer			=	0 -- Used to check if the bot is stuck.
-	botTable.MoveRequestTimer			=	0 -- Used to check if the bot wants to move.
+	botTable.LookTargetPriority				=	TBotLookAtPriority.LOW_PRIORITY -- This is how important the position the bot is currently trying to look at is.
+	botTable.HeadSteadyTimer				=	nil -- This checks if the bot is not rapidly turning to look somehwere else.
+	botTable.CheckedEncounterSpots			=	{} -- This stores every encounter spot and when the spot was checked.
+	botTable.PeripheralTimestamp			=	0 -- This limits how often UpdatePeripheralVision is run.
+	botTable.NextEncounterTime				=	0 -- This is the next time the bot is allowed to look at another encounter spot.
+	botTable.ApproachViewPosition			=	self:GetPos() -- This is the position used to compute approach points.
+	botTable.ApproachPoints					=	{} -- This stores all the approach points leading to the bot.
+	botTable.HidingSpot						=	nil -- This is the current hiding/sniper spot the bot wants to goto.
+	botTable.HidingState					=	FINISHED_HIDING -- This is the current hiding state the bot is currently in.
+	botTable.HideReason						=	NONE -- This is the bot's reason for hiding.
+	botTable.NextHuntTime					=	CurTime() + 10 -- This is the next time the bot will pick a random sniper spot and look for enemies.
+	botTable.HidingSpotInterval				=	0 -- Limits how often the bot can set its selected hiding spot.
+	botTable.HideTime						=	0 -- This is how long the bot will stay at its current hiding spot.
+	botTable.ReturnPos						=	nil -- This is the spot the will back to after hiding, "Example, If the bot went into cover to reload."
+	botTable.Goal							=	nil -- The current path segment the bot is on.
+	botTable.Path							=	{} -- The nodes converted into waypoints by our visiblilty checking.
+	botTable.PathAge						=	0 -- This is how old the current bot's path is.
+	botTable.IsJumpingAcrossGap				=	false -- Is the bot trying to jump over a gap.
+	botTable.IsClimbingUpToLedge			=	false -- Is the bot trying to jump up to a ledge. 
+	botTable.HasLeftTheGround				=	false -- Used by the bot check if it has left the ground while gap jumping and jumping up to a ledge.
+	--self.CurrentSegment					=	1 -- This is the current segment the bot is on.
+	botTable.SegmentCount					=	0 -- This is how many nodes the bot's current path has.
+	botTable.LadderState					=	NO_LADDER -- This is the current ladder state of the bot.
+	botTable.LadderInfo						=	nil -- This is the current ladder the bot is trying to use.
+	botTable.LadderDismountGoal				=	nil -- This is the bot's goal once it reaches the end of its selected ladder.
+	botTable.LadderTimer					=	0 -- This helps the bot leave the ladder state if it somehow gets stuck.
+	botTable.MotionVector					=	Vector( 1.0, 0, 0 ) -- This is the bot's current movement as a vector.
+	botTable.RepathTimer					=	CurTime() + 0.5 -- This will limit how often the path gets recreated.
+	botTable.ChaseTimer						=	CurTime() + 0.5 -- This will limit how often the bot repaths while chasing something.
+	botTable.AvoidTimer						=	0 -- Limits how often the bot avoid checks are run.
+	botTable.IsStuck						=	false -- Is the bot stuck.
+	botTable.StuckPos						=	self:GetPos() -- Used when checking if the bot is stuck or not.
+	botTable.StuckTimer						=	CurTime() -- Used when checking if the bot is stuck or not.
+	botTable.StillStuckTimer				=	0 -- Used to check if the bot is stuck.
+	botTable.MoveRequestTimer				=	0 -- Used to check if the bot wants to move.
+	botTable.TBotCurrentPath				=	nil
 	--self.WiggleTimer				=	0 -- This helps the bot get unstuck.
 	--self.StuckJumpInterval			=	0 -- Limits how often the bot jumps when stuck.
 	
+	-- Delete old behavior interface on reset
+	if botTable.TBotBehavior then
+	
+		botTable.TBotBehavior:Remove()
+		
+	end
+	
+	botTable.TBotBehavior = TBotBehavior( TBotMainAction(), "Base Behavior" ) -- This gets reset every time the bot's AI is reset!
+	self:GetTBotVision():ForgetAllKnownEntities()
 	self:TBotSetState( IDLE )
 	self:ComputeApproachPoints()
 	--self:TBotCreateThinking() -- Start our AI
 	
 end
 
+--[[function BOT:TBotResetAI()
+	
+	-- TODO: Move most of this stuff into its own interfaces to reduce collision with other addons!!!!
+	local botTable						=	self:GetTable() -- This is used so I don't have to keep dipping into C every time since it is VERY SLOW!
+	botTable.buttonFlags					=	0 -- These are the buttons the bot is going to press.
+	botTable.impulseFlags					=	0 -- This is the impuse command the bot is going to press.
+	botTable.forwardMovement				=	0 -- This tells the bot to move either forward or backwards.
+	botTable.strafeMovement					=	0 -- This tells the bot to move left or right.
+	botTable.GroupLeader					=	nil -- If the bot's owner is dead, this bot will take charge in combat and leads other bots with the same "owner". 
+	botTable.EnemyList						=	{} -- This is the list of enemies the bot knows about.
+	botTable.AttackList						=	{} -- This is the list of entities the bot has been told to attack.
+	botTable.AimForHead						=	false -- Should the bot aim for the head?
+	botTable.TimeInCombat					=	0 -- This is how long the bot has been in combat.
+	botTable.LastCombatTime					=	0 -- This is the last time the bot was in combat.
+	botTable.BestWeapon						=	nil -- This is the weapon the bot currently wants to equip.
+	botTable.MinEquipInterval				=	0 -- Throttles how often equipping is allowed.
+	botTable.HoldAttack						=	0 -- This is how long the bot should hold its attack button.
+	botTable.HoldAttack2					=	0 -- This is how long the bot should hold its attack2 button.
+	botTable.HoldReload						=	0 -- This is how long the bot should hold its reload button.
+	botTable.HoldForward					=	0 -- This is how long the bot should hold its forward button.
+	botTable.HoldBack						=	0 -- This is how long the bot should hold its back button.
+	botTable.HoldLeft						=	0 -- This is how long the bot should hold its left button.
+	botTable.HoldRight						=	0 -- This is how long the bot should hold its right button.
+	botTable.HoldRun						=	0 -- This is how long the bot should hold its run button.
+	botTable.HoldWalk						=	0 -- This is how long the bot should hold its walk button.
+	botTable.HoldJump						=	0 -- This is how long the bot should hold its jump button.
+	botTable.HoldCrouch						=	0 -- This is how long the bot should hold its crouch button.
+	botTable.HoldUse						=	0 -- This is how long the bot should hold its use button.
+	botTable.FireWeaponInterval				=	0 -- Limits how often the bot presses its attack button.
+	botTable.SecondaryInterval				=	0 -- Limits how often the bot uses its secondary attack.
+	botTable.ReloadInterval					=	0 -- Limits how often the bot can press its reload button.
+	botTable.ScopeInterval					=	0 -- Limits how often the bot can press its scope button.
+	botTable.UseInterval					=	0 -- Limits how often the bot can press its use button.
+	botTable.GrenadeInterval				=	0 -- Limits how often the bot will throw a grenade.
+	botTable.ExplosiveInterval				=	0 -- Limits how often the bot will use explosive weapons.
+	botTable.ImpulseInterval				=	0 -- Limits how often the bot can press any impuse command.
+	botTable.Light							=	false -- Tells the bot if it should have its flashlight on or off.
+	botTable.m_isLookingAroundForEnemies	=	true -- Is the bot looking around for enemies?
+	botTable.CheckedEncounterSpots			=	{} -- This stores every encounter spot and when the spot was checked.
+	botTable.PeripheralTimestamp			=	0 -- This limits how often UpdatePeripheralVision is run.
+	botTable.NextEncounterTime				=	0 -- This is the next time the bot is allowed to look at another encounter spot.
+	botTable.ApproachViewPosition			=	self:GetPos() -- This is the position used to compute approach points.
+	botTable.ApproachPoints					=	{} -- This stores all the approach points leading to the bot.
+	botTable.TBotCurrentPath				=	nil
+	
+	-- Delete old behavior interface on reset
+	if botTable.TBotBehavior then
+	
+		botTable.TBotBehavior:Remove()
+		
+	end
+	
+	botTable.TBotBehavior = TBotBehavior( TBotMainAction(), "Base Behavior" ) -- This gets reset every time the bot's AI is reset!
+	self:GetTBotVision():ForgetAllKnownEntities()
+	self:TBotSetState( IDLE )
+	self:ComputeApproachPoints()
+	--self:TBotCreateThinking() -- Start our AI
+	
+end]]
+
+-- Returns the bot's behavior interface.
+-- TODO: Implement the new base functions into the addon's code!
+function BOT:GetTBotBehavior()
+	if !self:IsTRizzleBot() then return end
+
+	local botTable = self:GetTable()
+	if !botTable.TBotBehavior then
+	
+		botTable.TBotBehavior = TBotBehavior( TBotMainAction(), "Base Behavior" ) -- Create the behavior interface if its invalid or doesn't exist!
+		
+	end
+	
+	return botTable.TBotBehavior
+	
+end
+
+-- Returns the bot's vision interface.
+function BOT:GetTBotVision()
+	if !self:IsTRizzleBot() then return end
+	
+	local botTable = self:GetTable()
+	if !botTable.TBotVision then
+	
+		botTable.TBotVision = TBotVision( self )  -- Create the vision interface if its invalid or doesn't exist!
+		
+	end
+	
+	return botTable.TBotVision
+	
+end
+
+-- Returns the bot's body interface.
+function BOT:GetTBotBody()
+	if !self:IsTRizzleBot() then return end
+	
+	local botTable = self:GetTable()
+	if !botTable.TBotBody then
+	
+		botTable.TBotBody = TBotBody( self ) -- Create the body interface if its invalid or doesn't exist!
+		
+	end
+	
+	return botTable.TBotBody
+	
+end
+
+-- Returns the bot's locomotion interface.
+function BOT:GetTBotLocomotion()
+	if !self:IsTRizzleBot() then return end
+	
+	local botTable = self:GetTable()
+	if !botTable.TBotLocomotion then
+	
+		botTable.TBotLocomotion = TBotLocomotion( self ) -- Create the locomotion interface if its invalid or doesn't exist!
+		
+	end
+	
+	return botTable.TBotLocomotion
+	
+end
+
+-- TODO: Move these somewhere else...
+function BOT:SetCurrentPath( path )
+
+	self.TBotCurrentPath = path
+	
+end
+
+function BOT:GetCurrentPath()
+
+	return self.TBotCurrentPath
+	
+end
 
 hook.Add( "StartCommand" , "TRizzleBotAIHook" , function( bot , cmd )
 	if !IsValid( bot ) or !bot:IsTRizzleBot() or navmesh.IsGenerating() then return end
@@ -875,7 +1057,7 @@ function BOT:HandleButtons()
 		
 			self:PressRun()
 			
-		elseif IsValid( botTable.TBotOwner ) and botTable.TBotOwner:Alive() and ( !self:IsInCombat() or self:IsUnhealthy() ) and botTable.TBotOwner:GetPos():DistToSqr( self:GetPos() ) > botTable.DangerDist^2 then
+		--[[elseif IsValid( botTable.TBotOwner ) and botTable.TBotOwner:Alive() and ( !self:IsInCombat() or self:IsUnhealthy() ) and botTable.TBotOwner:GetPos():DistToSqr( self:GetPos() ) > botTable.DangerDist^2 then
 		
 			self:PressRun()
 		
@@ -883,6 +1065,7 @@ function BOT:HandleButtons()
 		
 			self:PressRun()
 		
+		end]]
 		end
 	
 	end
@@ -917,7 +1100,7 @@ function BOT:HandleButtons()
 			
 		end
 		
-		self:AimAtPos( breakable:WorldSpaceCenter(), 0.5, MAXIMUM_PRIORITY )
+		self:AimAtPos( breakable:WorldSpaceCenter(), 0.5, TBotLookAtPriority.MAXIMUM_PRIORITY )
 		
 		if self:IsLookingAtPosition( breakable:WorldSpaceCenter() ) then
 		
@@ -990,7 +1173,7 @@ function BOT:HandleButtons()
 			
 		end
 		
-		self:AimAtPos( door:WorldSpaceCenter(), 0.5, MAXIMUM_PRIORITY )
+		self:AimAtPos( door:WorldSpaceCenter(), 0.5, TBotLookAtPriority.MAXIMUM_PRIORITY )
 		
 		if CurTime() >= botTable.UseInterval and self:IsLookingAtPosition( door:WorldSpaceCenter() ) then
 			
@@ -1297,7 +1480,7 @@ function BOT:IsSafe()
 		
 	end
 	
-	return self.LastCombatTime + 15.0 <= CurTime()
+	return self.LastCombatTime <= CurTime() - 15.0
 	
 end
 
@@ -1333,7 +1516,7 @@ This also returns to the distance the returned player is from said position.
 function util.GetClosestPlayer( pos, team )
 
 	local closePlayer = nil
-	local closeDistSq = 1000000000000
+	local closeDistSq = math.huge
 	
 	for i = 1, game.MaxPlayers() do
 	
@@ -1810,7 +1993,7 @@ function BOT:UpdateAim()
 	
 		if botTable.LookTargetTrackingTimer <= CurTime() then
 		
-			local desiredLookTargetPos = self:SelectTargetPoint( subject )
+			local desiredLookTargetPos = self:GetTBotBehavior():SelectTargetPoint( self, subject )
 			local errorVector = desiredLookTargetPos - botTable.LookTarget
 			local Error = errorVector:Length()
 			errorVector:Normalize()
@@ -1890,6 +2073,84 @@ function BOT:UpdateAim()
 	angles.y = math.AngleNormalize( angles.y )
 	
 	self:SetEyeAngles( angles )
+
+end
+
+function BOT:UpdateLookingAroundForEnemies()
+
+	if !self.m_isLookingAroundForEnemies then
+	
+		return
+		
+	end
+
+	local vision = self:GetTBotVision()
+	local body = self:GetTBotBody()
+	local threat = vision:GetPrimaryKnownThreat()
+	local botTable = self:GetTable()
+	if istbotknownentity( threat ) and IsValid( threat:GetEntity() ) then
+	
+		if threat:IsVisibleInFOVNow() then
+		
+			body:AimHeadTowards( threat:GetEntity(), TBotLookAtPriority.HIGH_PRIORITY, 1.0 )
+			
+		else
+		
+			if vision:IsLineOfSightClear( threat:GetEntity() ) then
+			
+				local toThreat = threat:GetEntity():GetPos() - self:GetPos()
+				local threatRange = toThreat:Length()
+				
+				local s = math.sin( math.pi/6.0 )
+				local Error = threatRange * s
+				local imperfectAimSpot = threat:GetEntity():WorldSpaceCenter()
+				imperfectAimSpot.x = imperfectAimSpot.x + math.Rand( -Error, Error )
+				imperfectAimSpot.y = imperfectAimSpot.y + math.Rand( -Error, Error )
+				
+				body:AimHeadTowards( imperfectAimSpot, TBotLookAtPriority.MEDIUM_PRIORITY, 1.0 )
+				
+			end
+		
+		end
+		
+		return
+	
+	end
+	
+	-- Update the bot's encounter and approach points
+	if ( !self:IsInCombat() and !self:IsSafe() ) and botTable.NextEncounterTime <= CurTime() then
+	
+		local minStillTime = 2.0
+		if self:IsNotMoving( minStillTime ) then
+			
+			local recomputeApproachPointTolerance = 50.0
+			if ( botTable.ApproachViewPosition - self:GetPos() ):IsLengthGreaterThan( recomputeApproachPointTolerance ) then
+			
+				self:ComputeApproachPoints()
+				botTable.ApproachViewPosition = self:GetPos()
+			
+			end
+		
+			if istable( botTable.ApproachPoints ) and #botTable.ApproachPoints > 0 then
+		
+				body:AimHeadTowards( botTable.ApproachPoints[ math.random( #botTable.ApproachPoints ) ].Pos + HalfHumanHeight, TBotLookAtPriority.MEDIUM_PRIORITY, 1.0 )
+				botTable.NextEncounterTime = CurTime() + 2.0
+				
+			else
+			
+				body:AimHeadTowards( self:ComputeEncounterSpot(), TBotLookAtPriority.MEDIUM_PRIORITY, 1.0 )
+				botTable.NextEncounterTime = CurTime() + 2.0
+			
+			end
+		
+		else
+		
+			body:AimAtPos( self:ComputeEncounterSpot(), TBotLookAtPriority.MEDIUM_PRIORITY, 1.0 )
+			botTable.NextEncounterTime = CurTime() + 2.0
+		
+		end
+	
+	end
 
 end
 
@@ -1985,7 +2246,7 @@ function BOT:FaceTowards( target )
 		
 	end]]
 	
-	self:AimAtPos( look, 0.1, LOW_PRIORITY )
+	self:AimAtPos( look, 0.1, TBotLookAtPriority.LOW_PRIORITY )
 	
 end
 
@@ -1999,7 +2260,7 @@ function BOT:AimAtPos( Pos, Time, Priority )
 	end
 	
 	Time = tonumber( Time ) or 0.0
-	Priority = tonumber( Priority ) or LOW_PRIORITY
+	Priority = tonumber( Priority ) or TBotLookAtPriority.LOW_PRIORITY
 	
 	if Time <= 0.0 then
 	
@@ -2052,7 +2313,7 @@ function BOT:AimAtEntity( Subject, Time, Priority )
 	end
 	
 	Time = tonumber( Time ) or 0.0
-	Priority = tonumber( Priority ) or LOW_PRIORITY
+	Priority = tonumber( Priority ) or TBotLookAtPriority.LOW_PRIORITY
 	
 	if Time <= 0.0 then
 	
@@ -2486,7 +2747,6 @@ function util.VecToYaw( vec )
 end
 
 function BOT:BendLineOfSight( eye, target, angleLimit )
-
 	angleLimit = angleLimit or 135
 	
 	local result = {}
@@ -2684,7 +2944,7 @@ function BOT:ScreenFade( flags, clr, fadeTime, fadeHold )
 
 	if self:IsTRizzleBot() then
 
-		self:TBotBlind( fadeHold )
+		self:GetTBotVision():Blind( fadeHold, self:IsInCombat() )
 		
 	end
 	
@@ -2697,7 +2957,7 @@ function BOT:TBotBlind( time )
 	if !self:Alive() or !self:IsTRizzleBot() or time < ( self.TRizzleBotBlindTime - CurTime() ) then return end
 	
 	self.TRizzleBotBlindTime = CurTime() + time
-	self:AimAtPos( self:GetShootPos() + 1000 * Angle( math.random( -30, 30 ), math.random( -180, 180 ), 0 ):Forward(), 0.1, MAXIMUM_PRIORITY ) -- Make the bot fling its aim in a random direction upon becoming blind
+	self:AimAtPos( self:GetShootPos() + 1000 * Angle( math.random( -30, 30 ), math.random( -180, 180 ), 0 ):Forward(), 0.1, TBotLookAtPriority.MAXIMUM_PRIORITY ) -- Make the bot fling its aim in a random direction upon becoming blind
 end
 
 -- Is the bot currently blind?
@@ -2779,11 +3039,18 @@ function BOT:GetFogParams()
 	if IsValid( trigger ) then
 		
 		targetFog = trigger
+		
 	end
 	
-	if !IsValid( targetFog ) and IsValid( GetMasterFogController() ) then
+	if !IsValid( targetFog ) then 
 	
-		targetFog = GetMasterFogController()
+		local masterFogController = GetMasterFogController()
+		if IsValid( masterFogController ) then
+	
+			targetFog = masterFogController
+		
+		end
+		
 	end
 
 	if IsValid( targetFog ) then
@@ -2802,7 +3069,7 @@ end
 -- Tracks the last trigger_fog touched by this bot
 function BOT:GetFogTrigger()
 
-	local bestDist = 1000000000000
+	local bestDist = math.huge
 	local bestTrigger = nil
 
 	for k, fogTrigger in ipairs( ents.FindByClass( "trigger_fog" ) ) do
@@ -2867,7 +3134,7 @@ end
 
 function BOT:IsCursorOnTarget( target )
 
-	local botTable = self:GetTable()
+	local body = self:GetTBotBody()
 	if IsValid( target ) then
 		
 		-- Don't try to shoot through walls
@@ -2886,7 +3153,7 @@ function BOT:IsCursorOnTarget( target )
 		local ply = self:GetEyeTrace().Entity
 		if IsValid( ply ) and ply:IsPlayer() and ply != target then return false end
 		
-		return botTable.IsSightedIn and botTable.LookTargetSubject == target
+		return body:IsHeadAimingOnTarget() and body.m_lookAtSubject == target
 		
 		--return self:PointWithinCursor( target, self:SelectTargetPoint( target ) )
 	
@@ -2901,6 +3168,7 @@ function BOT:SelectBestWeapon( target, enemydistsqr )
 	
 	enemydistsqr			=	enemydistsqr or target:GetPos():DistToSqr( self:GetPos() ) -- Only compute this once, there is no point in recomputing it multiple times as doing so is a waste of computer resources
 	local botTable			=	self:GetTable()
+	local vision			=	self:GetTBotVision()
 	local oldBestWeapon 	= 	botTable.BestWeapon
 	local minEquipInterval	=	0
 	local bestWeapon		=	nil
@@ -2910,100 +3178,101 @@ function BOT:SelectBestWeapon( target, enemydistsqr )
 	--local sniper			=	self:GetWeapon( self.Sniper )
 	--local grenade			=	self:GetWeapon( self.Grenade )
 	--local melee				=	self:GetWeapon( self.Melee )
-	local medkit			=	self:GetWeapon( "weapon_medkit" )
+	--local medkit			=	self:GetWeapon( "weapon_medkit" )
 	
-	if IsValid( medkit ) and botTable.CombatHealThreshold > self:Health() and medkit:Clip1() >= 25 then
+	--[[if IsValid( medkit ) and botTable.CombatHealThreshold > self:Health() and medkit:Clip1() >= 25 then
 		
 		-- The bot will heal themself if they get too injured during combat
 		botTable.BestWeapon = medkit
 	
-	else
+	else]]
+	
+	-- FIXME: This really should be neater.....
+	-- Maybe in its own function?
+	local desiredWeaponType = "Sniper"
+	if enemydistsqr < botTable.PistolDist^2 then
 		
-		-- FIXME: This really should be neater.....
-		-- Maybe in its own function?
-		local desiredWeaponType = "Sniper"
-		if enemydistsqr < botTable.PistolDist^2 then
+		desiredWeaponType = "Pistol"
 		
-			desiredWeaponType = "Pistol"
+	end
+	
+	if enemydistsqr < botTable.RifleDist^2 then
+	
+		desiredWeaponType = "Rifle"
+		
+	end
+	
+	if enemydistsqr < botTable.ShotgunDist^2 then
+		
+		desiredWeaponType = "Shotgun"
+		
+	end
+	
+	local knownCount = vision:GetKnownCount( nil, true, -1 )
+	if enemydistsqr > 40000 and knownCount >= 5 then
+		
+		if botTable.GrenadeInterval <= CurTime() then
+			
+			desiredWeaponType = "Grenade"
+			
+		elseif botTable.ExplosiveInterval <= CurTime() then
+			
+			desiredWeaponType = "Explosive"
 			
 		end
 		
-		if enemydistsqr < botTable.RifleDist^2 then
+	end
+	
+	if enemydistsqr < botTable.MeleeDist^2 and knownCount < 5 then
 		
-			desiredWeaponType = "Rifle"
-			
-		end
+		desiredWeaponType = "Melee"
+		--desiredRange = 1
 		
-		if enemydistsqr < botTable.ShotgunDist^2 then
-		
-			desiredWeaponType = "Shotgun"
+	end
+	
+	local preferredWeapons = botTable.TBotPreferredWeapons
+	local desiredWeaponDistance = GetTBotDistancePriority( desiredWeaponDistance )
+	for k, weapon in ipairs( self:GetWeapons() ) do
+	
+		if IsValid( weapon ) and weapon:HasPrimaryAmmo() and weapon:IsTBotRegisteredWeapon() then 
 			
-		end
-		
-		local knownCount = self:GetKnownCount( nil, true, -1 )
-		if enemydistsqr > 40000 and knownCount >= 5 then
-		
-			if botTable.GrenadeInterval <= CurTime() then
+			local weaponType = TBotWeaponTable[ weapon:GetClass() ].WeaponType
+			if !IsValid( bestWeapon ) or weaponType == desiredWeaponType or ( weaponType != desiredWeaponType and GetTBotRegisteredWeapon( bestWeapon:GetClass() ).WeaponType != desiredWeaponType and weapon:GetTBotDistancePriority() > bestWeapon:GetTBotDistancePriority() and bestWeapon:GetTBotDistancePriority() != desiredWeaponDistance + 1 ) then
 			
-				desiredWeaponType = "Grenade"
-				
-			elseif botTable.ExplosiveInterval <= CurTime() then
-			
-				desiredWeaponType = "Explosive"
-			
-			end
-			
-		end
-		
-		if enemydistsqr < botTable.MeleeDist^2 and knownCount < 5 then
-		
-			desiredWeaponType = "Melee"
-			--desiredRange = 1
-			
-		end
-		
-		local preferredWeapons = botTable.TBotPreferredWeapons
-		for k, weapon in ipairs( self:GetWeapons() ) do
-		
-			if IsValid( weapon ) and weapon:HasPrimaryAmmo() and weapon:IsTBotRegisteredWeapon() then 
-			
-				local weaponType = TBotWeaponTable[ weapon:GetClass() ].WeaponType
-				if !IsValid( bestWeapon ) or weaponType == desiredWeaponType or ( weaponType != desiredWeaponType and TBotWeaponTable[ bestWeapon:GetClass() ].WeaponType != desiredWeaponType and weapon:GetTBotDistancePriority() > bestWeapon:GetTBotDistancePriority() ) then
-			
-					bestWeapon = weapon
-					minEquipInterval = Either( weaponType != "Melee", 5.0, 2.0 )
-				
-				end
-				
-				-- Found the weapon we wanted!
-				if tobool( preferredWeapons[ weapon:GetClass() ] ) and weaponType == desiredWeaponType then
-					
-					break
-					
-				end
+				bestWeapon = weapon
+				minEquipInterval = Either( weaponType != "Melee", 5.0, 2.0 )
 				
 			end
 			
-		end
-		
-		if IsValid( bestWeapon ) and oldBestWeapon != bestWeapon then 
-			
-			botTable.BestWeapon			= bestWeapon
-			botTable.MinEquipInterval 	= CurTime() + minEquipInterval
-			
-			-- The bot should wait before throwing a grenade since some have a pull out animation
-			if TBotWeaponTable[ bestWeapon:GetClass() ].WeaponType == "Grenade" then
-			
-				local deployDuration = bestWeapon:SequenceDuration( bestWeapon:LookupSequence( ACT_VM_DRAW ) )
-				if deployDuration < 0 then deployDuration = 0.0 end
-				botTable.FireWeaponInterval = CurTime() + deployDuration
-				--self.FireWeaponInterval = CurTime() + 1.5
+			-- Found the weapon we wanted!
+			if tobool( preferredWeapons[ weapon:GetClass() ] ) and weaponType == desiredWeaponType then
+				
+				break
 				
 			end
 			
 		end
 		
 	end
+	
+	if IsValid( bestWeapon ) and oldBestWeapon != bestWeapon then 
+		
+		botTable.BestWeapon			= bestWeapon
+		botTable.MinEquipInterval 	= CurTime() + minEquipInterval
+		
+		-- The bot should wait before throwing a grenade since some have a pull out animation
+		if TBotWeaponTable[ bestWeapon:GetClass() ].WeaponType == "Grenade" then
+			
+			local deployDuration = bestWeapon:SequenceDuration( bestWeapon:LookupSequence( ACT_VM_DRAW ) )
+			if deployDuration < 0 then deployDuration = 0.0 end
+			botTable.FireWeaponInterval = CurTime() + deployDuration
+			--self.FireWeaponInterval = CurTime() + 1.5
+			
+		end
+		
+	end
+	
+	--end
 	
 end
 
@@ -3096,7 +3365,44 @@ function Wep:IsTBotRegisteredWeapon()
 	
 end
 
--- Returns the prefred distance ranking of this weapon.
+-- Returns the preferred distance ranking of this weapon type.
+-- NOTE: I don't like the name of this function, but oh well....
+function GetTBotDistancePriority( weaponType )
+	if !isstring( weaponType ) then return -1 end
+
+	local MELEE_RANGE = 1
+	local SHOTGUN_RANGE = 2
+	local RIFLE_RANGE = 3
+	local PISTOL_RANGE = 4
+	local SNIPER_RANGE = 5
+	
+	if weaponType == "Sniper" then
+	
+		return SNIPER_RANGE
+		
+	elseif weaponType == "Pistol" then
+	
+		return PISTOL_RANGE
+		
+	elseif weaponType == "Rifle" then
+	
+		return RIFLE_RANGE
+		
+	elseif weaponType == "Shotgun" then
+	
+		return SHOTGUN_RANGE
+		
+	elseif weaponType == "Melee" then
+	
+		return MELEE_RANGE
+		
+	end
+	
+	return MELEE_RANGE -- Assume that explosive weapons and grenades are also last resort weapons!
+
+end
+
+-- Returns the preferred distance ranking of this weapon.
 -- NOTE: I don't like the name of this function, but oh well....
 function Wep:GetTBotDistancePriority()
 	if !self:IsTBotRegisteredWeapon() then return -1 end
@@ -3393,7 +3699,7 @@ end
 
 function Ent:IsDoor()
 
-	if (self:GetClass() == "func_door") or (self:GetClass() == "prop_door_rotating") or (self:GetClass() == "func_door_rotating") then
+	if self:GetClass() == "func_door" or self:GetClass() == "prop_door_rotating" or self:GetClass() == "func_door_rotating" then
         
 		return true
     
@@ -3577,7 +3883,7 @@ end)
 
 -- When the bot dies, it seems to keep its weapons for some reason. This hook removes them when the bot dies.
 -- This hook also checks if a player dies and removes said player from every bots known enemy list.
-hook.Add( "PostPlayerDeath" , "TRizzleBotPostPlayerDeath" , function( ply )
+--[[hook.Add( "PostPlayerDeath" , "TRizzleBotPostPlayerDeath" , function( ply )
 
 	for i = 1, game.MaxPlayers() do
 	
@@ -3598,10 +3904,10 @@ hook.Add( "PostPlayerDeath" , "TRizzleBotPostPlayerDeath" , function( ply )
 		
 	end
 
-end)
+end)]]
 
 -- When a player leaves the server, every bot "owned" by the player should leave as well
-hook.Add( "PlayerDisconnected" , "TRizzleBotPlayerLeave" , function( ply )
+--[[hook.Add( "PlayerDisconnected" , "TRizzleBotPlayerLeave" , function( ply )
 	
 	if !ply:IsTRizzleBot( true ) then 
 		
@@ -3631,7 +3937,7 @@ hook.Add( "PlayerDisconnected" , "TRizzleBotPlayerLeave" , function( ply )
 		
 	end
 	
-end)
+end)]]
 
 -- This is for certain functions that effect every bot with one call.
 hook.Add( "Think" , "TRizzleBotThink" , function()
@@ -3658,19 +3964,21 @@ hook.Add( "Think" , "TRizzleBotThink" , function()
 		end
 	end
 	
-	for i = 1, game.MaxPlayers() do -- Is this cheaper than for k, bot in ipairs( player.GetBots() ) do
+	for k, bot in player.Iterator() do
 	
-		local bot = Entity( i )
 		local botTable = bot:GetTable()
 		if IsValid( bot ) and bot:IsTRizzleBot() then
 			
-			bot:UpdateAim()
+			bot:GetTBotBody():Upkeep()
+			--bot:UpdateAim()
 			
+			-- TODO: We need to a better way to limit how often the bot's update their AI!
 			if ( ( engine.TickCount() + bot:EntIndex() ) % BotUpdateSkipCount ) == 0 then
 			
 				bot:ResetCommand() -- Clear all movement and buttons
 				
-				if !bot:Alive() then -- We do the respawning here since its better than relying on timers
+				-- Deprecated: Respawning is now handled in the behavior interface!
+				--[[if !bot:Alive() then -- We do the respawning here since its better than relying on timers
 			
 					if ( !botTable.NextSpawnTime or botTable.NextSpawnTime <= CurTime() ) and bot:GetDeathTimestamp() > TBotSpawnTime:GetFloat() + 60.0 then -- Just incase something stops the bot from respawning, I force them to respawn anyway
 					
@@ -3685,12 +3993,13 @@ hook.Add( "Think" , "TRizzleBotThink" , function()
 					
 					continue -- We don't need to think while dead
 					
-				end
+				end]]
 				
-				bot:UpdateVision()
+				--bot:UpdateVision()
 				-- This seems to lag the game
 				bot:UpdatePeripheralVision()
 				
+				-- Deprecated: This is handled in the locomotion interface
 				local speed = bot:GetVelocity():Length()
 	
 				if speed > 10.0 then
@@ -3699,9 +4008,15 @@ hook.Add( "Think" , "TRizzleBotThink" , function()
 					
 				end
 				
+				bot:GetTBotBehavior():Update( bot, engine.TickInterval() / 2 ) -- I think the update rate is correct?
+				bot:GetTBotVision():Update( bot, engine.TickInterval() / 2 ) -- The vision interface doesn't use these, but just in case...
+				bot:GetTBotLocomotion():Update( bot, engine.TickInterval() / 2 ) -- The locomotion interface doesn't use these, but just in case...
+				--bot:TBotUpdateLocomotion()
+				--bot:StuckMonitor()
+				
 				--if bot:GetCollisionGroup() != 5 then bot:SetCollisionGroup( 5 ) end -- Apparently the bot's default collisiongroup is set to 11 causing the bot not to take damage from melee enemies
 				
-				if !IsValid( botTable.TBotOwner ) or !botTable.TBotOwner:Alive() then	
+				--[[if !IsValid( botTable.TBotOwner ) or !botTable.TBotOwner:Alive() then	
 					
 					if ( ( engine.TickCount() + bot:EntIndex() ) % 5 ) == 0 then
 						
@@ -4018,7 +4333,7 @@ hook.Add( "Think" , "TRizzleBotThink" , function()
 				
 					bot:TBotRevivePlayerState()
 					
-				end
+				end]]
 				
 				-- The check CNavArea we are standing on.
 				if !IsValid( botTable.currentArea ) or !botTable.currentArea:Contains( bot:GetPos() ) then
@@ -4049,7 +4364,7 @@ hook.Add( "Think" , "TRizzleBotThink" , function()
 				end
 				
 				-- Update the bot's encounter and approach points
-				if ( ( !bot:IsInCombat() and !bot:IsSafe() ) or bot:IsHiding() ) and botTable.NextEncounterTime <= CurTime() then
+				--[[if ( ( !bot:IsInCombat() and !bot:IsSafe() ) or bot:IsHiding() ) and botTable.NextEncounterTime <= CurTime() then
 				
 					local minStillTime = 2.0
 					if bot:IsAtHidingSpot() or bot:IsNotMoving( minStillTime ) then
@@ -4114,13 +4429,13 @@ hook.Add( "Think" , "TRizzleBotThink" , function()
 				-- Only check if we need to spawn in weapons every second since this creates lag if we don't
 				if botTable.SpawnWithWeapons and ( ( engine.TickCount() + bot:EntIndex() ) % math.floor( 1 / engine.TickInterval() ) == 0 ) then
 					
-					--[[bot:Give( bot.Pistol )
+					bot:Give( bot.Pistol )
 					bot:Give( bot.Shotgun )
 					bot:Give( bot.Rifle )
 					bot:Give( bot.Sniper )
 					bot:Give( bot.Melee )
 					bot:Give( "weapon_medkit" )
-					if bot:IsSafe() then bot:Give( bot.Grenade ) end]] -- The bot should only spawn in its grenade if it feels safe.
+					if bot:IsSafe() then bot:Give( bot.Grenade ) end -- The bot should only spawn in its grenade if it feels safe.
 					
 					for weapon, _ in pairs( botTable.TBotPreferredWeapons ) do
 					
@@ -4139,9 +4454,9 @@ hook.Add( "Think" , "TRizzleBotThink" , function()
 					end
 					bot:Give( "weapon_medkit" )
 					
-				end
+				end]]
 				
-				if bot:CanUseFlashlight() and botTable.ImpulseInterval <= CurTime() then
+				--[[if bot:CanUseFlashlight() and botTable.ImpulseInterval <= CurTime() then
 				
 					if !bot:TBotIsFlashlightOn() and botTable.Light and bot:GetSuitPower() > 50 then
 						
@@ -4157,7 +4472,7 @@ hook.Add( "Think" , "TRizzleBotThink" , function()
 						
 					end
 					
-				end
+				end]]
 				
 				bot:HandleButtons()
 				
@@ -4391,7 +4706,7 @@ function BOT:TBotUseEntityState()
 	
 	if botUseEnt:GetPos():DistToSqr( self:GetPos() ) <= 200^2 and self:IsAbleToSee( botUseEnt ) then
 		
-		self:AimAtPos( botUseEnt:WorldSpaceCenter(), 0.1, HIGH_PRIORITY )
+		self:AimAtPos( botUseEnt:WorldSpaceCenter(), 0.1, TBotLookAtPriority.HIGH_PRIORITY )
 		
 	end
 	
@@ -4448,7 +4763,7 @@ function BOT:TBotRevivePlayerState()
 	
 	if reviveTargetDist <= 100^2 and self:IsAbleToSee( botReviveTarget ) then
 		
-		self:AimAtPos( botReviveTarget:GetPos(), 0.1, HIGH_PRIORITY )
+		self:AimAtPos( botReviveTarget:GetPos(), 0.1, TBotLookAtPriority.HIGH_PRIORITY )
 		
 		if self:IsLookingAtPosition( botReviveTarget:GetPos() ) then
 		
@@ -4613,7 +4928,7 @@ function BOT:TBotHealPlayerState()
 			
 		end
 	
-		if botHealTarget != self then self:AimAtPos( botHealTarget:WorldSpaceCenter(), 0.1, MEDIUM_PRIORITY ) end
+		if botHealTarget != self then self:AimAtPos( botHealTarget:WorldSpaceCenter(), 0.1, TBotLookAtPriority.MEDIUM_PRIORITY ) end
 	
 	end
 	
@@ -4790,7 +5105,7 @@ function BOT:TBotFollowGroupLeaderState()
 end
 
 -- Bot chat commands are handled here.
-hook.Add( "PlayerSay", "TRizzleBotPlayerSay", function( sender, text, teamChat ) 
+--[[hook.Add( "PlayerSay", "TRizzleBotPlayerSay", function( sender, text, teamChat ) 
 	if !IsValid( sender ) then return end
 
 	--local textTable = string.Explode( " ", text )
@@ -4903,7 +5218,7 @@ hook.Add( "PlayerSay", "TRizzleBotPlayerSay", function( sender, text, teamChat )
 	
 	end
 
-end)
+end)]]
 
 -- Reset their AI on spawn.
 hook.Add( "PlayerSpawn" , "TRizzleBotSpawnHook" , function( ply )
@@ -4917,7 +5232,7 @@ hook.Add( "PlayerSpawn" , "TRizzleBotSpawnHook" , function( ply )
 end)
 
 -- Makes the bot react to damage taken by enemies
-hook.Add( "PlayerHurt" , "TRizzleBotPlayerHurt" , function( victim, attacker )
+--[[hook.Add( "PlayerHurt" , "TRizzleBotPlayerHurt" , function( victim, attacker )
 
 	if GetConVar( "ai_ignoreplayers" ):GetBool() or GetConVar( "ai_disabled" ):GetBool() or !IsValid( attacker ) or !IsValid( victim ) or !victim:IsTRizzleBot() then return end
 	
@@ -4933,7 +5248,7 @@ hook.Add( "PlayerHurt" , "TRizzleBotPlayerHurt" , function( victim, attacker )
 				
 			end
 			
-			if !victim:IsInCombat() then victim.LastCombatTime = CurTime() - 5.0 end
+			if !victim:IsInCombat() then victim.LastCombatTime = CurTime() + 5.0 end
 			
 		end
 		
@@ -4963,7 +5278,7 @@ hook.Add( "EntityEmitSound" , "TRizzleBotEntityEmitSound" , function( soundTable
 					
 				end
 			
-				if !bot:IsInCombat() then bot.LastCombatTime = CurTime() - 5.0 end
+				if !bot:IsInCombat() then bot.LastCombatTime = CurTime() + 5.0 end
 				
 			end
 			
@@ -4971,7 +5286,7 @@ hook.Add( "EntityEmitSound" , "TRizzleBotEntityEmitSound" , function( soundTable
 		
 	end
 	
-end)
+end)]]
 
 -- Checks if the NPC is alive
 function Npc:IsAlive()
@@ -5169,7 +5484,7 @@ function BOT:GetPrimaryKnownThreat( onlyVisibleThreats )
 		
 			if !onlyVisibleThreats or newThreat:IsVisibleRecently() then
 			
-				threat = self:SelectMoreDangerousThreat( threat, newThreat )
+				threat = self:GetTBotBehavior():SelectMoreDangerousThreat( self, threat, newThreat )
 				
 			end
 			
@@ -6326,6 +6641,7 @@ function TRizzleBotPathfinderRetreat( bot, threat, costFunc )
 
 	local GO_LADDER_UP = 4
 	local GO_LADDER_DOWN = 5
+	local GO_THROUGH_PORTAL = 6
 
 	local startArea = bot:GetLastKnownArea()
 	if !IsValid( startArea ) then
@@ -7472,9 +7788,17 @@ end
 -- Checks if a hiding spot is safe to use
 function BOT:IsSpotSafe( hidingSpot )
 
+	-- FIXME: Change this once the old addons are updated!!!
 	for k, known in ipairs( self.EnemyList ) do
 	
 		if self:IsAwareOf( known ) and !known:IsObsolete() and self:IsEnemy( known:GetEntity() ) and known:GetEntity():TBotVisible( hidingSpot ) then return false end -- If one of the bot's enemies its aware of can see it the bot won't use it.
+	
+	end
+	
+	local vision = self:GetTBotVision()
+	for k, known in ipairs( vision.m_knownEntityVector ) do
+	
+		if vision:IsAwareOf( known ) and !known:IsObsolete() and self:IsEnemy( known:GetEntity() ) and known:GetEntity():VisibleVec( hidingSpot ) then return false end -- If one of the bot's enemies its aware of can see it the bot won't use it.
 	
 	end
 
@@ -8848,7 +9172,7 @@ function BOT:LadderUpdate()
 		
 		local to = ( botTable.Goal.Ladder:GetBottom() - self:GetPos() ):AsVector2D()
 		
-		self:AimAtPos( botTable.Goal.Ladder:GetTop() - 50 * botTable.Goal.Ladder:GetNormal() + Vector( 0, 0, self:GetCrouchHullHeight() ), 2.0, MAXIMUM_PRIORITY )
+		self:AimAtPos( botTable.Goal.Ladder:GetTop() - 50 * botTable.Goal.Ladder:GetNormal() + Vector( 0, 0, self:GetCrouchHullHeight() ), 2.0, TBotLookAtPriority.MAXIMUM_PRIORITY )
 		
 		local range = to:Length()
 		to:Normalize()
@@ -8920,7 +9244,7 @@ function BOT:LadderUpdate()
 			local mountPoint = botTable.Goal.Ladder:GetTop() + 0.5 * self:GetHullWidth() * botTable.Goal.Ladder:GetNormal()
 			local to = ( mountPoint - self:GetPos() ):AsVector2D()
 			
-			self:AimAtPos( botTable.Goal.Ladder:GetBottom() + 50 * botTable.Goal.Ladder:GetNormal() + Vector( 0, 0, self:GetCrouchHullHeight() ), 1.0, MAXIMUM_PRIORITY )
+			self:AimAtPos( botTable.Goal.Ladder:GetBottom() + 50 * botTable.Goal.Ladder:GetNormal() + Vector( 0, 0, self:GetCrouchHullHeight() ), 1.0, TBotLookAtPriority.MAXIMUM_PRIORITY )
 			
 			local range = to:Length()
 			to:Normalize()
@@ -9228,7 +9552,7 @@ function BOT:AscendLadder()
 	
 	local goal = self:GetPos() + 100 * ( -botTable.LadderInfo:GetNormal() + Vector( 0, 0, 2 ) )
 	
-	self:AimAtPos( goal, 0.1, MAXIMUM_PRIORITY )
+	self:AimAtPos( goal, 0.1, TBotLookAtPriority.MAXIMUM_PRIORITY )
 	
 	self:Approach( goal )
 	
@@ -9261,7 +9585,7 @@ function BOT:DescendLadder()
 	
 	local goal = self:GetPos() + 100 * ( botTable.LadderInfo:GetNormal() + Vector( 0, 0, -2 ) )
 	
-	self:AimAtPos( goal, 0.1, MAXIMUM_PRIORITY )
+	self:AimAtPos( goal, 0.1, TBotLookAtPriority.MAXIMUM_PRIORITY )
 	
 	self:Approach( goal )
 	
@@ -9285,7 +9609,7 @@ function BOT:DismountLadderTop()
 	toGoal:Normalize()
 	toGoal.z = 1.0
 	
-	self:AimAtPos( self:GetShootPos() + 100 * toGoal, 0.1, MAXIMUM_PRIORITY )
+	self:AimAtPos( self:GetShootPos() + 100 * toGoal, 0.1, TBotLookAtPriority.MAXIMUM_PRIORITY )
 	
 	self:Approach( self:GetPos() + 100 * toGoal )
 	
@@ -10007,7 +10331,7 @@ function BOT:JumpAcrossGap( landingGoal, landingForward )
 	self:PressJump()
 	
 	-- Face forward
-	self:AimAtPos( landingGoal, 1.0, HIGH_PRIORITY )
+	self:AimAtPos( landingGoal, 1.0, TBotLookAtPriority.HIGH_PRIORITY )
 	
 	botTable.IsJumpingAcrossGap = true
 	botTable.LandingGoal = landingGoal
@@ -10183,7 +10507,7 @@ function BOT:TBotUpdateLocomotion()
 		
 		if botTable.HasLeftTheGround then
 			
-			self:AimAtPos( self:GetShootPos() + 100 * toLanding, 0.25, MAXIMUM_PRIORITY )
+			self:AimAtPos( self:GetShootPos() + 100 * toLanding, 0.25, TBotLookAtPriority.MAXIMUM_PRIORITY )
 			
 			if self:IsOnGround() then
 				
@@ -11223,3 +11547,6 @@ function ShowAllHidingSpots()
 	end
 
 end
+
+-- We call this once this addon has sucessfuly initialized, so other addons can override this one!
+hook.Run( "TRizzleBotInitialized" )
