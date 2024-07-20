@@ -166,6 +166,7 @@ function TBotPathFollowerMeta:LadderUpdate( bot )
 		
 	end
 	
+	local GO_LADDER_DOWN = 5
 	if !IsValid( self.m_goal.ladder ) then
 	
 		if bot:Is_On_Ladder() then
