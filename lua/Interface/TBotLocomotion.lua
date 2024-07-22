@@ -179,6 +179,8 @@ function TBotLocomotionMeta:Update()
 	
 end
 
+-- NEEDTOVALIDATE: Currently the bot will crouch for far away obstacles,
+-- should I add a max range limiter?
 function TBotLocomotionMeta:AdjustPosture( moveGoal )
 
 	local bot = self:GetBot()
@@ -476,7 +478,7 @@ end
 
 function TBotLocomotionMeta:GetGroundNormal()
 
-	return Vector( 0, 0, 1.0 )
+	return vector_up * 1 -- Vector( 0, 0, 1.0 )
 	
 end
 
@@ -490,11 +492,11 @@ function TBotLocomotionMeta:FaceTowards( target )
 	
 	-- TODO: Get the bot to look up and down while swiming
 	local bot = self:GetBot()
-	local look = bot:GetShootPos()
+	--[[local look = bot:GetShootPos()
 	look.x = target.x
-	look.y = target.y
-	--[[local look = self:GetShootPos()
-	local targetHeight = look.z - self:GetPos().z
+	look.y = target.y]]
+	local look = bot:GetShootPos() * 1
+	local targetHeight = bot:GetCurrentViewOffset().z
 	local ground = navmesh.GetGroundHeight( target )
 	
 	look.x = target.x
@@ -504,7 +506,7 @@ function TBotLocomotionMeta:FaceTowards( target )
 	
 		look.z = ground + targetHeight
 		
-	end]]
+	end
 	
 	bot:GetTBotBody():AimHeadTowards( look, TBotLookAtPriority.LOW_PRIORITY, 0.1 )
 

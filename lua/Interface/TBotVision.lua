@@ -295,7 +295,6 @@ end
 function TBotVisionMeta:UpdateKnownEntities()
 
 	local visibleNow = {}
-	local visibleNow2 = {}
 	local knownEntities = {}
 	local bot = self:GetBot()
 	for k, pit in ents.Iterator() do
@@ -304,8 +303,7 @@ function TBotVisionMeta:UpdateKnownEntities()
 		
 			if !self:IsIgnored( pit ) and self:IsAbleToSee( pit, true ) then
 				
-				table.insert( visibleNow, pit )
-				visibleNow2[ pit ] = true
+				visibleNow[ pit ] = true
 				
 			end
 			
@@ -330,7 +328,7 @@ function TBotVisionMeta:UpdateKnownEntities()
 		
 		-- NOTE: Valve reiterates through the table to check IsAbleToSee.....
 		-- I choose to create both a table and a list so I don't have to do that. :)
-		if tobool( visibleNow2[ known:GetEntity() ] ) then
+		if tobool( visibleNow[ known:GetEntity() ] ) then
 		
 			known:UpdatePosition()
 			known:UpdateVisibilityStatus( true )
@@ -367,7 +365,7 @@ function TBotVisionMeta:UpdateKnownEntities()
 		
 	end
 	
-	for k, visibleEntity in ipairs( visibleNow ) do
+	for visibleEntity in pairs( visibleNow ) do
 	
 		--[[local j = 1
 		while j <= #botTable.EnemyList do
@@ -453,7 +451,8 @@ end
 function TBotVisionMeta:IsIgnored( subject )
 	if !IsValid( subject ) then return true end
 
-	if !self:GetBot():IsEnemy( subject ) then
+	local bot = self:GetBot()
+	if !bot:IsEnemy( subject ) then
 	
 		-- don't ignore our friends
 		return false
@@ -564,7 +563,7 @@ function TBotVisionMeta:PointWithinViewAngle( pos, targetpos, lookdir, fov )
 	
 	local length = to:LengthSqr()
 	
-	return diff * diff > length * fov * fov
+	return diff^2 > length * fov^2
 	
 end
 
@@ -706,7 +705,7 @@ end
 function TBotVisionMeta:Blind( time, flingAim )
 	
 	local bot = self:GetBot()
-	if !bot:Alive() or !bot:IsTRizzleBot() or time < ( self.m_blindTimer.endtime - CurTime() ) then 
+	if !bot:Alive() or time < ( self.m_blindTimer.endtime - CurTime() ) then 
 	
 		return 
 		
@@ -714,7 +713,6 @@ function TBotVisionMeta:Blind( time, flingAim )
 	
 	self.m_blindTimer:Start( time )
 	
-	-- FIXME: Remake this after I implement the body interface!!!!
 	if flingAim then
 	
 		bot:GetTBotBody():AimHeadTowards( bot:GetShootPos() + 1000 * Angle( math.random( -30, 30 ), math.random( -180, 180 ), 0 ):Forward(), TBotLookAtPriority.MAXIMUM_PRIORITY, 0.1 ) -- Make the bot fling its aim in a random direction upon becoming blind
@@ -727,7 +725,7 @@ end
 function TBotVisionMeta:IsBlind()
 
 	local bot = self:GetBot()
-	if !bot:Alive() or !bot:IsTRizzleBot() then 
+	if !bot:Alive() then 
 	
 		return false 
 		

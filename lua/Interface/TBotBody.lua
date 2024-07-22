@@ -84,6 +84,51 @@ function TBotBodyMeta:GetBot()
 
 end
 
+-- This is the same approach angle used in the source engine.
+-- I got this from the TF2 Source Code, since this body code
+-- is also from it as well.
+function TBotBodyMeta:ApproachAngle( target, value, speed )
+
+	target = target % 360
+	value = value % 360
+	
+	local delta = target - value
+	
+	-- Speed is assumed to be positive
+	if speed < 0 then
+	
+		speed = -speed
+		
+	end
+	
+	if delta < -180 then
+	
+		delta = delta + 360
+		
+	elseif delta > 180 then
+	
+		delta = delta - 360
+		
+	end
+	
+	if delta > speed then
+	
+		value = value + speed
+		
+	elseif delta < -speed then
+	
+		value = value - speed
+		
+	else
+	
+		value = target
+		
+	end
+	
+	return value
+
+end
+
 function TBotBodyMeta:Upkeep()
 	
 	local deltaT = FrameTime()
@@ -169,7 +214,7 @@ function TBotBodyMeta:Upkeep()
 	local subject = self.m_lookAtSubject
 	if IsValid( subject ) then
 	
-		if botTable.LookTargetTrackingTimer <= CurTime() then
+		if self.m_lookAtTrackingTimer:Elapsed() then
 		
 			local desiredLookAtPos = bot:GetTBotBehavior():SelectTargetPoint( bot, subject )
 			desiredLookAtPos = desiredLookAtPos + self:GetHeadAimSubjectLeadTime() * subject:GetVelocity()
@@ -242,8 +287,10 @@ function TBotBodyMeta:Upkeep()
 	end
 	
 	--print( approachRate * deltaT )
-	angles.y = math.ApproachAngle( currentAngles.y, desiredAngles.y, approachRate * deltaT )
-	angles.x = math.ApproachAngle( currentAngles.x, desiredAngles.x, 0.5 * approachRate * deltaT )
+	--angles.y = math.ApproachAngle( currentAngles.y, desiredAngles.y, approachRate * deltaT )
+	--angles.x = math.ApproachAngle( currentAngles.x, desiredAngles.x, 0.5 * approachRate * deltaT )
+	angles.y = self:ApproachAngle( desiredAngles.y, currentAngles.y, approachRate * deltaT )
+	angles.x = self:ApproachAngle( desiredAngles.x, currentAngles.x, 0.5 * approachRate * deltaT )
 	angles.z = 0
 	
 	-- back out "punch angle"
