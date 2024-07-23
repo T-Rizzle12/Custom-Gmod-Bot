@@ -242,7 +242,7 @@ function TBotChasePathMeta:PredictSubjectPostion( bot, subject )
 	-- Don't lead through walls
 	if lead:LengthSqr() > 36.0 then
 	
-		local isTraversable, fraction = bot:IsPotentiallyTraversable( subjectPos, pathTarget )
+		local isTraversable, fraction = bot:GetTBotLocomotion():IsPotentiallyTraversable( subjectPos, pathTarget )
 		if !isTraversable then
 		
 			-- Tried to lead through an unwalkable area - clip to walkable space
