@@ -5421,7 +5421,7 @@ function BOT:IsThreatFiringAtMe( threat )
 
 	if self:IsThreatAimingTowardMe( threat ) then
 	
-		if threat:IsNPC() and threat:GetEnemy() == self then
+		if threat:IsNPC() and threat:GetEnemy() == self and IsValid( threat:GetActiveWeapon() ) then
 		
 			return true
 			
