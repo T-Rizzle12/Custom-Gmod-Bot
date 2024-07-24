@@ -786,6 +786,7 @@ function BOT:TBotResetAI()
 	if botTable.TBotBehavior then
 	
 		botTable.TBotBehavior:Remove()
+		botTable.TBotBehavior = nil
 		
 	end
 	
@@ -3180,6 +3181,7 @@ function BOT:SelectBestWeapon( target, enemydistsqr )
 	--local melee				=	self:GetWeapon( self.Melee )
 	--local medkit			=	self:GetWeapon( "weapon_medkit" )
 	
+	-- Deprecated: This is now handled by the Action system!
 	--[[if IsValid( medkit ) and botTable.CombatHealThreshold > self:Health() and medkit:Clip1() >= 25 then
 		
 		-- The bot will heal themself if they get too injured during combat
@@ -3231,13 +3233,13 @@ function BOT:SelectBestWeapon( target, enemydistsqr )
 	end
 	
 	local preferredWeapons = botTable.TBotPreferredWeapons
-	local desiredWeaponDistance = GetTBotDistancePriority( desiredWeaponDistance )
+	local desiredWeaponDistance = GetTBotDistancePriority( desiredWeaponType )
 	for k, weapon in ipairs( self:GetWeapons() ) do
 	
 		if IsValid( weapon ) and weapon:HasPrimaryAmmo() and weapon:IsTBotRegisteredWeapon() then 
 			
 			local weaponType = TBotWeaponTable[ weapon:GetClass() ].WeaponType
-			if !IsValid( bestWeapon ) or weaponType == desiredWeaponType or ( weaponType != desiredWeaponType and GetTBotRegisteredWeapon( bestWeapon:GetClass() ).WeaponType != desiredWeaponType and weapon:GetTBotDistancePriority() > bestWeapon:GetTBotDistancePriority() and bestWeapon:GetTBotDistancePriority() != desiredWeaponDistance + 1 ) then
+			if !IsValid( bestWeapon ) or weaponType == desiredWeaponType or ( GetTBotRegisteredWeapon( bestWeapon:GetClass() ).WeaponType != desiredWeaponType and weapon:GetTBotDistancePriority() > bestWeapon:GetTBotDistancePriority() and bestWeapon:GetTBotDistancePriority() != desiredWeaponDistance + 1 ) then
 			
 				bestWeapon = weapon
 				minEquipInterval = Either( weaponType != "Melee", 5.0, 2.0 )
