@@ -231,7 +231,7 @@ function TBotScenarioMonitorMeta:PlayerSay( me, sender, text, teamChat )
 
 			textTable = string.Explode( " ", string.sub( text, endpos + 1 ) ) -- Grab everything else after the name!
 			table.remove( textTable, 1 ) -- Remove the unnecessary whitespace
-			command = textTable[ 1 ]:lower()
+			command = textTable[ 1 ] and textTable[ 1 ]:lower()
 
 		else
 
@@ -240,7 +240,7 @@ function TBotScenarioMonitorMeta:PlayerSay( me, sender, text, teamChat )
 
 				textTable = string.Explode( " ", string.sub( text, endpos + 1 ) ) -- Grab everything else after the name!
 				table.remove( textTable, 1 ) -- Remove the unnecessary whitespace
-				command = textTable[ 1 ]:lower()
+				command = textTable[ 1 ] and textTable[ 1 ]:lower()
 
 			end
 

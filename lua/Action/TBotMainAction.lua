@@ -286,7 +286,7 @@ function TBotMainActionMeta:PlayerSay( me, sender, text, teamChat )
 
 			textTable = string.Explode( " ", string.sub( text, endpos + 1 ) ) -- Grab everything else after the name!
 			table.remove( textTable, 1 ) -- Remove the unnecessary whitespace
-			command = textTable[ 1 ]:lower()
+			command = textTable[ 1 ] and textTable[ 1 ]:lower()
 
 		else
 
@@ -295,7 +295,7 @@ function TBotMainActionMeta:PlayerSay( me, sender, text, teamChat )
 
 				textTable = string.Explode( " ", string.sub( text, endpos + 1 ) ) -- Grab everything else after the name!
 				table.remove( textTable, 1 ) -- Remove the unnecessary whitespace
-				command = textTable[ 1 ]:lower()
+				command = textTable[ 1 ] and textTable[ 1 ]:lower()
 
 			end
 
@@ -558,7 +558,7 @@ function TBotMainActionMeta:FireWeaponAtEnemy( me, threat )
 
 	if CurTime() >= botTable.FireWeaponInterval and me:IsCursorOnTarget( enemy ) then
 
-		if weaponTable.HasSecondaryAttack and botTable.SecondaryInterval <= CurTime() and enemyDist > 40000 and vision:GetKnownCount( nil, true, -1 ) >= 3 then
+		if weaponTable.HasSecondaryAttack and botTable.SecondaryInterval <= CurTime() and enemyDist > 400^2 and vision:GetKnownCount( nil, true, -1 ) >= 3 then
 
 			me:PressSecondaryAttack()
 			botTable.SecondaryInterval = CurTime() + weaponTable.SecondaryAttackCooldown
@@ -582,11 +582,11 @@ function TBotMainActionMeta:FireWeaponAtEnemy( me, threat )
 			end
 
 			-- If the bot's active weapon is automatic the bot should just press and hold its attack button if their current enemy is close enough
-			if me:IsActiveWeaponAutomatic() and ( enemyDist < 160000 or weaponTable.IgnoreAutomaticRange ) then
+			if me:IsActiveWeaponAutomatic() and ( enemyDist < 400^2 or weaponTable.IgnoreAutomaticRange ) then
 
 				botTable.FireWeaponInterval = CurTime()
 
-			elseif enemyDist < 640000 then
+			elseif enemyDist < 800^2 then
 
 				botTable.FireWeaponInterval = CurTime() + math.Rand( 0.15 , 0.25 )
 
@@ -808,7 +808,7 @@ function TBotMainActionMeta:IsImmediateThreat( me, threat )
 	end
 
 	local to = me:GetPos() - threat:GetLastKnownPosition()
-	local threatRange = to:Length()
+	local threatRange = to:Length() -- Should this be LengthSqr instead?
 	to:Normalize()
 
 	local nearbyRange = 500
