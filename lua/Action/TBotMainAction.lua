@@ -791,7 +791,7 @@ function TBotMainActionMeta:IsImmediateThreat( me, threat )
 
 	-- NEEDTOVALIDATE: Should I move this below the range and trace check,
 	-- because this seems to cause the bot not to attack enemies behind them at times....
-	if !threat:IsVisibleRecently() and !threat:TookDamageRecently() then
+	if !threat:IsVisibleRecently() and !threat:TookDamageFromRecently() then
 
 		return false
 
