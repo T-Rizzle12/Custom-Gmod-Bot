@@ -771,19 +771,20 @@ end
 
 function TBotMainActionMeta:IsImmediateThreat( me, threat )
 
-	if threat:GetEntity():IsNPC() and !threat:GetEntity():IsAlive() then
+	local enemy = threat:GetEntity()
+	if enemy:IsNPC() and !enemy:IsAlive() then
 
 		return false
 
 	end
 
-	if threat:GetEntity():IsPlayer() and !threat:GetEntity():Alive() then
+	if enemy:IsPlayer() and !enemy:Alive() then
 
 		return false
 
 	end
 
-	if threat:GetEntity():IsNextBot() and threat:GetEntity():Health() < 1 then
+	if enemy:IsNextBot() and enemy:Health() < 1 then
 
 		return false
 
@@ -799,8 +800,8 @@ function TBotMainActionMeta:IsImmediateThreat( me, threat )
 
 	-- If the threat can't hurt the bot, they aren't an immediate threat
 	local trace = {}
-	util.TraceLine( { start = me:GetShootPos(), endpos = threat:GetEntity():WorldSpaceCenter(), filter = me, mask = MASK_SHOT, output = trace } )
-	if trace.Hit and trace.Entity != threat:GetEntity() then
+	util.TraceLine( { start = me:GetShootPos(), endpos = enemy:WorldSpaceCenter(), filter = me, mask = MASK_SHOT, output = trace } )
+	if trace.Hit and trace.Entity != enemy then
 
 		return false
 
@@ -818,7 +819,7 @@ function TBotMainActionMeta:IsImmediateThreat( me, threat )
 
 	end
 
-	if me:IsThreatFiringAtMe( threat:GetEntity() ) then
+	if me:IsThreatFiringAtMe( enemy ) then
 
 		-- Distant threat firing on me - an immediate threat whether in my FOV or not
 		return true
