@@ -187,7 +187,7 @@ function TBotKnownEntityMeta:GetLastTimeSinceTookDamageFromEnemy()
 	
 end
 
-function TBotKnownEntityMeta:TookDamageRecently()
+function TBotKnownEntityMeta:TookDamageFromRecently()
 	if self.m_lastTimeTookDamageFromEnemy <= 0.0 then return false end
 	
 	return self:GetLastTimeSinceTookDamageFromEnemy() < 3.0
