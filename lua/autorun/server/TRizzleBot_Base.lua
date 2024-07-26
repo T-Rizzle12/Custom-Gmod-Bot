@@ -968,28 +968,28 @@ function BOT:ResetCommand()
 	
 		buttons = bit.bor( buttons, IN_FORWARD )
 
-		forwardmovement = math.max( 10000, self:GetRunSpeed(), self:GetMaxSpeed() )
+		forwardmovement = 10000
 	
 	end
 	if botTable.HoldBack > CurTime() then 
 	
 		buttons = bit.bor( buttons, IN_BACK )
 		
-		forwardmovement = -math.max( 10000, self:GetRunSpeed(), self:GetMaxSpeed() )
+		forwardmovement = -10000
 		
 	end
 	if botTable.HoldLeft > CurTime() then 
 	
 		buttons = bit.bor( buttons, IN_MOVELEFT )
 		
-		strafemovement = -math.max( 10000, self:GetRunSpeed(), self:GetMaxSpeed() )
+		strafemovement = -10000
 		
 	end
 	if botTable.HoldRight > CurTime() then 
 	
 		buttons = bit.bor( buttons, IN_MOVERIGHT ) 
 		
-		strafemovement = math.max( 10000, self:GetRunSpeed(), self:GetMaxSpeed() )
+		strafemovement = 10000
 		
 	end
 	if botTable.HoldRun > CurTime() then buttons = bit.bor( buttons, IN_SPEED ) end
@@ -1249,7 +1249,7 @@ function BOT:PressForward( holdTime )
 	local botTable = self:GetTable()
 	holdTime = holdTime or -1.0
 	
-	botTable.forwardMovement = math.max( 10000, self:GetRunSpeed(), self:GetMaxSpeed() )
+	botTable.forwardMovement = 10000
 
 	botTable.buttonFlags = bit.bor( botTable.buttonFlags, IN_FORWARD )
 	botTable.HoldForward = CurTime() + holdTime
@@ -1271,7 +1271,7 @@ function BOT:PressBack( holdTime )
 	local botTable = self:GetTable()
 	holdTime = holdTime or -1.0
 	
-	botTable.forwardMovement = -math.max( 10000, self:GetRunSpeed(), self:GetMaxSpeed() )
+	botTable.forwardMovement = -10000
 	
 	botTable.buttonFlags = bit.bor( botTable.buttonFlags, IN_BACK )
 	botTable.HoldBack = CurTime() + holdTime
@@ -1293,7 +1293,7 @@ function BOT:PressLeft( holdTime )
 	local botTable = self:GetTable()
 	holdTime = holdTime or -1.0
 	
-	botTable.strafeMovement = -math.max( 10000, self:GetRunSpeed(), self:GetMaxSpeed() )
+	botTable.strafeMovement = -10000
 
 	botTable.buttonFlags = bit.bor( botTable.buttonFlags, IN_MOVELEFT )
 	botTable.HoldLeft = CurTime() + holdTime
@@ -1315,7 +1315,7 @@ function BOT:PressRight( holdTime )
 	local botTable = self:GetTable()
 	holdTime = holdTime or -1.0
 	
-	botTable.strafeMovement = math.max( 10000, self:GetRunSpeed(), self:GetMaxSpeed() )
+	botTable.strafeMovement = 10000
 
 	botTable.buttonFlags = bit.bor( botTable.buttonFlags, IN_MOVERIGHT )
 	botTable.HoldRight = CurTime() + holdTime
