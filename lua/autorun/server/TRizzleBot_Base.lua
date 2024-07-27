@@ -2087,6 +2087,7 @@ function BOT:UpdateLookingAroundForEnemies()
 
 	local vision = self:GetTBotVision()
 	local body = self:GetTBotBody()
+	local mover = self:GetTBotLocomotion()
 	local threat = vision:GetPrimaryKnownThreat()
 	local botTable = self:GetTable()
 	if istbotknownentity( threat ) and IsValid( threat:GetEntity() ) then
@@ -2122,7 +2123,7 @@ function BOT:UpdateLookingAroundForEnemies()
 	if ( !self:IsInCombat() and !self:IsSafe() ) and botTable.NextEncounterTime <= CurTime() then
 	
 		local minStillTime = 2.0
-		if self:IsNotMoving( minStillTime ) then
+		if mover:IsNotMoving( minStillTime ) then
 			
 			local recomputeApproachPointTolerance = 50.0
 			if ( botTable.ApproachViewPosition - self:GetPos() ):IsLengthGreaterThan( recomputeApproachPointTolerance ) then
@@ -4010,9 +4011,9 @@ hook.Add( "Think" , "TRizzleBotThink" , function()
 					
 				end
 				
-				bot:GetTBotBehavior():Update( bot, engine.TickInterval() / 2 ) -- I think the update rate is correct?
-				bot:GetTBotVision():Update( bot, engine.TickInterval() / 2 ) -- The vision interface doesn't use these, but just in case...
-				bot:GetTBotLocomotion():Update( bot, engine.TickInterval() / 2 ) -- The locomotion interface doesn't use these, but just in case...
+				bot:GetTBotBehavior():Update( bot, engine.TickInterval() / 7 ) -- I think the update rate is correct?
+				bot:GetTBotVision():Update( bot, engine.TickInterval() / 7 ) -- The vision interface doesn't use these, but just in case...
+				bot:GetTBotLocomotion():Update( bot, engine.TickInterval() / 7 ) -- The locomotion interface doesn't use these, but just in case...
 				--bot:TBotUpdateLocomotion()
 				--bot:StuckMonitor()
 				
@@ -4350,6 +4351,7 @@ hook.Add( "Think" , "TRizzleBotThink" , function()
 					
 				end
 				
+				-- Deprecated: This is handled in the locomotion interface
 				local stillSpeed = 10.0
 				if bot:GetVelocity():IsLengthLessThan( stillSpeed ) then
 				
