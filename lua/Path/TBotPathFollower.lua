@@ -169,7 +169,7 @@ function TBotPathFollowerMeta:LadderUpdate( bot )
 	local GO_LADDER_DOWN = 5
 	if !IsValid( self.m_goal.ladder ) then
 	
-		if bot:Is_On_Ladder() then
+		if mover:IsOnLadder() then
 		
 			local current = self:PriorSegment( self.m_goal )
 			if !current then
@@ -302,7 +302,7 @@ function TBotPathFollowerMeta:LadderUpdate( bot )
 			local range = to:Length()
 			to:Normalize()
 			
-			if range < mountRange or bot:Is_On_Ladder() then
+			if range < mountRange or mover:IsOnLadder() then
 			
 				mover:DescendLadder( self.m_goal.ladder, self.m_goal.area )
 				

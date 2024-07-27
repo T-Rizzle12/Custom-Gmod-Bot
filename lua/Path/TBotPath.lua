@@ -32,7 +32,7 @@ function TBotPathSegment()
 	tbotpathsegment.portal = nil -- If "how" referes to a portal, this is it
 	tbotpathsegment.destination = nil -- If "how" referes to a portal, this is its destination
 	
-	tbotpathsegment.type = 0 -- how to traverse this segment of the path
+	tbotpathsegment.type = TBotSegmentType.PATH_ON_GROUND -- how to traverse this segment of the path
 	tbotpathsegment.forward = Vector() -- Unit vector along segment
 	tbotpathsegment.length = 0 -- Length of this segment
 	tbotpathsegment.distanceFromStart = 0 -- Distance of this node from the start of the Path
@@ -106,7 +106,7 @@ end
 
 function TBotPathMeta:Invalidate()
 
-	self.m_path = {}
+	self.m_path = {} -- Should I use table.Empty instead?
 	self.m_segmentCount = 0
 	self.m_subject = nil
 	
