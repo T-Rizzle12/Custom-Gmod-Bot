@@ -54,6 +54,7 @@ function TBotLocomotion( bot )
 	
 	tbotlocomotion.m_stuckTimer = setmetatable( {}, intervalTimer )
 	tbotlocomotion.m_moveRequestTimer = setmetatable( {}, intervalTimer )
+	tbotlocomotion.m_stillTimer = setmetatable( {}, intervalTimer )
 	tbotlocomotion.m_stillStuckTimer = util.Timer()
 
 	setmetatable( tbotlocomotion, TBotLocomotionMeta )
@@ -78,6 +79,7 @@ function TBotLocomotionMeta:Reset()
 	self.m_ladderDismountGoal = nil
 	self.m_ladderTimer:Reset()
 	
+	self.m_stillTimer:Invalidate()
 	self.m_motionVector:Zero()
 	self.m_motionVector.x = 1.0
 	self.m_speed = 0.0
@@ -167,6 +169,16 @@ function TBotLocomotionMeta:Update()
 	
 		self.m_motionVector = vel / self.m_speed
 		
+		self.m_stillTimer:Invalidate()
+	
+	else
+	
+		if !self.m_stillTimer:HasStarted() then
+		
+			self.m_stillTimer:Start()
+			
+		end
+	
 	end
 	
 	if self.m_groundSpeed > velocityThreshold then
@@ -240,7 +252,7 @@ function TBotLocomotionMeta:Approach( pos )
 	local ahead = to:Dot( forward )
 	local side = to:Dot( right )
 	
-	if bot:Is_On_Ladder() and self:IsUsingLadder() and ( self.m_ladderState == TBotLadderState.ASCENDING_LADDER or self.m_ladderState == TBotLadderState.DESCENDING_LADDER ) then
+	if self:IsOnLadder() and self:IsUsingLadder() and ( self.m_ladderState == TBotLadderState.ASCENDING_LADDER or self.m_ladderState == TBotLadderState.DESCENDING_LADDER ) then
 		
 		bot:PressForward()
 		
@@ -716,6 +728,18 @@ function TBotLocomotionMeta:StuckMonitor()
 	
 end
 
+function TBotLocomotionMeta:IsNotMoving( minDuration )
+
+	if !self.m_stillTimer:HasStarted() then
+	
+		return false
+		
+	end
+
+	return self.m_stillTimer:IsGreaterThen( minDuration )
+	
+end
+
 function TBotLocomotionMeta:GetGroundSpeed()
 
 	return self.m_groundSpeed
@@ -781,6 +805,13 @@ function TBotLocomotionMeta:GetMaxJumpHeight()
 	
 end
 
+function TBotLocomotionMeta:IsOnLadder()
+	
+	local bot = self:GetBot()
+	return bot:GetMoveType() == MOVETYPE_LADDER
+
+end
+
 function TBotLocomotionMeta:TraverseLadder()
 	
 	local bot = self:GetBot()
@@ -818,7 +849,7 @@ function TBotLocomotionMeta:TraverseLadder()
 	
 		self.m_ladderInfo = nil
 		
-		if bot:Is_On_Ladder() then
+		if self:IsOnLadder() then
 		
 			-- on ladder and don't want to be
 			bot:PressJump()
@@ -859,7 +890,7 @@ function TBotLocomotionMeta:ApproachAscendingLadder()
 	
 	self:Approach( self.m_ladderInfo:GetBottom() )
 	
-	if bot:Is_On_Ladder() then
+	if self:IsOnLadder() then
 	
 		return TBotLadderState.ASCENDING_LADDER
 		
@@ -915,7 +946,7 @@ function TBotLocomotionMeta:ApproachDescendingLadder()
 	
 	self:Approach( moveGoal )
 	
-	if bot:Is_On_Ladder() then
+	if self:IsOnLadder() then
 	
 		return TBotLadderState.DESCENDING_LADDER
 		
@@ -934,7 +965,7 @@ function TBotLocomotionMeta:AscendLadder()
 		
 	end
 	
-	if !bot:Is_On_Ladder() then
+	if !self:IsOnLadder() then
 	
 		self.m_ladderInfo = nil
 		return TBotLadderState.NO_LADDER
@@ -973,7 +1004,7 @@ function TBotLocomotionMeta:DescendLadder()
 		
 	end
 	
-	if !bot:Is_On_Ladder() then
+	if !self:IsOnLadder() then
 	
 		self.m_ladderInfo = nil
 		return TBotLadderState.NO_LADDER
@@ -1017,7 +1048,7 @@ function TBotLocomotionMeta:DismountLadderTop()
 	
 	self:Approach( bot:GetPos() + 100 * toGoal )
 	
-	if self.m_ladderDismountGoal == self.m_ladderInfo:GetTopBehindArea() and bot:Is_On_Ladder() then
+	if self.m_ladderDismountGoal == self.m_ladderInfo:GetTopBehindArea() and self:IsOnLadder() then
 		
 		bot:PressJump()
 		
@@ -1042,7 +1073,7 @@ function TBotLocomotionMeta:DismountLadderBottom()
 		
 	end
 	
-	if bot:Is_On_Ladder() then
+	if self:IsOnLadder() then
 	
 		bot:PressJump()
 		self.m_ladderInfo = nil
