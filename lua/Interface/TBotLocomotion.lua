@@ -15,6 +15,8 @@ local TBotLocomotionMeta = {}
 
 TBotLocomotionMeta.__index = TBotLocomotionMeta
 
+baseclass.Set( "TBotLocomotion", TBotLocomotionMeta ) -- Register this class so we can derive this for other gamemodes.
+
 function TBotLocomotion( bot )
 	local tbotlocomotion = {}
 

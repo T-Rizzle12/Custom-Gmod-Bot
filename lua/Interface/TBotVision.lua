@@ -6,6 +6,8 @@ local TBotVisionMeta = {}
 
 TBotVisionMeta.__index = TBotVisionMeta
 
+baseclass.Set( "TBotVision", TBotVisionMeta ) -- Register this class so we can derive this for other gamemodes.
+
 function TBotVision( bot )
 	local tbotvision = {}
 

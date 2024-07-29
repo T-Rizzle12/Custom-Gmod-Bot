@@ -13,6 +13,8 @@ local TBotBodyMeta = {}
 
 TBotBodyMeta.__index = TBotBodyMeta
 
+baseclass.Set( "TBotBody", TBotBodyMeta ) -- Register this class so we can derive this for other gamemodes.
+
 function TBotBody( bot )
 	local tbotbody = {}
 
