@@ -205,7 +205,7 @@ local function TRizzleBotRangeCheckRetreat( info, area, fromArea, ladder, portal
 		-- Jumping is slower than ground movement.
 		if !IsValid( ladder ) and !IsValid( portal ) and !fromArea:IsUnderwater() and Height > stepHeight then
 			
-			local maximumJumpHeight = info.m_me:GetMaxJumpHeight()
+			local maximumJumpHeight = info.m_me:GetTBotLocomotion():GetMaxJumpHeight()
 			
 			if Height > maximumJumpHeight then
 			
