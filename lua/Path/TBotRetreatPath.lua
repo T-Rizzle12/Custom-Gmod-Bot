@@ -543,7 +543,7 @@ function RetreatPathBuilderMeta:ComputePath()
 			end
 			
 			-- don't use this area if it is out of range
-			if ( newArea:GetCenter() - bot:GetPos() ):IsLengthGreaterThan( 1000 ) then
+			if ( newArea:GetCenter() - bot:GetPos() ):IsLengthGreaterThan( self.m_retreatRange ) then
 			
 				continue
 				
