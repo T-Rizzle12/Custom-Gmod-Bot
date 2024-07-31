@@ -656,7 +656,7 @@ function TBotVisionMeta:IsAbleToSee( pos, checkFOV )
 			
 		end
 		
-		if bot:IsHiddenByFog( bot:GetShootPos():Distance( pos:WorldSpaceCenter() ) ) then
+		if bot:IsHiddenByFog( bot:GetShootPos():DistToSqr( pos:WorldSpaceCenter() ) ) then
 		
 			return false
 			
@@ -684,7 +684,7 @@ function TBotVisionMeta:IsAbleToSee( pos, checkFOV )
 			
 		end
 		
-		if bot:IsHiddenByFog( bot:GetShootPos():Distance( pos ) ) then
+		if bot:IsHiddenByFog( bot:GetShootPos():DistToSqr( pos ) ) then
 		
 			return false
 			
