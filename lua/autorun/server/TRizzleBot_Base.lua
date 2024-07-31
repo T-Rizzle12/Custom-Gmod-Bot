@@ -2893,7 +2893,7 @@ function BOT:IsAbleToSee( pos, checkFOV )
 			
 		end
 		
-		if self:IsHiddenByFog( self:GetShootPos():Distance( pos:WorldSpaceCenter() ) ) then
+		if self:IsHiddenByFog( self:GetShootPos():DistToSqr( pos:WorldSpaceCenter() ) ) then
 		
 			return false
 			
@@ -2921,7 +2921,7 @@ function BOT:IsAbleToSee( pos, checkFOV )
 			
 		end
 		
-		if self:IsHiddenByFog( self:GetShootPos():Distance( pos ) ) then
+		if self:IsHiddenByFog( self:GetShootPos():DistToSqr( pos ) ) then
 		
 			return false
 			
@@ -2981,7 +2981,9 @@ end
 function BOT:IsHiddenByFog( range )
 
 	if self:GetFogObscuredRatio( range ) >= 1.0 then
+	
 		return true
+		
 	end
 
 	return false
@@ -2993,25 +2995,33 @@ function BOT:GetFogObscuredRatio( range )
 
 	local fog = self:GetFogParams()
 	
-	if !IsValid( fog ) then 
+	if !IsValid( fog ) then
+	
 		return 0.0
+		
 	end
 	
 	local enable = fog:GetInternalVariable( "m_fog.enable" )
-	local startDist = fog:GetInternalVariable( "m_fog.start" )
-	local endDist = fog:GetInternalVariable( "m_fog.end" )
+	local startDist = fog:GetInternalVariable( "m_fog.start" )^2
+	local endDist = fog:GetInternalVariable( "m_fog.end" )^2
 	local maxdensity = fog:GetInternalVariable( "m_fog.maxdensity" )
 
 	if !enable then
+	
 		return 0.0
+		
 	end
 
 	if range <= startDist then
+	
 		return 0.0
+		
 	end
 
 	if range >= endDist then
+	
 		return 1.0
+		
 	end
 
 	local ratio = (range - startDist) / (endDist - startDist)
