@@ -79,7 +79,8 @@ function TBotMainActionMeta:Update( me, interval )
 	end
 	
 	-- Make sure our vision FOV matches the player's
-	me:GetTBotVision():SetFieldOfView( me:GetFOV() )
+	local vision = me:GetTBotVision()
+	vision:SetFieldOfView( me:GetFOV() )
 	
 	if !me:IsInCombat() then
 
@@ -88,7 +89,7 @@ function TBotMainActionMeta:Update( me, interval )
 
 			local weaponTable = GetTBotRegisteredWeapon( botWeapon:GetClass() )
 			local weaponType = weaponTable.WeaponType
-			if CurTime() >= botTable.ReloadInterval and !me:IsReloading() and botWeapon:GetClass() != "weapon_medkit" and weaponType != "Melee" and botWeapon:NeedsToReload() then
+			if CurTime() >= botTable.ReloadInterval and !me:IsReloading() and botWeapon:GetClass() != "weapon_medkit" and botWeapon:NeedsToReload() then
 
 				me:PressReload()
 				botTable.ReloadInterval = CurTime() + 0.5
@@ -112,7 +113,32 @@ function TBotMainActionMeta:Update( me, interval )
 			me:RestoreAmmo()
 
 		end
+	
+	else
+	
+		local botWeapon = me:GetActiveWeapon()
+		if IsValid( botWeapon ) and botWeapon:IsWeapon() then
 
+			local weaponTable = GetTBotRegisteredWeapon( botWeapon:GetClass() )
+			local weaponType = weaponTable.WeaponType
+			if CurTime() >= botTable.ReloadInterval and !me:IsReloading() and botWeapon:GetClass() != "weapon_medkit" and botWeapon:NeedsToReload() then
+	
+				if weaponType == "Shotgun" and vision:GetKnownCount( nil, true, -1 ) <= 0 then
+				
+					me:PressReload()
+					botTable.ReloadInterval = CurTime() + 0.5
+				
+				elseif botWeapon:Clip1() < ( botWeapon:GetMaxClip1() * 0.6 ) and vision:GetKnownCount( nil, false, -1 ) <= 0 then
+				
+					me:PressReload()
+					botTable.ReloadInterval = CurTime() + 0.5
+				
+				end
+			
+			end
+			
+		end
+	
 	end
 	
 	-- NEEDTOVALIDATE: I have moved this into PathFollower. Should this be handled here instead?
@@ -164,12 +190,37 @@ function TBotMainActionMeta:Update( me, interval )
 		for weapon, _ in pairs( botTable.TBotPreferredWeapons ) do
 
 			local weaponTable = GetTBotRegisteredWeapon( weapon )
-			if !table.IsEmpty( weaponTable ) then
+			if !table.IsEmpty( weaponTable ) and !me:HasWeapon( weapon ) then
 
 				-- The bot should only spawn in its grenade if it feels safe.
 				if me:IsSafe() or weaponTable.WeaponType != "Grenade" then
 
-					me:Give( weapon )
+					-- NOTE: The give function only returns the CREATED weapon, as a result
+					-- it will return NULL if the bot already owns the weapon
+					local wep = me:Give( weapon )
+					if IsValid( wep ) then
+					
+						local currentAmmo = me:GetAmmoCount( wep:GetPrimaryAmmoType() )
+						local maxStoredAmmo = tonumber( weaponTable.MaxStoredAmmo )
+						if isnumber( maxStoredAmmo ) then
+						
+							me:GiveAmmo( math.max( maxStoredAmmo - currentAmmo, 0 ), wep:GetPrimaryAmmoType(), true )
+						
+						else
+						
+							if wep:UsesClipsForAmmo1() then
+							
+								me:GiveAmmo( math.max( ( wep:GetMaxClip1() * 6 ) - currentAmmo, 0 ), wep:GetPrimaryAmmoType(), true )
+								
+							else
+							
+								me:GiveAmmo( math.max( 6 - currentAmmo, 0 ), wep:GetPrimaryAmmoType(), true )
+							
+							end
+						
+						end
+						
+					end
 
 				end
 
