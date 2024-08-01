@@ -489,6 +489,20 @@ function TRizzleBotRegisterWeaponMenu( ply, cmd, args )
 	WeaponType:AddChoice( "Explosive" )
 	WeaponType:AddChoice( "Grenade" )
 	
+	local ReloadsSingly = vgui.Create( "DCheckBoxLabel", DScrollPanel )
+	ReloadsSingly:Dock( TOP )
+	ReloadsSingly:DockMargin( 0, 0, 0, 5 )
+	ReloadsSingly:SetSize( 150, 20 )
+	ReloadsSingly:SetText( "Does the weapon reload one bullet at a time?" )
+	ReloadsSingly:SetValue( false )
+	ReloadsSingly:SizeToContents()
+	
+	WeaponType.OnSelect = function( self, index, value )
+	
+		ReloadsSingly:SetValue( value == "Shotgun" )
+	
+	end
+	
 	local HasScope = vgui.Create( "DCheckBoxLabel", DScrollPanel )
 	HasScope:Dock( TOP )
 	HasScope:DockMargin( 0, 0, 0, 5 )
@@ -549,6 +563,7 @@ function TRizzleBotRegisterWeaponMenu( ply, cmd, args )
 			net.WriteUInt( 1, 1 ) -- Mark this is as a register weapon VGUI so the server knows what to do with this data!
 			net.WriteString( WeaponList:GetOptionText( WeaponList.selected ) )
 			net.WriteString( WeaponType:GetValue() )
+			net.WriteBool( ReloadsSingly:GetChecked() )
 			net.WriteBool( HasScope:GetChecked() )
 			net.WriteBool( HasSecondaryAttack:GetChecked() )
 			net.WriteInt( SecondaryAttackCooldown:GetValue(), 32 )
