@@ -103,7 +103,7 @@ function TBotRetreatToCoverMeta:Update( me, interval )
 	if IsValid( botWeapon ) and botWeapon:IsWeapon() and botWeapon:IsTBotRegisteredWeapon() then
 	
 		local weaponTable = GetTBotRegisteredWeapon( botWeapon:GetClass() )
-		if weaponTable.WeaponType == "Shotgun" and botWeapon:NeedsToReload() then
+		if weaponTable.ReloadsSingly and botWeapon:NeedsToReload() then
 		
 			if CurTime() >= botTable.ReloadInterval and !me:IsReloading() then
 

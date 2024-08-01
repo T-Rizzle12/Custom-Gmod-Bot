@@ -123,7 +123,7 @@ function TBotMainActionMeta:Update( me, interval )
 			local weaponType = weaponTable.WeaponType
 			if CurTime() >= botTable.ReloadInterval and !me:IsReloading() and botWeapon:GetClass() != "weapon_medkit" and botWeapon:NeedsToReload() then
 	
-				if weaponType == "Shotgun" and vision:GetKnownCount( nil, true, -1 ) <= 0 then
+				if weaponTable.ReloadsSingly and vision:GetKnownCount( nil, true, -1 ) <= 0 then
 				
 					me:PressReload()
 					botTable.ReloadInterval = CurTime() + 0.5
@@ -513,7 +513,7 @@ function TBotMainActionMeta:FireWeaponAtEnemy( me, threat )
 
 	local weaponTable = GetTBotRegisteredWeapon( botWeapon:GetClass() )
 	local weaponType = weaponTable.WeaponType
-	if weaponType == "Shotgun" then
+	if weaponTable.ReloadsSingly then
 
 		if botWeapon:IsPrimaryClipEmpty() then
 
