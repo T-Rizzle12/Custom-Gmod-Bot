@@ -631,6 +631,7 @@ net.Receive( "TRizzleBotVGUIMenu", function( _, ply )
 		local args = {}
 		args.ClassName = net.ReadString()
 		args.WeaponType = net.ReadString()
+		args.ReloadsSingly = net.ReadBool()
 		args.HasScope = net.ReadBool()
 		args.HasSecondaryAttack = net.ReadBool()
 		args.SecondaryAttackCooldown = net.ReadInt( 32 )
@@ -1108,7 +1109,7 @@ function BOT:HandleButtons()
 			local botWeapon = botTable.BestWeapon
 			if IsValid( botWeapon ) and botWeapon:IsWeapon() and botWeapon:IsTBotRegisteredWeapon() and botWeapon:GetClass() != "weapon_medkit" then
 			
-				if TBotWeaponTable[ botWeapon:GetClass() ].WeaponType == "Melee" then
+				if GetTBotRegisteredWeapon( botWeapon:GetClass() ).WeaponType == "Melee" then
 				
 					local rangeToShoot = self:GetShootPos():DistToSqr( breakable:WorldSpaceCenter() )
 					local rangeToStand = self:GetPos():DistToSqr( breakable:WorldSpaceCenter() )
@@ -3249,7 +3250,7 @@ function BOT:SelectBestWeapon( target, enemydistsqr )
 	
 		if IsValid( weapon ) and weapon:HasPrimaryAmmo() and weapon:IsTBotRegisteredWeapon() then 
 			
-			local weaponType = TBotWeaponTable[ weapon:GetClass() ].WeaponType
+			local weaponType = GetTBotRegisteredWeapon( weapon:GetClass() ).WeaponType
 			if !IsValid( bestWeapon ) or weaponType == desiredWeaponType or ( GetTBotRegisteredWeapon( bestWeapon:GetClass() ).WeaponType != desiredWeaponType and weapon:GetTBotDistancePriority() > bestWeapon:GetTBotDistancePriority() and bestWeapon:GetTBotDistancePriority() != desiredWeaponDistance + 1 ) then
 			
 				bestWeapon = weapon
@@ -3274,7 +3275,7 @@ function BOT:SelectBestWeapon( target, enemydistsqr )
 		botTable.MinEquipInterval 	= CurTime() + minEquipInterval
 		
 		-- The bot should wait before throwing a grenade since some have a pull out animation
-		if TBotWeaponTable[ bestWeapon:GetClass() ].WeaponType == "Grenade" then
+		if GetTBotRegisteredWeapon( bestWeapon:GetClass() ).WeaponType == "Grenade" then
 			
 			local deployDuration = bestWeapon:SequenceDuration( bestWeapon:LookupSequence( ACT_VM_DRAW ) )
 			if deployDuration < 0 then deployDuration = 0.0 end
@@ -3302,6 +3303,7 @@ concommand.Add( "TBotRegisterWeapon", TBotRegisterWeaponCommand, nil, "Registers
 --[[
 	ClassName = <string>,
 	WeaponType = <string>,
+	ReloadsSingly = <bool>, -- NOTE: This is optional. The bot will assume true for shotguns and false for everything else.
     HasScope = <bool>,
     HasSecondaryAttack = <bool>,
     SecondaryAttackCooldown = <Number>,
@@ -3327,7 +3329,7 @@ function RegisterTBotWeapon( newWeapon )
 		
 	end
 	
-	TBotWeaponTable[ newWeapon.ClassName ] = { WeaponType = newWeapon.WeaponType or "Rifle", HasScope = tobool( newWeapon.HasScope ), HasSecondaryAttack = tobool( newWeapon.HasSecondaryAttack ), SecondaryAttackCooldown = tonumber( newWeapon.SecondaryAttackCooldown ) or 30.0, MaxStoredAmmo = tonumber( newWeapon.MaxStoredAmmo ), IgnoreAutomaticRange = tobool( newWeapon.IgnoreAutomaticRange ) }
+	TBotWeaponTable[ newWeapon.ClassName ] = { WeaponType = newWeapon.WeaponType or "Rifle", ReloadsSingly = newWeapon.ReloadsSingly or newWeapon.WeaponType == "Shotgun", HasScope = tobool( newWeapon.HasScope ), HasSecondaryAttack = tobool( newWeapon.HasSecondaryAttack ), SecondaryAttackCooldown = tonumber( newWeapon.SecondaryAttackCooldown ) or 30.0, MaxStoredAmmo = tonumber( newWeapon.MaxStoredAmmo ), IgnoreAutomaticRange = tobool( newWeapon.IgnoreAutomaticRange ) }
 
 end
 
@@ -3425,7 +3427,7 @@ function Wep:GetTBotDistancePriority()
 	local RIFLE_RANGE = 3
 	local PISTOL_RANGE = 4
 	local SNIPER_RANGE = 5
-	local weaponTable = TBotWeaponTable[ self:GetClass() ]
+	local weaponTable = GetTBotRegisteredWeapon( self:GetClass() )
 	local weaponType = weaponTable.WeaponType
 	
 	if weaponType == "Sniper" then
@@ -3640,9 +3642,10 @@ function BOT:RestoreAmmo()
 		local weapon_ammo
 		if IsValid( weapon ) and weapon:IsTBotRegisteredWeapon() then weapon_ammo		=	self:GetAmmoCount( weapon:GetPrimaryAmmoType() ) end
 		
-		if isnumber( weapon_ammo ) and ( self:IsSafe() or TBotWeaponTable[ weapon:GetClass() ].WeaponType != "Grenade" ) and weapon:UsesPrimaryAmmo() then 
+		local weaponTable = GetTBotRegisteredWeapon( weapon:GetClass() )
+		if isnumber( weapon_ammo ) and ( self:IsSafe() or weaponTable.WeaponType != "Grenade" ) and weapon:UsesPrimaryAmmo() then 
 			
-			local maxStoredAmmo = tonumber( TBotWeaponTable[ weapon:GetClass() ].MaxStoredAmmo )
+			local maxStoredAmmo = tonumber( weaponTable.MaxStoredAmmo )
 			if isnumber( maxStoredAmmo ) and maxStoredAmmo > 0 then
 				
 				if weapon_ammo < maxStoredAmmo then
@@ -5606,7 +5609,7 @@ function BOT:SelectMoreDangerousThreat( threat1, threat2 )
 	local closerThreat = self:SelectCloserThreat( threat1, threat2 )
 	
 	local botWeapon = self:GetActiveWeapon()
-	if IsValid( botWeapon ) and botWeapon:IsWeapon() and botWeapon:IsTBotRegisteredWeapon() and TBotWeaponTable[ botWeapon:GetClass() ].WeaponType == "Melee" then
+	if IsValid( botWeapon ) and botWeapon:IsWeapon() and botWeapon:IsTBotRegisteredWeapon() and GetTBotRegisteredWeapon( botWeapon:GetClass() ).WeaponType == "Melee" then
 	
 		-- If the bot is using a melee weapon, they should pick the closest enemy!
 		return closerThreat
