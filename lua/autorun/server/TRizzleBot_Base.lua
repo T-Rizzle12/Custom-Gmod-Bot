@@ -3442,7 +3442,7 @@ function Wep:GetTBotDistancePriority( desiredWeaponType )
 
 	elseif desiredWeaponType == "Shotgun" then
 		
-		backupWeaponPriorities = { Rife = HIGH_PRIORITY, Pistol = MEDIUM_PRIORITY, Sniper = LOW_PRIORITY, Explosive = MINIMUM_PRIORITY, Grenade = MINIMUM_PRIORITY, Melee = NO_PRIORITY }
+		backupWeaponPriorities = { Rifle = HIGH_PRIORITY, Pistol = MEDIUM_PRIORITY, Sniper = LOW_PRIORITY, Explosive = MINIMUM_PRIORITY, Grenade = MINIMUM_PRIORITY, Melee = NO_PRIORITY }
 	
 	elseif desiredWeaponType == "Melee" then
 		
