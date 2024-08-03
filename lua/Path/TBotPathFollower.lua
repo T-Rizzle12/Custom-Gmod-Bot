@@ -701,7 +701,7 @@ function TBotPathFollowerMeta:BreakableCheck( bot )
 				
 						if IsValid( weapon ) and weapon:HasPrimaryAmmo() and weapon:IsTBotRegisteredWeapon() then 
 							
-							if !IsValid( bestWeapon ) or weapon:GetTBotDistancePriority() > bestWeapon:GetTBotDistancePriority() then
+							if !IsValid( bestWeapon ) or weapon:GetTBotDistancePriority( "Pistol" ) > bestWeapon:GetTBotDistancePriority( "Pistol" ) then
 							
 								bestWeapon = weapon
 								minEquipInterval = Either( weaponType != "Melee", 5.0, 2.0 )
