@@ -3204,6 +3204,7 @@ function BOT:SelectBestWeapon( target, enemydistsqr )
 	-- FIXME: This really should be neater.....
 	-- Maybe in its own function?
 	local desiredWeaponType = "Sniper"
+	local backupWeaponType = nil
 	if enemydistsqr < botTable.PistolDist^2 then
 		
 		desiredWeaponType = "Pistol"
@@ -3223,14 +3224,16 @@ function BOT:SelectBestWeapon( target, enemydistsqr )
 	end
 	
 	local knownCount = vision:GetKnownCount( nil, true, -1 )
-	if enemydistsqr > 40000 and knownCount >= 5 then
+	if enemydistsqr > 200^2 and knownCount >= 5 then
 		
 		if botTable.GrenadeInterval <= CurTime() then
 			
+			backupWeaponType = desiredWeaponType
 			desiredWeaponType = "Grenade"
 			
 		elseif botTable.ExplosiveInterval <= CurTime() then
 			
+			backupWeaponType = desiredWeaponType
 			desiredWeaponType = "Explosive"
 			
 		end
@@ -3245,13 +3248,12 @@ function BOT:SelectBestWeapon( target, enemydistsqr )
 	end
 	
 	local preferredWeapons = botTable.TBotPreferredWeapons
-	local desiredWeaponDistance = GetTBotDistancePriority( desiredWeaponType )
 	for k, weapon in ipairs( self:GetWeapons() ) do
 	
 		if IsValid( weapon ) and weapon:HasPrimaryAmmo() and weapon:IsTBotRegisteredWeapon() then 
 			
 			local weaponType = GetTBotRegisteredWeapon( weapon:GetClass() ).WeaponType
-			if !IsValid( bestWeapon ) or weaponType == desiredWeaponType or ( GetTBotRegisteredWeapon( bestWeapon:GetClass() ).WeaponType != desiredWeaponType and weapon:GetTBotDistancePriority() > bestWeapon:GetTBotDistancePriority() and bestWeapon:GetTBotDistancePriority() != desiredWeaponDistance + 1 ) then
+			if !IsValid( bestWeapon ) or weaponType == desiredWeaponType or ( GetTBotRegisteredWeapon( bestWeapon:GetClass() ).WeaponType != desiredWeaponType and weapon:GetTBotDistancePriority( isstring( backupWeaponType ) and backupWeaponType or desiredWeaponType ) > bestWeapon:GetTBotDistancePriority( isstring( backupWeaponType ) and backupWeaponType or desiredWeaponType ) ) then -- and bestWeapon:GetTBotDistancePriority() != desiredWeaponDistance + 1 )
 			
 				bestWeapon = weapon
 				minEquipInterval = Either( weaponType != "Melee", 5.0, 2.0 )
@@ -3382,77 +3384,73 @@ end
 
 -- Returns the preferred distance ranking of this weapon type.
 -- NOTE: I don't like the name of this function, but oh well....
-function GetTBotDistancePriority( weaponType )
+function GetTBotDistancePriority( weaponType, desiredWeaponType )
 	if !isstring( weaponType ) then return -1 end
 
-	local MELEE_RANGE = 1
-	local SHOTGUN_RANGE = 2
-	local RIFLE_RANGE = 3
-	local PISTOL_RANGE = 4
-	local SNIPER_RANGE = 5
+	local NO_PRIORITY = 0
+	local MINIMUM_PRIORITY = 1
+	local LOW_PRIORITY = 2
+	local MEDIUM_PRIORITY = 3
+	local HIGH_PRIORITY = 4
+	local MAXIMUM_PRIORITY = 5
 	
-	if weaponType == "Sniper" then
-	
-		return SNIPER_RANGE
+	local backupWeaponPriorities = { Sniper = MAXIMUM_PRIORITY, Pistol = HIGH_PRIORITY, Rifle = MEDIUM_PRIORITY, Shotgun = LOW_PRIORITY, Explosive = MINIMUM_PRIORITY, Grenade = MINIMUM_PRIORITY, Melee = NO_PRIORITY }
+	if desiredWeaponType == "Pistol" then
 		
-	elseif weaponType == "Pistol" then
+		backupWeaponPriorities = { Sniper = HIGH_PRIORITY, Rifle = MEDIUM_PRIORITY, Shotgun = LOW_PRIORITY, Explosive = MINIMUM_PRIORITY, Grenade = MINIMUM_PRIORITY, Melee = NO_PRIORITY }
 	
-		return PISTOL_RANGE
+	elseif desiredWeaponType == "Rifle" then
+	
+		backupWeaponPriorities = { Pistol = HIGH_PRIORITY, Sniper = MEDIUM_PRIORITY, Shotgun = LOW_PRIORITY, Explosive = MINIMUM_PRIORITY, Grenade = MINIMUM_PRIORITY, Melee = NO_PRIORITY }
+
+	elseif desiredWeaponType == "Shotgun" then
 		
-	elseif weaponType == "Rifle" then
+		backupWeaponPriorities = { Rifle = HIGH_PRIORITY, Pistol = MEDIUM_PRIORITY, Sniper = LOW_PRIORITY, Explosive = MINIMUM_PRIORITY, Grenade = MINIMUM_PRIORITY, Melee = NO_PRIORITY }
 	
-		return RIFLE_RANGE
+	elseif desiredWeaponType == "Melee" then
 		
-	elseif weaponType == "Shotgun" then
-	
-		return SHOTGUN_RANGE
-		
-	elseif weaponType == "Melee" then
-	
-		return MELEE_RANGE
+		backupWeaponPriorities = { Shotgun = HIGH_PRIORITY, Rifle = MEDIUM_PRIORITY, Pistol = LOW_PRIORITY, Sniper = MINIMUM_PRIORITY, Explosive = NO_PRIORITY, Grenade = NO_PRIORITY }
 		
 	end
 	
-	return MELEE_RANGE -- Assume that explosive weapons and grenades are also last resort weapons!
+	return backupWeaponPriorities[ weaponType ] or NO_PRIORITY
 
 end
 
 -- Returns the preferred distance ranking of this weapon.
 -- NOTE: I don't like the name of this function, but oh well....
-function Wep:GetTBotDistancePriority()
+function Wep:GetTBotDistancePriority( desiredWeaponType )
 	if !self:IsTBotRegisteredWeapon() then return -1 end
 
-	local MELEE_RANGE = 1
-	local SHOTGUN_RANGE = 2
-	local RIFLE_RANGE = 3
-	local PISTOL_RANGE = 4
-	local SNIPER_RANGE = 5
+	local NO_PRIORITY = 0
+	local MINIMUM_PRIORITY = 1
+	local LOW_PRIORITY = 2
+	local MEDIUM_PRIORITY = 3
+	local HIGH_PRIORITY = 4
+	local MAXIMUM_PRIORITY = 5
 	local weaponTable = GetTBotRegisteredWeapon( self:GetClass() )
 	local weaponType = weaponTable.WeaponType
 	
-	if weaponType == "Sniper" then
-	
-		return SNIPER_RANGE
+	local backupWeaponPriorities = { Sniper = MAXIMUM_PRIORITY, Pistol = HIGH_PRIORITY, Rifle = MEDIUM_PRIORITY, Shotgun = LOW_PRIORITY, Explosive = MINIMUM_PRIORITY, Grenade = MINIMUM_PRIORITY, Melee = NO_PRIORITY }
+	if desiredWeaponType == "Pistol" then
 		
-	elseif weaponType == "Pistol" then
+		backupWeaponPriorities = { Sniper = HIGH_PRIORITY, Rifle = MEDIUM_PRIORITY, Shotgun = LOW_PRIORITY, Explosive = MINIMUM_PRIORITY, Grenade = MINIMUM_PRIORITY, Melee = NO_PRIORITY }
 	
-		return PISTOL_RANGE
+	elseif desiredWeaponType == "Rifle" then
+	
+		backupWeaponPriorities = { Pistol = HIGH_PRIORITY, Sniper = MEDIUM_PRIORITY, Shotgun = LOW_PRIORITY, Explosive = MINIMUM_PRIORITY, Grenade = MINIMUM_PRIORITY, Melee = NO_PRIORITY }
+
+	elseif desiredWeaponType == "Shotgun" then
 		
-	elseif weaponType == "Rifle" then
+		backupWeaponPriorities = { Rife = HIGH_PRIORITY, Pistol = MEDIUM_PRIORITY, Sniper = LOW_PRIORITY, Explosive = MINIMUM_PRIORITY, Grenade = MINIMUM_PRIORITY, Melee = NO_PRIORITY }
 	
-		return RIFLE_RANGE
+	elseif desiredWeaponType == "Melee" then
 		
-	elseif weaponType == "Shotgun" then
-	
-		return SHOTGUN_RANGE
-		
-	elseif weaponType == "Melee" then
-	
-		return MELEE_RANGE
+		backupWeaponPriorities = { Shotgun = HIGH_PRIORITY, Rifle = MEDIUM_PRIORITY, Pistol = LOW_PRIORITY, Sniper = MINIMUM_PRIORITY, Explosive = NO_PRIORITY, Grenade = NO_PRIORITY }
 		
 	end
 	
-	return MELEE_RANGE -- Assume that explosive weapons and grenades are also last resort weapons!
+	return backupWeaponPriorities[ weaponType ] or NO_PRIORITY
 
 end
 
