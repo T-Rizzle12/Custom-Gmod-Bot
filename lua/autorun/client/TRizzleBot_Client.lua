@@ -104,122 +104,6 @@ function TRizzleBotCreateMenu( ply, cmd, args )
 	DangerDist:SetMax( math.huge )
 	DangerDist:SetValue( 300 )
 	
-	--[[label = vgui.Create( "DLabel", DScrollPanel )
-	label:Dock( TOP )
-	label:DockMargin( 0, 0, 0, 5 )
-	label:SetSize( 150, 20 )
-	label:SetText( "Melee Weapon:" )
-	
-	local Melee = vgui.Create( "DComboBox", DScrollPanel )
-	Melee:Dock( TOP )
-	Melee:DockMargin( 0, 0, 0, 5 )
-	Melee:SetSize( 150, 20 )
-	Melee:SetValue( "weapon_crowbar" )
-	
-	for k, wep in pairs( list.Get( "Weapon" ) ) do
-	
-		Melee:AddChoice( wep.ClassName )
-		
-	end
-	
-	label = vgui.Create( "DLabel", DScrollPanel )
-	label:Dock( TOP )
-	label:DockMargin( 0, 0, 0, 5 )
-	label:SetSize( 150, 20 )
-	label:SetText( "Pistol:" )
-	
-	local Pistol = vgui.Create( "DComboBox", DScrollPanel )
-	Pistol:Dock( TOP )
-	Pistol:DockMargin( 0, 0, 0, 5 )
-	Pistol:SetSize( 150, 20 )
-	Pistol:SetText( "weapon_pistol" )
-	
-	for k, wep in pairs( list.Get( "Weapon" ) ) do
-	
-		Pistol:AddChoice( wep.ClassName )
-		
-	end
-	
-	label = vgui.Create( "DLabel", DScrollPanel )
-	label:Dock( TOP )
-	label:DockMargin( 0, 0, 0, 5 )
-	label:SetSize( 150, 20 )
-	label:SetText( "Shotgun:" )
-	
-	local Shotgun = vgui.Create( "DComboBox", DScrollPanel )
-	Shotgun:Dock( TOP )
-	Shotgun:DockMargin( 0, 0, 0, 5 )
-	Shotgun:SetSize( 150, 20 )
-	Shotgun:SetValue( "weapon_shotgun" )
-	
-	for k, wep in pairs( list.Get( "Weapon" ) ) do
-	
-		Shotgun:AddChoice( wep.ClassName )
-		
-	end
-	
-	label = vgui.Create( "DLabel", DScrollPanel )
-	label:Dock( TOP )
-	label:DockMargin( 0, 0, 0, 5 )
-	label:SetSize( 150, 20 )
-	label:SetText( "Rifle/SMG:" )
-	
-	local Rifle = vgui.Create( "DComboBox", DScrollPanel )
-	Rifle:Dock( TOP )
-	Rifle:DockMargin( 0, 0, 0, 5 )
-	Rifle:SetSize( 150, 20 )
-	Rifle:SetValue( "weapon_smg1" )
-	
-	for k, wep in pairs( list.Get( "Weapon" ) ) do
-	
-		Rifle:AddChoice( wep.ClassName )
-		
-	end
-	
-	label = vgui.Create( "DLabel", DScrollPanel )
-	label:Dock( TOP )
-	label:DockMargin( 0, 0, 0, 5 )
-	label:SetSize( 150, 20 )
-	label:SetText( "Grenade:" )
-	
-	local Grenade = vgui.Create( "DComboBox", DScrollPanel )
-	Grenade:Dock( TOP )
-	Grenade:DockMargin( 0, 0, 0, 5 )
-	Grenade:SetSize( 150, 20 )
-	Grenade:SetValue( "weapon_frag" )
-	
-	for k, wep in pairs( list.Get( "Weapon" ) ) do
-	
-		Grenade:AddChoice( wep.ClassName )
-		
-	end
-	
-	label = vgui.Create( "DLabel", DScrollPanel )
-	label:Dock( TOP )
-	label:DockMargin( 0, 0, 0, 5 )
-	label:SetSize( 150, 20 )
-	label:SetText( "Sniper:" )
-	
-	local Sniper = vgui.Create( "DComboBox", DScrollPanel )
-	Sniper:Dock( TOP )
-	Sniper:DockMargin( 0, 0, 0, 5 )
-	Sniper:SetSize( 150, 20 )
-	Sniper:SetValue( "weapon_crossbow" )
-	
-	for k, wep in pairs( list.Get( "Weapon" ) ) do
-	
-		Sniper:AddChoice( wep.ClassName )
-		
-	end
-	
-	local SniperScope = vgui.Create( "DCheckBoxLabel", DScrollPanel )
-	SniperScope:Dock( TOP )
-	SniperScope:DockMargin( 0, 0, 0, 5 )
-	SniperScope:SetSize( 150, 20 )
-	SniperScope:SetText( "Does the sniper have a scope?" )
-	SniperScope:SetValue( true )
-	SniperScope:SizeToContents()]]
-	
 	label = vgui.Create( "DLabel", DScrollPanel )
 	label:Dock( TOP )
 	label:DockMargin( 0, 0, 0, 5 )
@@ -350,7 +234,7 @@ function TRizzleBotCreateMenu( ply, cmd, args )
 		DModelPanel:SetModel( player_manager.TranslatePlayerModel( value ) )
 	end
 	
-	for name, model in pairs( player_manager.AllValidModels() ) do
+	for name in pairs( player_manager.AllValidModels() ) do
 	
 		PlayerModel:AddChoice( name )
 		
@@ -380,13 +264,6 @@ function TRizzleBotCreateMenu( ply, cmd, args )
 			net.WriteString( Name:GetValue() )
 			net.WriteInt( FollowDist:GetValue(), 32 )
 			net.WriteInt( DangerDist:GetValue(), 32 )
-			--[[net.WriteString( Melee:GetOptionText( Melee.selected ) or "weapon_crowbar" )
-			net.WriteString( Pistol:GetOptionText( Pistol.selected ) or "weapon_pistol" )
-			net.WriteString( Shotgun:GetOptionText( Shotgun.selected ) or "weapon_shotgun" )
-			net.WriteString( Rifle:GetOptionText( Rifle.selected ) or "weapon_smg1" )
-			net.WriteString( Grenade:GetOptionText( Grenade.selected ) or "weapon_frag" )
-			net.WriteString( Sniper:GetOptionText( Sniper.selected ) or "weapon_crossbow" )
-			net.WriteBool( SniperScope:GetChecked() )]]
 			net.WriteTable( weaponTable, true )
 			net.WriteInt( MeleeDist:GetValue(), 32 )
 			net.WriteInt( PistolDist:GetValue(), 32 )
