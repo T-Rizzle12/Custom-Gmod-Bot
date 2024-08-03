@@ -145,6 +145,7 @@ local function TRizzleBotRangeCheckRetreat( info, area, fromArea, ladder, portal
 	local maxThreatRange = 500.0
 	local dangerDensity = 1000.0
 	
+	local cost = 0.0
 	if area:IsBlocked() then
 	
 		return -1.0
@@ -153,9 +154,11 @@ local function TRizzleBotRangeCheckRetreat( info, area, fromArea, ladder, portal
 	
 	if !IsValid( fromArea ) then
 	
+		cost = 0.0
+	
 		if area:Contains( info.m_threat:GetPos() ) then
 			
-			return dangerDensity * 10
+			cost = cost + ( dangerDensity * 10 )
 			
 		else
 			
@@ -163,14 +166,14 @@ local function TRizzleBotRangeCheckRetreat( info, area, fromArea, ladder, portal
 
 			if rangeToThreat < maxThreatRange then
 				
-				return dangerDensity * ( 1.0 - ( rangeToThreat / maxThreatRange ) )
+				cost = cost + ( dangerDensity * ( 1.0 - ( rangeToThreat / maxThreatRange ) ) )
 				
 			end
 			
 		end
 	
-		-- first area in path, no cost
-		return 0
+		-- first area in path, only cost is danger
+		return cost
 		
 	elseif fromArea:HasAttributes( NAV_MESH_JUMP ) and area:HasAttributes( NAV_MESH_JUMP ) then
 	
@@ -259,30 +262,6 @@ local function TRizzleBotRangeCheckRetreat( info, area, fromArea, ladder, portal
 			
 		end
 		
-		-- Add in danger cost due to threat
-		-- Assume straight line between areas and find closest point
-		-- to the threat along that line segment. The distance between
-		-- the threat and closest point on the line is the danger cost.	
-		
-		local t, Close = CalcClosestPointOnLineSegment( info.m_threat:GetPos(), area:GetCenter(), fromArea:GetCenter() )
-		if t < 0.0 then
-			
-			Close = area:GetCenter()
-			
-		elseif t > 1.0 then
-			
-			Close = fromArea:GetCenter()
-			
-		end
-		
-		local rangeToThreat = info.m_threat:GetPos():Distance( Close )
-		if rangeToThreat < maxThreatRange then
-			
-			local dangerFactor = 1.0 - ( rangeToThreat / maxThreatRange )
-			dist	=	dist * ( dangerDensity * dangerFactor )
-			
-		end
-		
 		-- Crawling through a vent is very slow.
 		-- NOTE: The cost is determined by the bot's crouch speed
 		if area:HasAttributes( NAV_MESH_CROUCH ) then 
@@ -314,9 +293,39 @@ local function TRizzleBotRangeCheckRetreat( info, area, fromArea, ladder, portal
 			
 		end
 		
-		--print( "Distance: " .. dist )
+		cost = dist + fromArea:GetTotalCost()
 		
-		return dist + fromArea:GetCostSoFar()
+		-- Add in danger cost due to threat
+		-- Assume straight line between areas and find closest point
+		-- to the threat along that line segment. The distance between
+		-- the threat and closest point on the line is the danger cost.	
+		
+		-- path danger is CUMULATIVE
+		local dangerCost = fromArea:GetCostSoFar()
+		
+		local t, Close = CalcClosestPointOnLineSegment( info.m_threat:GetPos(), area:GetCenter(), fromArea:GetCenter() )
+		if t < 0.0 then
+			
+			Close = area:GetCenter()
+			
+		elseif t > 1.0 then
+			
+			Close = fromArea:GetCenter()
+			
+		end
+		
+		local rangeToThreat = info.m_threat:GetPos():Distance( Close ) -- Would it be better to compare distsqr instead?
+		if rangeToThreat < maxThreatRange then
+			
+			local dangerFactor = 1.0 - ( rangeToThreat / maxThreatRange )
+			dangerCost	=	dangerDensity * dangerFactor
+			
+		end
+		
+		--print( "Distance: " .. dist )
+		--print( "Cost: " .. cost )
+		
+		return cost + dangerCost
 		
 	end
 	
