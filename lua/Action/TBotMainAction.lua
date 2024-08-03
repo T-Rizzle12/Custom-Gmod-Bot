@@ -187,7 +187,7 @@ function TBotMainActionMeta:Update( me, interval )
 		bot:Give( "weapon_medkit" )
 		if bot:IsSafe() then bot:Give( bot.Grenade ) end]] -- The bot should only spawn in its grenade if it feels safe.
 
-		for weapon, _ in pairs( botTable.TBotPreferredWeapons ) do
+		for weapon in pairs( botTable.TBotPreferredWeapons ) do
 
 			local weaponTable = GetTBotRegisteredWeapon( weapon )
 			if !table.IsEmpty( weaponTable ) and !me:HasWeapon( weapon ) then
