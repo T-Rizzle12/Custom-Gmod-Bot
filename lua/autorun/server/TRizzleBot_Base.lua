@@ -3984,6 +3984,7 @@ hook.Add( "Think" , "TRizzleBotThink" , function()
 		if IsValid( bot ) and bot:IsTRizzleBot() then
 			
 			bot:GetTBotBody():Upkeep()
+			bot:GetTBotLocomotion():Upkeep()
 			--bot:UpdateAim()
 			
 			-- TODO: We need to a better way to limit how often the bot's update their AI!
@@ -4011,7 +4012,7 @@ hook.Add( "Think" , "TRizzleBotThink" , function()
 				
 				--bot:UpdateVision()
 				-- This seems to lag the game
-				bot:UpdatePeripheralVision()
+				bot:UpdatePeripheralVision() -- Should this be moved into the vision interface?
 				
 				-- Deprecated: This is handled in the locomotion interface
 				local speed = bot:GetVelocity():Length()
@@ -4489,7 +4490,7 @@ hook.Add( "Think" , "TRizzleBotThink" , function()
 					
 				end]]
 				
-				bot:HandleButtons()
+				--bot:HandleButtons()
 				
 			end
 			
