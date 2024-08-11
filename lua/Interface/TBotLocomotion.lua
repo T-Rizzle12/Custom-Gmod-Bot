@@ -194,7 +194,7 @@ function TBotLocomotionMeta:Update()
 				
 				bot:GetTBotBody():AimHeadTowards( bot:GetShootPos() + 100 * toLanding, TBotLookAtPriority.MAXIMUM_PRIORITY, 0.25 )
 				
-				if bot:IsOnGround() or bot:WaterLevel() >= 2 then
+				if bot:IsOnGround() then -- bot:WaterLevel() >= 2
 					
 					-- Back on the ground - jump is complete
 					self.m_isClimbingUpToLedge = false
