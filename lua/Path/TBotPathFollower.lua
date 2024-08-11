@@ -519,8 +519,8 @@ function TBotPathFollowerMeta:Update( bot )
 	
 	-- If our movement goal is high above us, we must have fallen
 	local myArea = bot:GetLastKnownArea()
-	local isOnStairs = IsValid( myArea ) and myArea:HasAttributes( NAV_MESH_STAIRS )
-	local isUnderwater = IsValid( myArea ) and myArea:IsUnderwater()
+	local isOnStairs = IsValid( myArea ) and myArea:HasAttributes( NAV_MESH_STAIRS ) or false
+	local isUnderwater = IsValid( myArea ) and myArea:IsUnderwater() or false
 	
 	-- Limit too high distance to reasonable value for bots that can climb very high
 	local tooHighDistance = mover:GetMaxJumpHeight()
