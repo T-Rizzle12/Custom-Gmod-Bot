@@ -102,6 +102,83 @@ function TBotLocomotionMeta:GetBot()
 
 end
 
+function TBotLocomotionMeta:Upkeep()
+	
+	local bot			=	self:GetBot()
+	local CanRun		=	!bot:InVehicle()
+	local ShouldJump	=	false
+	local ShouldCrouch	=	false
+	local ShouldRun		=	false
+	local ShouldWalk	=	false
+	local botPath		=	bot:GetCurrentPath()
+	
+	local myArea = bot:GetLastKnownArea()
+	if IsValid( myArea ) then -- If there is no nav_mesh this will not run to prevent the addon from spamming errors
+		
+		if bot:IsOnGround() and myArea:HasAttributes( NAV_MESH_JUMP ) then
+			
+			ShouldJump		=	true
+			
+		end
+		
+		if myArea:HasAttributes( NAV_MESH_CROUCH ) and ( !botPath.m_goal or botPath.m_goal.type == TBotSegmentType.PATH_ON_GROUND ) then
+			
+			ShouldCrouch	=	true
+			
+		end
+		
+		if myArea:HasAttributes( NAV_MESH_RUN ) then
+			
+			ShouldRun		=	true
+			ShouldWalk		=	false
+			
+		end
+		
+		if myArea:HasAttributes( NAV_MESH_WALK ) then
+			
+			CanRun			=	false
+			ShouldWalk		=	true
+			
+		end
+		
+		if myArea:HasAttributes( NAV_MESH_STAIRS ) then -- The bot shouldn't jump while on stairs
+		
+			ShouldJump		=	false
+		
+		end
+		
+	end
+	
+	-- Run if the navmesh tells us to
+	if CanRun and bot:GetSuitPower() > 20 then 
+		
+		if ShouldRun then
+		
+			bot:PressRun( 0.1 )
+			
+		end
+	
+	end
+	
+	-- Walk if the navmesh tells us to
+	if ShouldWalk then
+		
+		bot:PressWalk( 0.1 )
+	
+	end
+	
+	if ShouldJump and bot:IsOnGround() then 
+	
+		bot:PressJump( 0.1 )
+		
+	elseif ShouldCrouch or ( !bot:IsOnGround() and !self:IsUsingLadder() and bot:WaterLevel() < 2 ) then 
+	
+		bot:PressCrouch( 0.1 )
+		
+	end
+
+end
+
 function TBotLocomotionMeta:Update()
 
 	local bot = self:GetBot()
@@ -117,7 +194,7 @@ function TBotLocomotionMeta:Update()
 				
 				bot:GetTBotBody():AimHeadTowards( bot:GetShootPos() + 100 * toLanding, TBotLookAtPriority.MAXIMUM_PRIORITY, 0.25 )
 				
-				if bot:IsOnGround() then
+				if bot:IsOnGround() or bot:WaterLevel() >= 2 then
 					
 					-- Back on the ground - jump is complete
 					self.m_isClimbingUpToLedge = false
@@ -976,7 +1053,7 @@ function TBotLocomotionMeta:AscendLadder()
 	
 	if self.m_ladderDismountGoal:HasAttributes( NAV_MESH_CROUCH ) then
 	
-		self:PressCrouch()
+		bot:PressCrouch()
 		
 	end
 	
