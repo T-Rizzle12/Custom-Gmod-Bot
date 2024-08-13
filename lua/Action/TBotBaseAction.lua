@@ -732,7 +732,7 @@ function TBotBaseAction()
 	
 	setmetatable( tbotbaseaction, TBotBaseActionMeta )
 	
-	tbotbaseaction.m_eventResult = TBotEventDesiredResult( TBotActionResultType.CONTINUE, nil, tonumber( priority ) or TBotEventResultPriorityType.RESULT_TRY ) -- HACKHACK: For some reason this creates errors: tbotbaseaction:TryContinue( TBotEventResultPriorityType.RESULT_NONE )
+	tbotbaseaction.m_eventResult = TBotEventDesiredResult( TBotActionResultType.CONTINUE, nil, TBotEventResultPriorityType.RESULT_NONE ) -- HACKHACK: For some reason this creates errors: tbotbaseaction:TryContinue( TBotEventResultPriorityType.RESULT_NONE )
 	
 	TBotActionTable[ tbotbaseaction ] = true -- Append to the action table so we send hook events to them!
 	
@@ -742,6 +742,8 @@ end
 
 -- NEEDTOVALIDATE: Do we need this?
 TBotBaseActionMeta.__gc = function( self )
+	
+	TBotActionTable[ self ] = nil -- Remove the action from the action table so it gets GC.
 	
 	if self.m_parent then
 	
@@ -1015,7 +1017,7 @@ function TBotBaseActionMeta:ProcessHookEvent( method, ... )
 		local hookFunc = _action[ method ] -- We can't do _action.method since it won't be dynamic. :(
 		if isfunction( hookFunc ) and IsValid( self.m_actor ) then
 		
-			_result = hookFunc( _action, self.m_actor, ... )
+			_result = hookFunc( _action, self.m_actor, ... ) or _result
 			
 		end
 		
