@@ -609,7 +609,7 @@ function TBotMainActionMeta:FireWeaponAtEnemy( me, threat )
 
 	if CurTime() >= botTable.FireWeaponInterval and me:IsCursorOnTarget( enemy ) then
 
-		if weaponTable.HasSecondaryAttack and botTable.SecondaryInterval <= CurTime() and enemyDist > 400^2 and vision:GetKnownCount( nil, true, -1 ) >= 3 then
+		if weaponTable.HasSecondaryAttack and botTable.SecondaryInterval <= CurTime() and enemyDist > 400^2 and botWeapon:HasSecondaryAmmo() and vision:GetKnownCount( nil, true, -1 ) >= 3 then
 
 			me:PressSecondaryAttack()
 			botTable.SecondaryInterval = CurTime() + weaponTable.SecondaryAttackCooldown
