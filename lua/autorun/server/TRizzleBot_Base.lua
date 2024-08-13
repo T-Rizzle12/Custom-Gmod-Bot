@@ -2,17 +2,6 @@
 -- Purpose: This is a base that can be modified to play other gamemodes
 -- Author: T-Rizzle
 
--- This currently only Exists in the dev branch, so we don't break other player games! We recreate it here!
-if !isfunction( RegisterMetaTable ) then
-
-	function RegisterMetaTable( metaName, metaTable )
-	
-		debug.getregistry()[ metaName ] = metaTable
-	
-	end
-	
-end
-
 -- Ok, so now need need to include the base class stuff here so nothing breaks on initialization.
 include( "Path/TBotPath.lua" )
 include( "Path/TBotPathFollower.lua" )
@@ -137,21 +126,6 @@ function TBotCreate( ply , cmd , args ) -- This code defines stats of the bot wh
 	
 	TBotSetFollowDist( ply, cmd, { args[ 1 ], args[ 2 ] } ) -- This is how close the bot will follow it's owner
 	TBotSetDangerDist( ply, cmd, { args[ 1 ], args[ 3 ] } ) -- This is how far the bot can be from it's owner when in combat
-	--[[TBotSetMelee( ply, cmd, { args[ 1 ], args[ 4 ] } ) -- This is the melee weapon the bot will use
-	TBotSetPistol( ply, cmd, { args[ 1 ], args[ 5 ] } ) -- This is the pistol the bot will use
-	TBotSetShotgun( ply, cmd, { args[ 1 ], args[ 6 ] } ) -- This is the shotgun the bot will use
-	TBotSetRifle( ply, cmd, { args[ 1 ], args[ 7 ] } ) -- This is the rifle/smg the bot will use
-	TBotSetGrenade( ply, cmd,{ args[ 1 ], args[ 8 ] } ) -- This is the grenade the bot will use
-	TBotSetSniper( ply, cmd, { args[ 1 ], args[ 9 ], args[ 10 ] } ) -- This is the sniper the bot will use and does the sniper the bot is using have a scope
-	TBotSetMeleeDist( ply, cmd, { args[ 1 ], args[ 11 ] } ) -- If an enemy is closer than this, the bot will use its melee
-	TBotSetPistolDist( ply, cmd, { args[ 1 ], args[ 12 ] } ) -- If an enemy is closer than this, the bot will use its pistol
-	TBotSetShotgunDist( ply, cmd, { args[ 1 ], args[ 13 ] } ) -- If an enemy is closer than this, the bot will use its shotgun
-	TBotSetRifleDist( ply, cmd, { args[ 1 ], args[ 14 ] } ) -- If an enemy is closer than this, the bot will use its rifle/smg
-	TBotSetHealThreshold( ply, cmd, { args[ 1 ], args[ 15 ] } ) -- If the bot's health or a teammate's health drops below this and the bot is not in combat the bot will use its medkit
-	TBotSetCombatHealThreshold( ply, cmd, { args[ 1 ], args[ 16 ] } ) -- If the bot's health drops below this and the bot is in combat the bot will use its medkit
-	TBotSetPlayerModel( ply, cmd, { args[ 1 ], args[ 17 ] } ) -- This is the player model the bot will use
-	TBotSpawnWithPreferredWeapons( ply, cmd, { args[ 1 ], args[ 18 ] } )]] -- This checks if the bot should spawn with its preferred weapons
-	
 	TBotSetMeleeDist( ply, cmd, { args[ 1 ], args[ 4 ] } ) -- If an enemy is closer than this, the bot will use its melee
 	TBotSetPistolDist( ply, cmd, { args[ 1 ], args[ 5 ] } ) -- If an enemy is closer than this, the bot will use its pistol
 	TBotSetShotgunDist( ply, cmd, { args[ 1 ], args[ 6 ] } ) -- If an enemy is closer than this, the bot will use its shotgun
@@ -200,117 +174,6 @@ function TBotSetDangerDist( ply, cmd, args ) -- Command for changing the bots "D
 	end
 
 end
-
--- Deprecated: The new weapon system handles what these functions do!
---[[function TBotSetMelee( ply, cmd, args ) -- Command for changing the bots melee to something other than the default. 
-	if !args[ 1 ] then return end
-	
-	local targetbot = args[ 1 ]
-	local melee = args[ 2 ] != "nil" and args[ 2 ] or "weapon_crowbar"
-	
-	for k, bot in ipairs( player.GetAll() ) do
-		
-		if bot:IsTRizzleBot() and ( bot:Nick() == targetbot or string.lower( targetbot ) == "all" ) and bot.TBotOwner == ply then
-			
-			bot.Melee = melee
-			
-		end
-		
-	end
-
-end
-
-function TBotSetPistol( ply, cmd, args ) -- Command for changing the bots pistol to something other than the default. 
-	if !args[ 1 ] then return end
-	
-	local targetbot = args[ 1 ]
-	local pistol = args[ 2 ] != "nil" and args[ 2 ] or "weapon_pistol"
-	
-	for k, bot in ipairs( player.GetAll() ) do
-		
-		if bot:IsTRizzleBot() and ( bot:Nick() == targetbot or string.lower( targetbot ) == "all" ) and bot.TBotOwner == ply then
-			
-			bot.Pistol = pistol
-			
-		end
-		
-	end
-
-end
-
-function TBotSetShotgun( ply, cmd, args ) -- Command for changing the bots shotgun to something other than the default. 
-	if !args[ 1 ] then return end
-	
-	local targetbot = args[ 1 ]
-	local shotgun = args[ 2 ] != "nil" and args[ 2 ] or "weapon_shotgun"
-	
-	for k, bot in ipairs( player.GetAll() ) do
-		
-		if bot:IsTRizzleBot() and ( bot:Nick() == targetbot or string.lower( targetbot ) == "all" ) and bot.TBotOwner == ply then
-			
-			bot.Shotgun = shotgun
-			
-		end
-		
-	end
-
-end
-
-function TBotSetRifle( ply, cmd, args ) -- Command for changing the bots rifle to something other than the default. 
-	if !args[ 1 ] then return end
-	
-	local targetbot = args[ 1 ]
-	local rifle = args[ 2 ] != "nil" and args[ 2 ] or "weapon_smg1"
-	
-	for k, bot in ipairs( player.GetAll() ) do
-		
-		if bot:IsTRizzleBot() and ( bot:Nick() == targetbot or string.lower( targetbot ) == "all" ) and bot.TBotOwner == ply then
-			
-			bot.Rifle = rifle
-			
-		end
-		
-	end
-
-end
-
-function TBotSetGrenade( ply, cmd, args )
-	if !args[ 1 ] then return end
-	
-	local targetbot = args[ 1 ]
-	local grenade = args[ 2 ] != "nil" and args[ 2 ] or "weapon_frag"
-	
-	for k, bot in ipairs( player.GetAll() ) do
-	
-		if bot:IsTRizzleBot() and ( bot:Nick() == targetbot or string.lower( targetbot ) == "all" ) and bot.TBotOwner == ply then
-		
-			bot.Grenade = grenade
-			
-		end
-		
-	end
-	
-end
-
-function TBotSetSniper( ply, cmd, args ) -- Command for changing the bots sniper to something other than the default. 
-	if !args[ 1 ] then return end
-	
-	local targetbot = args[ 1 ]
-	local rifle = args[ 2 ] != "nil" and args[ 2 ] or "weapon_crossbow"
-	local hasScope = tonumber( args[ 3 ] ) or 1
-	
-	for k, bot in ipairs( player.GetAll() ) do
-		
-		if bot:IsTRizzleBot() and ( bot:Nick() == targetbot or string.lower( targetbot ) == "all" ) and bot.TBotOwner == ply then
-			
-			bot.Sniper = rifle
-			bot.SniperScope = tobool( hasScope )
-			
-		end
-		
-	end
-
-end]]
 
 function TBotAddPreferredWeapon( ply, cmd, args )
 	if !args[ 1 ] or !args[ 2 ] then return end
@@ -569,12 +432,6 @@ function TBotSetDefault( ply, cmd, args )
 	
 	TBotSetFollowDist( ply, cmd, args )
 	TBotSetDangerDist( ply, cmd, args )
-	--[[TBotSetMelee( ply, cmd, args )
-	TBotSetPistol( ply, cmd, args )
-	TBotSetShotgun( ply, cmd, args )
-	TBotSetRifle( ply, cmd, args )
-	TBotSetGrenade( ply, cmd, args )
-	TBotSetSniper( ply, cmd, args )]]
 	TBotSetMeleeDist( ply, cmd, args )
 	TBotSetPistolDist( ply, cmd, args )
 	TBotSetShotgunDist( ply, cmd, args )
@@ -598,13 +455,6 @@ net.Receive( "TRizzleBotVGUIMenu", function( _, ply )
 		table.insert( args, net.ReadString() ) -- Name
 		table.insert( args, net.ReadInt( 32 ) ) -- FollowDist
 		table.insert( args, net.ReadInt( 32 ) ) -- DangerDist
-		--[[table.insert( args, net.ReadString() ) -- Melee
-		table.insert( args, net.ReadString() ) -- Pistol
-		table.insert( args, net.ReadString() ) -- Shotgun
-		table.insert( args, net.ReadString() ) -- Rifle/SMG
-		table.insert( args, net.ReadString() ) -- Grenade
-		table.insert( args, net.ReadString() ) -- Sniper
-		table.insert( args, Either( net.ReadBool(), 1, 0 ) )]] -- Sniper has scope
 		local weaponTable = net.ReadTable( true )
 		table.insert( args, net.ReadInt( 32 ) ) -- MeleeDist
 		table.insert( args, net.ReadInt( 32 ) ) -- PistolDist
@@ -651,12 +501,6 @@ end)
 concommand.Add( "TRizzleCreateBot" , TBotCreate , nil , "Creates a TRizzle Bot with the specified parameters. Example: TRizzleCreateBot <botname> <followdist> <dangerdist> <meleedist> <pistoldist> <shotgundist> <rifledist> <healthreshold> <combathealthreshold> <playermodel> <spawnwithpreferredweapons> Example2: TRizzleCreateBot Bot 200 300 80 1300 300 900 100 25 alyx 1" )
 concommand.Add( "TBotSetFollowDist" , TBotSetFollowDist , nil , "Changes the specified bot's how close it should be to its owner. If only the bot is specified the value will revert back to the default." )
 concommand.Add( "TBotSetDangerDist" , TBotSetDangerDist , nil , "Changes the specified bot's how far the bot can be from its owner while in combat. If only the bot is specified the value will revert back to the default." )
---[[concommand.Add( "TBotSetMelee" , TBotSetMelee , nil , "Changes the specified bot's preferred melee weapon. If only the bot is specified the value will revert back to the default." )
-concommand.Add( "TBotSetPistol" , TBotSetPistol , nil , "Changes the specified bot's preferred pistol. If only the bot is specified the value will revert back to the default." )
-concommand.Add( "TBotSetShotgun" , TBotSetShotgun , nil , "Changes the specified bot's preferred shotgun. If only the bot is specified the value will revert back to the default." )
-concommand.Add( "TBotSetRifle" , TBotSetRifle , nil , "Changes the specified bot's preferred rifle/smg. If only the bot is specified the value will revert back to the default." )
-concommand.Add( "TBotSetGrenade" , TBotSetGrenade , nil , "Changes the specified bot's preferred grenade. If only the bot is specified the value will revert back to the default." )
-concommand.Add( "TBotSetSniper" , TBotSetSniper , nil , "Changes the specified bot's preferred sniper. If only the bot is specified the value will revert back to the default." )]]
 concommand.Add( "TBotAddPreferredWeapon" , TBotAddPreferredWeapon , nil , "Add a new weapon to the bot's preferred weapon list." )
 concommand.Add( "TBotRemovePreferredWeapon" , TBotRemovePreferredWeapon , nil , "Removes a weapon from the bot's preferred weapon list." )
 concommand.Add( "TBotClearPreferredWeaponList" , TBotClearPreferredWeaponList , nil , "Clears the entire bot's preferred weapon list." )
@@ -779,7 +623,7 @@ function BOT:TBotResetAI()
 	botTable.StuckTimer						=	CurTime() -- Used when checking if the bot is stuck or not.
 	botTable.StillStuckTimer				=	0 -- Used to check if the bot is stuck.
 	botTable.MoveRequestTimer				=	0 -- Used to check if the bot wants to move.
-	botTable.TBotCurrentPath				=	nil
+	botTable.TBotCurrentPath				=	nil -- This is the path path the bot was following.
 	--self.WiggleTimer				=	0 -- This helps the bot get unstuck.
 	--self.StuckJumpInterval			=	0 -- Limits how often the bot jumps when stuck.
 	
@@ -3295,10 +3139,10 @@ end
 local function TBotRegisterWeaponCommand( ply, cmd, args )
 	if !isstring( args[ 1 ] ) then error( "bad argument #1 to 'TBotRegisterWeapon' (string expected got " .. type( args[ 1 ] ) .. ")" ) end
 
-	RegisterTBotWeapon( { ClassName = args[ 1 ], WeaponType = args[ 2 ], HasScope = args[ 3 ], HasSecondaryAttack = args[ 4 ], SecondaryAttackCooldown = args[ 5 ], MaxStoredAmmo = args[ 6 ], IgnoreAutomaticRange = args[ 7 ] } )
+	RegisterTBotWeapon( { ClassName = args[ 1 ], WeaponType = args[ 2 ], HasScope = args[ 3 ], HasSecondaryAttack = args[ 4 ], SecondaryAttackCooldown = args[ 5 ], MaxStoredAmmo = args[ 6 ], IgnoreAutomaticRange = args[ 7 ], ReloadsSingly = args[ 8 ] } )
 
 end
-concommand.Add( "TBotRegisterWeapon", TBotRegisterWeaponCommand, nil, "Registers a new weapon for the bot! ClassName = <string>, WeaponType = <string>, HasScope = <bool>, HasSecondaryAttack = <bool>, SecondaryAttackCooldown = <Number>, MaxStoredAmmo = <Number>, -- NOTE: This is optional. The bot will assume 6 clips of ammo by default IgnoreAutomaticRange = <bool>, -- If the weapon is automatic always press and hold when firing regardless of distance from current enemy!" )
+concommand.Add( "TBotRegisterWeapon", TBotRegisterWeaponCommand, nil, "Registers a new weapon for the bot! ClassName = <string>, WeaponType = <string>, HasScope = <bool>, HasSecondaryAttack = <bool>, SecondaryAttackCooldown = <Number>, MaxStoredAmmo = <Number>, -- NOTE: This is optional. The bot will assume 6 clips of ammo by default IgnoreAutomaticRange = <bool>, -- If the weapon is automatic always press and hold when firing regardless of distance from current enemy! ReloadsSingly = <bool> -- NOTE: This is optional. The bot will assume true for shotguns and false for everything else." )
 
 -- This registers a new weapon for the bot!
 -- Here are the parameters if you use a table:
@@ -3862,9 +3706,7 @@ end
 -- If and entity gets removed, clear it from the bot's attack list.
 hook.Add( "EntityRemoved" , "TRizzleBotEntityRemoved" , function( ent, fullUpdate ) 
 
-	for i = 1, game.MaxPlayers() do
-	
-		local bot = Entity( i )
+	for k, bot in player.Iterator() do
 	
 		if IsValid( bot ) and bot:IsTRizzleBot() then
 		
@@ -3880,9 +3722,7 @@ end)
 -- This is also called for some nextbots.
 hook.Add( "OnNPCKilled" , "TRizzleBotOnNPCKilled" , function( npc )
 
-	for i = 1, game.MaxPlayers() do
-	
-		local bot = Entity( i )
+	for k, bot in player.Iterator() do
 	
 		if IsValid( bot ) and bot:IsTRizzleBot() then
 		
@@ -7722,6 +7562,57 @@ function BOT:IsCrossingLineOfFire( startPos, endPos )
 		
 		end
 		
+	end
+	
+	local vision = self:GetTBotVision()
+	for k, known in ipairs( vision.m_knownEntityVector ) do
+	
+		if !vision:IsAwareOf( known ) or known:IsObsolete() or !self:IsEnemy( known:GetEntity() )then
+		
+			continue
+			
+		end
+		
+		local enemy = known:GetEntity()
+		local viewForward = nil
+		if enemy:IsPlayer() or enemy:IsNPC() then
+		
+			viewForward = enemy:GetAimVector()
+		
+		else
+		
+			viewForward = enemy:EyeAngles():Forward() 
+		
+		end
+		
+		local target = enemy:WorldSpaceCenter() + 5000 * viewForward
+		
+		local IsIntersecting = false
+		result:Zero()
+		
+		IsIntersecting, result = IsIntersecting2D( startPos, endPos, enemy:WorldSpaceCenter(), target )
+		--print( "IsIntersecting: " .. IsIntersecting )
+		--print( "Result: " .. result )
+		if IsIntersecting then
+		
+			local loZ, hiZ = 0, 0
+			
+			if startPos.z < endPos.z then
+			
+				loZ = startPos.z 
+				hiZ = endPos.z 
+				
+			else
+			
+				loZ = endPos.z 
+				hiZ = startPos.z
+			
+			end
+			
+			if result.z >= loZ and result.z <= hiZ + 35.5 then return true end
+		
+		end
+	
 	end
 	
 	return false
