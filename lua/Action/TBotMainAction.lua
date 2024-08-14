@@ -69,7 +69,8 @@ end
 function TBotMainActionMeta:Update( me, interval )
 
 	local botTable = me:GetTable()
-	local threat = me:GetTBotVision():GetPrimaryKnownThreat()
+	local vision = me:GetTBotVision()
+	local threat = vision:GetPrimaryKnownThreat()
 	if istbotknownentity( threat ) and IsValid( threat:GetEntity() ) and threat:IsVisibleRecently() then
 	
 		-- FIXME: Should this be somewhere else!?
@@ -79,7 +80,6 @@ function TBotMainActionMeta:Update( me, interval )
 	end
 	
 	-- Make sure our vision FOV matches the player's
-	local vision = me:GetTBotVision()
 	vision:SetFieldOfView( me:GetFOV() )
 	
 	if !me:IsInCombat() then
