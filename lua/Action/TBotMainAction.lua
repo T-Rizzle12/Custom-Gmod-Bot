@@ -504,13 +504,6 @@ function TBotMainActionMeta:FireWeaponAtEnemy( me, threat )
 
 	end
 
-	local botWeapon = me:GetActiveWeapon()
-	if !IsValid( botWeapon ) or !botWeapon:IsWeapon() then
-
-		return
-
-	end
-
 	local weaponTable = GetTBotRegisteredWeapon( botWeapon:GetClass() )
 	local weaponType = weaponTable.WeaponType
 	if weaponTable.ReloadsSingly then
@@ -579,7 +572,14 @@ function TBotMainActionMeta:FireWeaponAtEnemy( me, threat )
 	local enemyDist = enemy:GetPos():DistToSqr( me:GetPos() ) -- Grab the bot's current distance from their current enemy
 
 	me:SelectBestWeapon( enemy, enemyDist ) -- FIXME: This should be somewhere else......
+	
+	local botWeapon = me:GetActiveWeapon()
+	if !IsValid( botWeapon ) or !botWeapon:IsWeapon() then
 
+		return
+
+	end
+	
 	-- Should I limit how often this runs?
 	-- NEEDTOVALIDATE: Should this be in SelectTargetPoint instead?
 	local trace = {}
