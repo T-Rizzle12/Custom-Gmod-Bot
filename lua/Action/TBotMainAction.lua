@@ -88,7 +88,6 @@ function TBotMainActionMeta:Update( me, interval )
 		if IsValid( botWeapon ) and botWeapon:IsWeapon() then
 
 			local weaponTable = GetTBotRegisteredWeapon( botWeapon:GetClass() )
-			local weaponType = weaponTable.WeaponType
 			if CurTime() >= botTable.ReloadInterval and !me:IsReloading() and botWeapon:GetClass() != "weapon_medkit" and botWeapon:NeedsToReload() then
 
 				me:PressReload()
@@ -120,7 +119,6 @@ function TBotMainActionMeta:Update( me, interval )
 		if IsValid( botWeapon ) and botWeapon:IsWeapon() then
 
 			local weaponTable = GetTBotRegisteredWeapon( botWeapon:GetClass() )
-			local weaponType = weaponTable.WeaponType
 			if CurTime() >= botTable.ReloadInterval and !me:IsReloading() and botWeapon:GetClass() != "weapon_medkit" and botWeapon:NeedsToReload() then
 	
 				if weaponTable.ReloadsSingly and vision:GetKnownCount( nil, true, -1 ) <= 0 then
@@ -306,7 +304,7 @@ function TBotMainActionMeta:PlayerDisconnected( me, ply )
 
 		if me:IsTRizzleBot( true ) then
 
-			me:Kick( string.format( "Owner s% has left the server", ply:Nick() ) )
+			me:Kick( string.format( "Owner %s has left the server", ply:Nick() ) )
 			return self:TryDone( TBotEventResultPriorityType.RESULT_CRITICAL, "Ending main action since bot owner has left the game" )
 
 		else
@@ -375,7 +373,7 @@ function TBotMainActionMeta:PlayerSay( me, sender, text, teamChat )
 
 			elseif command == "alert" then
 
-				botTable.LastCombatTime = CurTime() + 5.0
+				botTable.LastCombatTime = CurTime() - 5.0
 
 			elseif command == "warp" then
 
