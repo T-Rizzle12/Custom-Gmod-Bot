@@ -77,6 +77,14 @@ function TBotMainActionMeta:Update( me, interval )
 		-- NEEDTOVALIDATE: This might have to be in the bot's main think function......
 		botTable.LastCombatTime = CurTime() -- Update combat timestamp
 		
+		-- Make the bot pull out a weapon if its current weapon is invalid for some reason!
+		local botWeapon = me:GetActiveWeapon()
+		if !IsValid( botWeapon ) or !botWeapon:IsWeapon() then
+		
+			me:SelectBestWeapon( threat:GetEntity() )
+			
+		end
+		
 	end
 	
 	-- Make sure our vision FOV matches the player's
@@ -501,7 +509,14 @@ function TBotMainActionMeta:FireWeaponAtEnemy( me, threat )
 		return
 
 	end
+	
+	local botWeapon = me:GetActiveWeapon()
+	if !IsValid( botWeapon ) or !botWeapon:IsWeapon() then
 
+		return
+
+	end
+	
 	local weaponTable = GetTBotRegisteredWeapon( botWeapon:GetClass() )
 	local weaponType = weaponTable.WeaponType
 	if weaponTable.ReloadsSingly then
@@ -570,13 +585,6 @@ function TBotMainActionMeta:FireWeaponAtEnemy( me, threat )
 	local enemyDist = enemy:GetPos():DistToSqr( me:GetPos() ) -- Grab the bot's current distance from their current enemy
 
 	me:SelectBestWeapon( enemy, enemyDist ) -- FIXME: This should be somewhere else......
-	
-	local botWeapon = me:GetActiveWeapon()
-	if !IsValid( botWeapon ) or !botWeapon:IsWeapon() then
-
-		return
-
-	end
 	
 	-- Should I limit how often this runs?
 	-- NEEDTOVALIDATE: Should this be in SelectTargetPoint instead?
