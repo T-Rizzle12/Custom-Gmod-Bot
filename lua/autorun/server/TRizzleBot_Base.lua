@@ -7035,7 +7035,8 @@ function NavAreaBuildPath( startArea, goalArea, goalPos, bot, costFunc )
 		local ladderTopDir = 0
 		local length = -1.0
 		
-		while ( true ) do
+		--while ( true ) do
+		while searchWhere >= 0 and searchWhere <= 2 do
 		
 			local newArea = nil
 			local how = nil
@@ -7168,12 +7169,13 @@ function NavAreaBuildPath( startArea, goalArea, goalPos, bot, costFunc )
 					
 				end
 			
-			else
-			
-				length = -1.0
-				break
-			
 			end
+			--else
+			
+				--length = -1.0
+				--break
+			
+			--end
 		
 			-- don't backtrack
 			if newArea == Current:GetParent() then
