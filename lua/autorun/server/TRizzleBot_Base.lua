@@ -7234,8 +7234,8 @@ function NavAreaBuildPath( startArea, goalArea, goalPos, bot, costFunc )
 			else
 				
 				-- compute estimate of distance left to go 
-				local distSq = ( newArea:GetCenter() - actualGoalPos ):LengthSqr()
-				local newCostRemaining = Either( distSq > 0.0, math.sqrt( distSq ), 0.0 )
+				local distSq = newArea:GetCenter():DistToSqr( actualGoalPos )
+				local newCostRemaining = distSq > 0.0 and math.sqrt( distSq ) or 0.0
 				
 				-- track closest area to goal in case path fails
 				if newCostRemaining < closestAreaDist then
