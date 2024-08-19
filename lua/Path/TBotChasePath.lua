@@ -196,6 +196,7 @@ end
 function TBotChasePathMeta:PredictSubjectPostion( bot, subject )
 
 	local subjectPos = subject:GetPos()
+	local mover = bot:GetTBotLocomotion()
 	
 	local to = subjectPos - bot:GetPos()
 	to.z = 0.0
@@ -242,7 +243,7 @@ function TBotChasePathMeta:PredictSubjectPostion( bot, subject )
 	-- Don't lead through walls
 	if lead:LengthSqr() > 36.0 then
 	
-		local isTraversable, fraction = bot:GetTBotLocomotion():IsPotentiallyTraversable( subjectPos, pathTarget )
+		local isTraversable, fraction = mover:IsPotentiallyTraversable( subjectPos, pathTarget )
 		if !isTraversable then
 		
 			-- Tried to lead through an unwalkable area - clip to walkable space
@@ -255,7 +256,7 @@ function TBotChasePathMeta:PredictSubjectPostion( bot, subject )
 	-- Don't lead over cliffs
 	local leadArea = navmesh.GetNearestNavArea( pathTarget )
 	
-	if !IsValid( leadArea ) or leadArea:GetZ( pathTarget ) < pathTarget.z - bot:GetMaxJumpHeight() then
+	if !IsValid( leadArea ) or leadArea:GetZ( pathTarget ) < pathTarget.z - mover:GetMaxJumpHeight() then
 	
 		-- Would fall off a cliff
 		return subjectPos
