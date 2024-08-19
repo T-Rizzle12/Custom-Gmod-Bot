@@ -733,8 +733,167 @@ function TBotPathMeta:OnPathChanged( bot, result )
 
 end
 
+local function TRizzleBotRangeCheck( area, fromArea, ladder, portal, bot, length )
+	
+	if !IsValid( fromArea ) then
+	
+		-- first area in path, no cost
+		return 0
+		
+	elseif fromArea:HasAttributes( NAV_MESH_JUMP ) and area:HasAttributes( NAV_MESH_JUMP ) then
+	
+		-- cannot actually walk in jump areas - disallow moving from jump area to jump area
+		return -1.0
+	
+	else
+	
+		-- compute distance traveled along path so far
+		local dist = 0
+		
+		if IsValid( ladder ) then 
+		
+			dist = ladder:GetLength()
+			
+		elseif isnumber( length ) and length > 0 then
+		
+			-- optimization to avoid recomputing lengths
+			dist = length
+		
+		else
+		
+			dist = area:GetCenter():Distance( fromArea:GetCenter() )
+			
+		end
+		
+		-- If the portal is disabled then we can't use it!
+		if IsValid( portal ) and portal:GetInternalVariable( "m_bDisabled" ) then
+		
+			return -1.0
+			
+		end
+		
+		local Height	=	fromArea:ComputeAdjacentConnectionHeightChange( area )
+		local stepHeight = 18
+		if IsValid( bot ) then stepHeight = bot:GetStepSize() end
+		
+		-- Jumping is slower than ground movement.
+		if !IsValid( ladder ) and !IsValid( portal ) and !fromArea:IsUnderwater() and Height > stepHeight then
+			
+			local maximumJumpHeight = 64
+			if IsValid( bot ) then maximumJumpHeight = bot:GetTBotLocomotion():GetMaxJumpHeight() end
+			
+			if Height > maximumJumpHeight then
+			
+				return -1
+			
+			end
+			
+			--print( "Jump Height: " .. Height )
+			dist	=	dist + ( dist * 2 )
+			
+		-- Falling is risky if the bot might take fall damage.
+		elseif !area:IsUnderwater() and Height < -stepHeight then
+			
+			local fallDistance = -fromArea:ComputeGroundHeightChange( area )
+			
+			if IsValid( ladder ) and ladder:GetBottom().z < fromArea:GetCenter().z and ladder:GetBottom().z > area:GetCenter().z then
+			
+				fallDistance = ladder:GetBottom().z - area:GetCenter().z
+				
+			end
+			
+			if IsValid( portal ) and portal:GetPos().z < fromArea:GetCenter().z and portal:GetPos().z > area:GetCenter().z then
+			
+				fallDistance = portal:GetPos().z - area:GetCenter().z
+				
+			end
+			
+			--print( "Drop Height: " .. Height )
+			local fallDamage = GetApproximateFallDamage( fallDistance )
+			
+			if fallDamage > 0.0 and IsValid( bot ) then
+			
+				-- if the fall would kill us, don't use it
+				local deathFallMargin = 10.0
+				if fallDamage + deathFallMargin >= bot:Health() then
+				
+					return -1.0
+					
+				end
+				
+				local painTolerance = 25.0
+				if bot:IsUnhealthy() or fallDamage > painTolerance then
+				
+					-- cost is proportional to how much it hurts when we fall
+					-- 10 points - not a big deal, 50 points - ouch
+					dist	=	dist + ( 100 * fallDamage * fallDamage )
+					
+				end
+			
+			end
+			
+		end
+		
+		local preference = 1.0
+		
+		-- This isn't really needed for sandbox, but since this is a bot base I will leave this here.
+		-- This will have certain cases where its not used.
+		-- NOTE: If TBotRandomPaths is nonzero the bot will use this when pathfinding
+		if GetConVar( "TBotRandomPaths" ):GetBool() then
+		
+			-- this term causes the same bot to choose different routes over time,
+			-- but keep the same route for a period in case of repaths
+			local timeMod = math.floor( ( CurTime() / 10 ) + 1 )
+			preference = 1.0 + 50.0 * ( 1.0 + math.cos( bot:EntIndex() * area:GetID() * timeMod ) )
+			
+		end
+		
+		-- Crawling through a vent is very slow.
+		-- NOTE: The cost is determined by the bot's crouch speed
+		if area:HasAttributes( NAV_MESH_CROUCH ) then 
+			
+			local crouchPenalty = 5
+			if IsValid( bot ) then crouchPenalty = math.floor( 1 / bot:GetCrouchedWalkSpeed() ) end
+			
+			dist	=	dist + ( dist * crouchPenalty )
+			
+		end
+		
+		-- If this area might damage us if we walk through it we should avoid it at all costs.
+		if area:IsDamaging() then
+		
+			dist	=	dist + ( dist * 100.0 )
+			
+		end
+		
+		-- The bot should avoid this area unless alternatives are too dangerous or too far.
+		if area:HasAttributes( NAV_MESH_AVOID ) then 
+			
+			dist	=	dist + ( dist * 20 )
+			
+		end
+		
+		-- We will try not to swim since it can be slower than running on land, it can also be very dangerous, Ex. "Acid, Lava, Etc."
+		if area:IsUnderwater() then
+		
+			dist	=	dist + ( dist * 2 )
+			
+		end
+		
+		local cost	=	dist * preference
+		
+		--print( "Distance: " .. dist )
+		--print( "Total Cost: " .. cost )
+		
+		return cost + fromArea:GetCostSoFar()
+		
+	end
+	
+end
+
 -- This is a hybrid version of pathfollower, it can use ladders and is very optimized
 function TBotPathMeta:Compute( bot, goal, costFunc )
+	costFunc = costFunc or TRizzleBotRangeCheck
 	
 	self:Invalidate()
 	
