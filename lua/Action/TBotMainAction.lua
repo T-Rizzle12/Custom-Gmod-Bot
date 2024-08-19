@@ -159,7 +159,7 @@ function TBotMainActionMeta:Update( me, interval )
 	end]]
 	
 	me:UpdateLookingAroundForEnemies()
-	self:FireWeaponAtEnemy( me, threat )
+	self:FireWeaponAtEnemy( me, threat, interval )
 	
 	local tbotOwner = botTable.TBotOwner
 	if IsValid( tbotOwner ) then
@@ -501,7 +501,8 @@ function TBotMainActionMeta:IsHindrance( me, blocker )
 
 end
 
-function TBotMainActionMeta:FireWeaponAtEnemy( me, threat )
+function TBotMainActionMeta:FireWeaponAtEnemy( me, threat, interval )
+	interval = tonumber( interval ) or 0.0
 
 	local botTable = me:GetTable()
 	if !me:Alive() then
@@ -654,8 +655,7 @@ function TBotMainActionMeta:FireWeaponAtEnemy( me, threat )
 			end
 
 			-- Subtract system latency
-			-- FIXME: I need to grab the update interval for this!!!!
-			--botTable.FireWeaponInterval = botTable.FireWeaponInterval - BotUpdateInterval
+			botTable.FireWeaponInterval = botTable.FireWeaponInterval - interval
 
 		end
 		
