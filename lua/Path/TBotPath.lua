@@ -106,7 +106,7 @@ end
 
 function TBotPathMeta:Invalidate()
 
-	self.m_path = {} -- Should I use table.Empty instead?
+	self.m_path = {}
 	self.m_segmentCount = 0
 	self.m_subject = nil
 	

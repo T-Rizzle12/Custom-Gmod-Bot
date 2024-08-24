@@ -77,7 +77,6 @@ function TBotChasePathMeta:Update( bot, subject, cost, pPredictedSubjectPos )
 	self:RefreshPath( bot, subject, cost, pPredictedSubjectPos )
 	
 	-- Move along the path towards the threat
-	-- HACKHACK: For some reason we have to call __index.
 	BaseClass.Update( self, bot )
 	
 end
