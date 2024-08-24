@@ -33,7 +33,7 @@ function TBotVisionMeta:Reset()
 	--self.m_curInterval = engine.TickInterval()
 	--self.m_lastUpdateTime = 0
 	self.m_blindTimer:Reset()
-	table.Empty( self.m_knownEntityVector )
+	self.m_knownEntityVector = {}
 	self.m_lastVisionUpdateTimestamp = 0
 	self.m_primaryThreat = nil
 	
@@ -225,7 +225,7 @@ end
 
 function TBotVisionMeta:ForgetAllKnownEntities()
 
-	table.Empty( self.m_knownEntityVector )
+	self.m_knownEntityVector = {}
 	
 end
 
@@ -418,7 +418,7 @@ function TBotVisionMeta:Update()
 	
 	if GetConVar( "ai_ignoreplayers" ):GetBool() or GetConVar( "ai_disabled" ):GetBool() then
 	
-		table.Empty( self.m_knownEntityVector )
+		self.m_knownEntityVector = {}
 		return
 		
 	end
@@ -629,7 +629,6 @@ function TBotVisionMeta:IsAbleToSee( pos, checkFOV )
 	if self:IsBlind() then return false end
 
 	local bot = self:GetBot()
-	local botPos = bot:GetPos()
 	if IsValid( pos ) and IsEntity( pos ) then
 		-- we must check eyepos and worldspacecenter
 		-- maybe in the future I can use body parts instead
