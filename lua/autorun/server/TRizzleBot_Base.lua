@@ -704,7 +704,6 @@ end
 end]]
 
 -- Returns the bot's behavior interface.
--- TODO: Implement the new base functions into the addon's code!
 function BOT:GetTBotBehavior()
 	if !self:IsTRizzleBot() then return end
 
@@ -3162,7 +3161,7 @@ concommand.Add( "TBotRegisterWeapon", TBotRegisterWeaponCommand, nil, "Registers
 -- Melee: The bot treats this weapon as a melee weapon and will only press its attack button when close to its enemy.
 -- Pistol: This tells the bot to use this weapon at the pistol range.
 -- Sniper: This tells the bot to use this weapon at the sniper range.
--- Shotgun: The bot will use this weapon up close and will fully reload the clip when its completely empty.
+-- Shotgun: This tells the bot to use this weapon at the shotgun range.
 -- Explosive: The bot should not use this when an enemy is nearby and will not fire this weapon when too close to its selected enemy.
 -- Grenade: The bot will assume the weapon is a grenade and use the grenade AI.
 --
@@ -3187,7 +3186,7 @@ RegisterTBotWeapon( { ClassName = "weapon_rpg", WeaponType = "Explosive" } )
 RegisterTBotWeapon( { ClassName = "weapon_crowbar", WeaponType = "Melee" } )
 RegisterTBotWeapon( { ClassName = "weapon_shotgun", WeaponType = "Shotgun", HasSecondaryAttack = true, SecondaryAttackCooldown = 10.0 } )
 RegisterTBotWeapon( { ClassName = "weapon_pistol", WeaponType = "Pistol" } )
-RegisterTBotWeapon( { ClassName = "weapon_smg1", WeaponType = "Rifle" } )
+RegisterTBotWeapon( { ClassName = "weapon_smg1", WeaponType = "Rifle", HasSecondaryAttack = true } )
 RegisterTBotWeapon( { ClassName = "weapon_ar2", WeaponType = "Rifle", HasSecondaryAttack = true } )
 RegisterTBotWeapon( { ClassName = "weapon_357", WeaponType = "Pistol" } )
 
@@ -7753,7 +7752,6 @@ function BOT:FindSpots( tbl )
 	local areas = navmesh.Find( tbl.pos, tbl.radius, tbl.stepup, tbl.stepdown )
 
 	local found = {}
-	local found2 = {}
 	
 	--local startArea = navmesh.GetNearestNavArea( tbl.pos )
 	--[[if !IsValid( startArea ) then
@@ -7815,9 +7813,6 @@ function BOT:FindSpots( tbl )
 			-- If the bot has to cross line of fire to reach the spot the bot shouldn't consider it
 			elseif tobool( tbl.checklineoffire ) and self:IsCrossingLineOfFire( tbl.pos, vec ) then 
 			
-				-- I add the hiding spots to a second table so if every hiding spot is crossing line of fire
-				-- then the bot can consider them anyway.
-				table.insert( found2, { vector = vec, distance = pathLength } )
 				continue 
 			
 			end
@@ -7828,7 +7823,7 @@ function BOT:FindSpots( tbl )
 
 	end
 	
-	if ( !found or #found == 0 ) and ( !found2 or #found2 == 0 ) and !tbl.secondAttempt then
+	if ( !found or #found == 0 ) and !tbl.secondAttempt then
 	
 		-- If we didn't find any hiding spots then look for sniper spots instead
 		if tbl.spotType == "hiding" then
@@ -7851,7 +7846,7 @@ function BOT:FindSpots( tbl )
 	end
 	
 	--print( "FindSpots RunTime: " .. tostring( SysTime() - startTime ) .. " Seconds" )
-	return Either( found and #found != 0, found, found2 )
+	return found
 
 end
 
