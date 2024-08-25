@@ -6,6 +6,8 @@ local TBotKnownEntityMeta = {}
 
 TBotKnownEntityMeta.__index = TBotKnownEntityMeta
 
+baseclass.Set( "TBotKnownEntity", TBotKnownEntityMeta ) -- Register this class so we can derive this for other gamemodes.
+
 function TBotKnownEntity( who )
 	local tbotknownentity = {}
 
@@ -18,6 +20,7 @@ function TBotKnownEntity( who )
 	tbotknownentity.m_lastKnownPosition = nil
 	tbotknownentity.m_lastKnownArea = nil
 	tbotknownentity.m_whenLastKnown = CurTime()
+	tbotknownentity.m_lastTimeTookDamageFromEnemy = -1.0
 	setmetatable( tbotknownentity, TBotKnownEntityMeta )
 	
 	tbotknownentity:UpdatePosition()
@@ -44,6 +47,7 @@ function TBotKnownEntityMeta:__eq( other )
 	
 end
 
+-- NEEDTOVALIDATE: Do we even need this?
 function TBotKnownEntityMeta:Destroy()
 
 	self.m_who = nil
@@ -170,6 +174,26 @@ function TBotKnownEntityMeta:WasEverVisible()
 	return self.m_whenLastSeen > 0.0
 	
 end
+
+function TBotKnownEntityMeta:MarkTookDamageFromEnemy()
+
+	self.m_lastTimeTookDamageFromEnemy = CurTime()
+	
+end
+
+function TBotKnownEntityMeta:GetLastTimeSinceTookDamageFromEnemy()
+
+	return CurTime() - self.m_lastTimeTookDamageFromEnemy
+	
+end
+
+function TBotKnownEntityMeta:TookDamageFromRecently()
+	if self.m_lastTimeTookDamageFromEnemy <= 0.0 then return false end
+	
+	return self:GetLastTimeSinceTookDamageFromEnemy() < 3.0
+	
+end
+	
 
 function TBotKnownEntityMeta:IsObsolete()
 

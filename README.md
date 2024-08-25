@@ -25,8 +25,8 @@ CommandName, CommandParameters, Example
   -  TBotSetFollowDist Bot 200
 - <code>TBotSetDangerDist</code> <code>targetbot</code> <code>dangerdist</code> 
   - TBotSetDangerDist Bot 300
-- <code>TBotRegisterWeapon</code> <code>weapon</code> <code>weaponType</code> <code>hasScope</code> <code>hasSecondaryAttack</code> <code>SecondaryAttackCooldown</code> <code>maxStoredAmmo</code>
-  - TBotRegisterWeapon weapon_crossbow Sniper true false 30.0 12
+- <code>TBotRegisterWeapon</code> <code>weapon</code> <code>weaponType</code> <code>hasScope</code> <code>hasSecondaryAttack</code> <code>SecondaryAttackCooldown</code> <code>maxStoredAmmo</code> <code>ignoreAutomaticRange</code> <code>ReloadsSingly</code>
+  - TBotRegisterWeapon weapon_crossbow Sniper true false 30.0 12 false false
 - <code>TBotAddPreferredWeapon</code> <code>targetbot</code> <code>weapon</code>
   - TBotAddPreferredWeapon Bot weapon_crossbow
 - <code>TBotRemovePreferredWeapon</code> <code>targetbot</code> <code>weapon</code>
@@ -60,7 +60,7 @@ CommandName, CommandParameters, Example
 # Current Features
 - The bot is a player bot
 - The bot can use ladders
-- The bot has "smooth aiming" (Aim won't instantly aim at enemies) 
+- The bot has "smooth aiming" (Won't instantly aim at enemies) 
 - The bot can open doors
 - The bot has a LOS, "Line of Sight," and can't see behind itself
 - The bot remembers enemies it has seen recently
@@ -78,5 +78,6 @@ I know what you are thinking, but these are needed to make the bot fun and easy 
 # Issues
 - The bot doesn't know if a Nextbot is hostile or friendly.
 - The bot has very basic driving support.
+- The bot can't tell the difference between projectile and tracer, "bullet," weapons.
 
 # Planned Features
