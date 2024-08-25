@@ -118,7 +118,9 @@ function TRizzleBotCreateMenu( ply, cmd, args )
 	
 	for k, wep in pairs( list.Get( "Weapon" ) ) do
 	
-		weaponList:AddLine( wep.ClassName )
+		local printName = wep.PrintName or wep.ClassName
+		local wepCategory = wep.Category or ""
+		weaponList:AddLine( string.format( "%s: %s", printName, wepCategory ), wep.ClassName )
 		
 	end
 	
@@ -129,13 +131,13 @@ function TRizzleBotCreateMenu( ply, cmd, args )
 	preferredWeaponList:AddColumn( "Preferred Weapons" )
 	preferredWeaponList.DoDoubleClick = function( self, lineID, line )
 	
-		weaponList:AddLine( line:GetColumnText( 1 ) )
+		weaponList:AddLine( line:GetValue( 1 ), line:GetValue( 2 ) )
 		preferredWeaponList:RemoveLine( lineID )
 	
 	end
 	weaponList.DoDoubleClick = function( self, lineID, line )
 	
-		preferredWeaponList:AddLine( line:GetColumnText( 1 ) )
+		preferredWeaponList:AddLine( line:GetValue( 1 ), line:GetValue( 2 ) )
 		weaponList:RemoveLine( lineID )
 	
 	end
@@ -256,7 +258,7 @@ function TRizzleBotCreateMenu( ply, cmd, args )
 		local weaponTable = {}
 		for k, line in ipairs( preferredWeaponList:GetLines() ) do
 			
-			table.insert( weaponTable, line:GetValue( 1 ) )
+			table.insert( weaponTable, line:GetValue( 2 ) )
 			
 		end
 		net.Start( "TRizzleBotVGUIMenu" )
@@ -342,7 +344,9 @@ function TRizzleBotRegisterWeaponMenu( ply, cmd, args )
 	
 	for k, wep in pairs( list.Get( "Weapon" ) ) do
 	
-		WeaponList:AddChoice( wep.ClassName )
+		local printName = wep.PrintName or wep.ClassName
+		local wepCategory = wep.Category or ""
+		WeaponList:AddChoice( string.format( "%s: %s", printName, wepCategory ), wep.ClassName )
 		
 	end
 	
@@ -438,7 +442,7 @@ function TRizzleBotRegisterWeaponMenu( ply, cmd, args )
 	DButton.DoClick = function( self )
 		net.Start( "TRizzleBotVGUIMenu" )
 			net.WriteUInt( 1, 1 ) -- Mark this is as a register weapon VGUI so the server knows what to do with this data!
-			net.WriteString( WeaponList:GetOptionText( WeaponList.selected ) )
+			net.WriteString( WeaponList:GetOptionData( WeaponList.selected ) )
 			net.WriteString( WeaponType:GetValue() )
 			net.WriteBool( ReloadsSingly:GetChecked() )
 			net.WriteBool( HasScope:GetChecked() )
