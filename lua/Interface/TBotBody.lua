@@ -149,7 +149,19 @@ function TBotBodyMeta:Upkeep()
 		
 	end 
 	
-	local currentAngles = bot:EyeAngles() + bot:GetViewPunchAngles()
+	-- NOTE: This fixes a long time bug of where the bot would spin rapidly, sigh........
+	-- HACKHACK: If we are in a vehicle, use local eye angles since its not affected by the vehicle's
+	-- parent adjustment to the player's eye angles.
+	local eyeAngles = bot:EyeAngles()
+	local alternateForward = false
+	if bot:InVehicle() then
+	
+		eyeAngles = bot:LocalEyeAngles()
+		alternateForward = true
+		
+	end
+	
+	local currentAngles = eyeAngles + bot:GetViewPunchAngles()
 	
 	-- track when our head is "steady"
 	local isSteady = true
@@ -184,7 +196,7 @@ function TBotBodyMeta:Upkeep()
 		
 	end
 	
-	self.m_priorAngles = currentAngles
+	self.m_priorAngles = currentAngles * 1
 	
 	-- if our current look-at has expired, don't change our aim further
 	if self.m_hasBeenSightedIn and self.m_lookAtExpireTimer:Elapsed() then
@@ -195,7 +207,8 @@ function TBotBodyMeta:Upkeep()
 	
 	-- simulate limited range of mouse movements
 	-- compute the angle change from center
-	local forward = bot:GetAimVector()
+	-- NOTE: We have to use the alternateForward with LocalEyeAngles or the bot will never get to the point of being m_isSightedIn
+	local forward = alternateForward and eyeAngles:Forward() or bot:GetAimVector()
 	local deltaAngle = math.deg( math.acos( forward:Dot( self.m_anchorForward ) ) )
 	if deltaAngle > 100 then
 	
@@ -288,6 +301,8 @@ function TBotBodyMeta:Upkeep()
 		
 	end
 	
+	--print( "Current Angles:", currentAngles )
+	--print( "Desired Angles: ", desiredAngles )
 	--print( approachRate * deltaT )
 	--angles.y = math.ApproachAngle( currentAngles.y, desiredAngles.y, approachRate * deltaT )
 	--angles.x = math.ApproachAngle( currentAngles.x, desiredAngles.x, 0.5 * approachRate * deltaT )
@@ -301,7 +316,10 @@ function TBotBodyMeta:Upkeep()
 	angles.x = math.AngleNormalize( angles.x )
 	angles.y = math.AngleNormalize( angles.y )
 	
+	--print("Setting angles:", angles.x, angles.y, angles.z)
 	bot:SetEyeAngles( angles )
+	--local afterAngles = eyeAngles
+	--print("Player angles after: ", afterAngles.x, afterAngles.y, afterAngles.z)
 
 end
 
