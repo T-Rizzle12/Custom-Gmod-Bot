@@ -735,6 +735,10 @@ end
 
 local function TRizzleBotRangeCheck( area, fromArea, ladder, portal, bot, length )
 	
+	local isBotValid = IsValid( bot )
+	local isLadderValid = IsValid( ladder )
+	local isPortalValid = IsValid( portal )
+	
 	if !IsValid( fromArea ) then
 	
 		-- first area in path, no cost
@@ -766,21 +770,19 @@ local function TRizzleBotRangeCheck( area, fromArea, ladder, portal, bot, length
 		end
 		
 		-- If the portal is disabled then we can't use it!
-		if IsValid( portal ) and portal:GetInternalVariable( "m_bDisabled" ) then
+		if isPortalValid and portal:GetInternalVariable( "m_bDisabled" ) then
 		
 			return -1.0
 			
 		end
 		
 		local Height	=	fromArea:ComputeAdjacentConnectionHeightChange( area )
-		local stepHeight = 18
-		if IsValid( bot ) then stepHeight = bot:GetStepSize() end
+		local stepHeight = isBotValid and bot:GetStepSize() or 18
 		
 		-- Jumping is slower than ground movement.
-		if !IsValid( ladder ) and !IsValid( portal ) and !fromArea:IsUnderwater() and Height > stepHeight then
+		if !isLadderValid and !isPortalValid and !fromArea:IsUnderwater() and Height > stepHeight then
 			
-			local maximumJumpHeight = 64
-			if IsValid( bot ) then maximumJumpHeight = bot:GetTBotLocomotion():GetMaxJumpHeight() end
+			local maximumJumpHeight = isBotValid and bot:GetTBotLocomotion():GetMaxJumpHeight() or 64
 			
 			if Height > maximumJumpHeight then
 			
@@ -796,13 +798,13 @@ local function TRizzleBotRangeCheck( area, fromArea, ladder, portal, bot, length
 			
 			local fallDistance = -fromArea:ComputeGroundHeightChange( area )
 			
-			if IsValid( ladder ) and ladder:GetBottom().z < fromArea:GetCenter().z and ladder:GetBottom().z > area:GetCenter().z then
+			if isLadderValid and ladder:GetBottom().z < fromArea:GetCenter().z and ladder:GetBottom().z > area:GetCenter().z then
 			
 				fallDistance = ladder:GetBottom().z - area:GetCenter().z
 				
 			end
 			
-			if IsValid( portal ) and portal:GetPos().z < fromArea:GetCenter().z and portal:GetPos().z > area:GetCenter().z then
+			if isPortalValid and portal:GetPos().z < fromArea:GetCenter().z and portal:GetPos().z > area:GetCenter().z then
 			
 				fallDistance = portal:GetPos().z - area:GetCenter().z
 				
@@ -811,7 +813,7 @@ local function TRizzleBotRangeCheck( area, fromArea, ladder, portal, bot, length
 			--print( "Drop Height: " .. Height )
 			local fallDamage = GetApproximateFallDamage( fallDistance )
 			
-			if fallDamage > 0.0 and IsValid( bot ) then
+			if fallDamage > 0.0 and isBotValid then
 			
 				-- if the fall would kill us, don't use it
 				local deathFallMargin = 10.0
