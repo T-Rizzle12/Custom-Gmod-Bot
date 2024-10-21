@@ -276,7 +276,7 @@ function TRizzleBotCreateMenu( ply, cmd, args )
 			net.WriteString( PlayerModel:GetOptionText( PlayerModel.selected ) or "kleiner" )
 			net.WriteBool( SpawnWithPreferredWeapons:GetChecked() )
 		net.SendToServer()
-		Frame:Close()
+		--Frame:Close() -- Disabled since its annoying to have to reopen the menu every single time!
 	end
 
 end
@@ -451,7 +451,7 @@ function TRizzleBotRegisterWeaponMenu( ply, cmd, args )
 			net.WriteInt( MaxStoredAmmo:GetValue(), 32 )
 			net.WriteBool( IgnoreAutomaticRange:GetChecked() )
 		net.SendToServer()
-		Frame:Close()
+		--Frame:Close() -- Disabled since its annoying to have to reopen the menu every single time!
 	end
 
 end
