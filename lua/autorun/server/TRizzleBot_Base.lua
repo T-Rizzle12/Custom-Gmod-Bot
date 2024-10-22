@@ -637,71 +637,14 @@ function BOT:TBotResetAI()
 	
 	botTable.TBotBehavior = TBotBehavior( TBotMainAction(), "Base Behavior" ) -- This gets reset every time the bot's AI is reset!
 	self:GetTBotVision():ForgetAllKnownEntities()
+	self:GetTBotVision():Reset()
+	self:GetTBotBody():Reset()
+	self:GetTBotLocomotion():Reset()
 	self:TBotSetState( IDLE )
 	self:ComputeApproachPoints()
 	--self:TBotCreateThinking() -- Start our AI
 	
 end
-
---[[function BOT:TBotResetAI()
-	
-	-- TODO: Move most of this stuff into its own interfaces to reduce collision with other addons!!!!
-	local botTable						=	self:GetTable() -- This is used so I don't have to keep dipping into C every time since it is VERY SLOW!
-	botTable.buttonFlags					=	0 -- These are the buttons the bot is going to press.
-	botTable.impulseFlags					=	0 -- This is the impuse command the bot is going to press.
-	botTable.forwardMovement				=	0 -- This tells the bot to move either forward or backwards.
-	botTable.strafeMovement					=	0 -- This tells the bot to move left or right.
-	botTable.GroupLeader					=	nil -- If the bot's owner is dead, this bot will take charge in combat and leads other bots with the same "owner". 
-	botTable.EnemyList						=	{} -- This is the list of enemies the bot knows about.
-	botTable.AttackList						=	{} -- This is the list of entities the bot has been told to attack.
-	botTable.AimForHead						=	false -- Should the bot aim for the head?
-	botTable.TimeInCombat					=	0 -- This is how long the bot has been in combat.
-	botTable.LastCombatTime					=	0 -- This is the last time the bot was in combat.
-	botTable.BestWeapon						=	nil -- This is the weapon the bot currently wants to equip.
-	botTable.MinEquipInterval				=	0 -- Throttles how often equipping is allowed.
-	botTable.HoldAttack						=	0 -- This is how long the bot should hold its attack button.
-	botTable.HoldAttack2					=	0 -- This is how long the bot should hold its attack2 button.
-	botTable.HoldReload						=	0 -- This is how long the bot should hold its reload button.
-	botTable.HoldForward					=	0 -- This is how long the bot should hold its forward button.
-	botTable.HoldBack						=	0 -- This is how long the bot should hold its back button.
-	botTable.HoldLeft						=	0 -- This is how long the bot should hold its left button.
-	botTable.HoldRight						=	0 -- This is how long the bot should hold its right button.
-	botTable.HoldRun						=	0 -- This is how long the bot should hold its run button.
-	botTable.HoldWalk						=	0 -- This is how long the bot should hold its walk button.
-	botTable.HoldJump						=	0 -- This is how long the bot should hold its jump button.
-	botTable.HoldCrouch						=	0 -- This is how long the bot should hold its crouch button.
-	botTable.HoldUse						=	0 -- This is how long the bot should hold its use button.
-	botTable.FireWeaponInterval				=	0 -- Limits how often the bot presses its attack button.
-	botTable.SecondaryInterval				=	0 -- Limits how often the bot uses its secondary attack.
-	botTable.ReloadInterval					=	0 -- Limits how often the bot can press its reload button.
-	botTable.ScopeInterval					=	0 -- Limits how often the bot can press its scope button.
-	botTable.UseInterval					=	0 -- Limits how often the bot can press its use button.
-	botTable.GrenadeInterval				=	0 -- Limits how often the bot will throw a grenade.
-	botTable.ExplosiveInterval				=	0 -- Limits how often the bot will use explosive weapons.
-	botTable.ImpulseInterval				=	0 -- Limits how often the bot can press any impuse command.
-	botTable.Light							=	false -- Tells the bot if it should have its flashlight on or off.
-	botTable.m_isLookingAroundForEnemies	=	true -- Is the bot looking around for enemies?
-	botTable.CheckedEncounterSpots			=	{} -- This stores every encounter spot and when the spot was checked.
-	botTable.PeripheralTimestamp			=	0 -- This limits how often UpdatePeripheralVision is run.
-	botTable.NextEncounterTime				=	0 -- This is the next time the bot is allowed to look at another encounter spot.
-	botTable.ApproachViewPosition			=	self:GetPos() -- This is the position used to compute approach points.
-	botTable.ApproachPoints					=	{} -- This stores all the approach points leading to the bot.
-	botTable.TBotCurrentPath				=	nil
-	
-	-- Delete old behavior interface on reset
-	if botTable.TBotBehavior then
-	
-		botTable.TBotBehavior:Remove()
-		
-	end
-	
-	botTable.TBotBehavior = TBotBehavior( TBotMainAction(), "Base Behavior" ) -- This gets reset every time the bot's AI is reset!
-	self:GetTBotVision():ForgetAllKnownEntities()
-	self:TBotSetState( IDLE )
-	self:ComputeApproachPoints()
-	--self:TBotCreateThinking() -- Start our AI
-	
-end]]
 
 -- Returns the bot's behavior interface.
 function BOT:GetTBotBehavior()
@@ -1450,6 +1393,7 @@ function BOT:UpdatePeripheralVision()
 end
 
 -- Determine approach points from eye position and approach areas of current area
+-- NEEDTOVALIDATE: Should this be in the vision interface instead?
 function BOT:ComputeApproachPoints()
 	
 	local NORTH = 0
@@ -1527,6 +1471,7 @@ function BOT:ComputeApproachPoints()
 end
 
 -- This returns a random encounter spot the bot can see
+-- NEEDTOVALIDATE: Should this be in the vision interface instead?
 function BOT:ComputeEncounterSpot()
 	
 	-- Compute encounter spots near the bot
@@ -1570,12 +1515,9 @@ function BOT:ComputeEncounterSpot()
 			
 		end
 		
-		
-		while #EncounterSpots > 0 do
-		
-			local spotIndex = math.random( #EncounterSpots )
+		for k, encounterSpot in RandomPairs( EncounterSpots ) do
 			
-			local canSee, encounterPos = self:BendLineOfSight( self:GetShootPos(), EncounterSpots[ spotIndex ] )
+			local canSee, encounterPos = self:BendLineOfSight( self:GetShootPos(), encounterSpot * 1 ) -- Mutiply encounterSpot by one since it will create a copy of it!
 			
 			-- BendLineOfSight allows the bot to adjust the encounter spot so the bot can see it.
 			if canSee then
@@ -1587,25 +1529,24 @@ function BOT:ComputeEncounterSpot()
 					
 				end
 				
-				self:SetEncounterSpotCheckTimestamp( EncounterSpots[ spotIndex ] )
+				self:SetEncounterSpotCheckTimestamp( encounterSpot )
 				
 				return encounterPos
 				
-			else
-			
-				table.remove( EncounterSpots, spotIndex )
-			
 			end
 		
 		end
 	
 	end
 	
+	-- If all else fails, just pick a random direction and look there!
+	-- NEEDTOVALIDATE: I could create my own encounter spots instead.....
 	return self:GetShootPos() + 1000 * Angle( math.random( -30, 30 ), math.random( -180, 180 ), 0 ):Forward()
 
 end
 
 -- Return time when given spot was last checked
+-- NEEDTOVALIDATE: Should this be in the vision interface instead?
 function BOT:GetEncounterSpotCheckTimestamp( spot )
 
 	for k, spotTbl in ipairs( self.CheckedEncounterSpots ) do
@@ -1625,6 +1566,7 @@ end
 local MAX_CHECKED_SPOTS = 64
 -- Set the timestamp of the given spot to now.
 -- If the spot is not in the set, overwrite the least recently checked spot.
+-- NEEDTOVALIDATE: Should this be in the vision interface instead?
 function BOT:SetEncounterSpotCheckTimestamp( spot )
 
 	local leastRecent = 0
@@ -1921,9 +1863,12 @@ function BOT:UpdateAim()
 
 end
 
+-- In TF2 bots, the function is in the bot table.....
+-- Should I put it into TBotBody instead?
 function BOT:UpdateLookingAroundForEnemies()
 
-	if !self.m_isLookingAroundForEnemies then
+	local botTable = self:GetTable()
+	if !botTable.m_isLookingAroundForEnemies then
 	
 		return
 		
@@ -1933,7 +1878,6 @@ function BOT:UpdateLookingAroundForEnemies()
 	local body = self:GetTBotBody()
 	local mover = self:GetTBotLocomotion()
 	local threat = vision:GetPrimaryKnownThreat()
-	local botTable = self:GetTable()
 	if istbotknownentity( threat ) and IsValid( threat:GetEntity() ) then
 	
 		if threat:IsVisibleInFOVNow() then
@@ -2497,6 +2441,8 @@ function BOT:IsLookingAtPosition( pos, angleTolerance )
 	
 end
 
+-- NEEDTOVALIDATE: This is based off of the code in TF2 where the bot's are ok with
+-- firing their weapons even if a teammate is in the way. I may have to change this....
 function BOT:IsLineOfFireClear( where )
 
 	if IsValid( where ) and IsEntity( where ) then
@@ -2504,7 +2450,7 @@ function BOT:IsLineOfFireClear( where )
 		local trace = {}
 		util.TraceLine( { start = self:GetShootPos(), endpos = where:GetHeadPos(), filter = TBotTraceFilter, mask = MASK_SHOT, output = trace } )
 		
-		if ( IsValid( trace.Entity ) and trace.Entity:IsBreakable() ) or !trace.Hit then
+		if ( IsValid( trace.Entity ) and ( trace.Entity:IsBreakable() or trace.Entity == where ) ) or !trace.Hit then
 		
 			return true
 			
@@ -2518,7 +2464,7 @@ function BOT:IsLineOfFireClear( where )
 			
 		end
 		
-		return !trace.Hit
+		return !trace.Hit or trace.Entity == where
 	
 	elseif isvector( where ) then
 	
@@ -2592,6 +2538,7 @@ function util.VecToYaw( vec )
 	
 end
 
+-- NEEDTOVALIDATE: Should this be in the vision interface instead?
 function BOT:BendLineOfSight( eye, target, angleLimit )
 	angleLimit = angleLimit or 135
 	
@@ -2617,7 +2564,7 @@ function BOT:BendLineOfSight( eye, target, angleLimit )
 	
 		for side = 1, 2 do
 		
-			local actualAngle = Either( side == 2, startAngle + angle, startAngle - angle )
+			local actualAngle = side == 2 and startAngle + angle or startAngle - angle
 			
 			local dx = math.cos( 3.141592 * actualAngle / 180 )
 			local dy = math.sin( 3.141592 * actualAngle / 180 )
@@ -7515,7 +7462,7 @@ local result = Vector()
 -- Checks if the bot will cross enemy line of fire when attempting to move to the entered position
 function BOT:IsCrossingLineOfFire( startPos, endPos )
 
-	for k, known in ipairs( self.EnemyList ) do
+	for k, known in ipairs( self.EnemyList or {} ) do
 	
 		if !self:IsAwareOf( known ) or known:IsObsolete() or !self:IsEnemy( known:GetEntity() )then
 		
@@ -7566,7 +7513,7 @@ function BOT:IsCrossingLineOfFire( startPos, endPos )
 	end
 	
 	local vision = self:GetTBotVision()
-	for k, known in ipairs( vision.m_knownEntityVector ) do
+	for k, known in ipairs( vision.m_knownEntityVector or {} ) do
 	
 		if !vision:IsAwareOf( known ) or known:IsObsolete() or !self:IsEnemy( known:GetEntity() )then
 		
@@ -7697,14 +7644,14 @@ end
 function BOT:IsSpotSafe( hidingSpot )
 
 	-- FIXME: Change this once the old addons are updated!!!
-	for k, known in ipairs( self.EnemyList ) do
+	for k, known in ipairs( self.EnemyList or {} ) do
 	
 		if self:IsAwareOf( known ) and !known:IsObsolete() and self:IsEnemy( known:GetEntity() ) and known:GetEntity():TBotVisible( hidingSpot ) then return false end -- If one of the bot's enemies its aware of can see it the bot won't use it.
 	
 	end
 	
 	local vision = self:GetTBotVision()
-	for k, known in ipairs( vision.m_knownEntityVector ) do
+	for k, known in ipairs( vision.m_knownEntityVector or {} ) do
 	
 		if vision:IsAwareOf( known ) and !known:IsObsolete() and self:IsEnemy( known:GetEntity() ) and known:GetEntity():VisibleVec( hidingSpot ) then return false end -- If one of the bot's enemies its aware of can see it the bot won't use it.
 	
@@ -8321,7 +8268,7 @@ function Ent:GetLastKnownArea()
 		
 	end
 	
-	return navmesh.GetNearestNavArea( self:GetPos(), true, 200, true )
+	return navmesh.GetNearestNavArea( self:GetPos(), true, 200 )
 	
 end
 
@@ -10891,7 +10838,7 @@ end
 
 function Zone:IsEdge( dir )
 
-	for k,area in ipairs( self:GetAdjacentAreasAtSide( dir ) ) do
+	for k, area in ipairs( self:GetAdjacentAreasAtSide( dir ) ) do
 	
 		if area:IsConnectedAtSide( self, OppositeDirection( dir ) ) then
 			
@@ -11452,5 +11399,10 @@ function ShowAllHidingSpots()
 
 end
 
--- We call this once this addon has sucessfuly initialized, so other addons can override this one!
-hook.Run( "TRizzleBotInitialized" )
+-- We have to put this into a timer since if we call it now there is a chance other addon's haven't loaded yet!
+timer.Simple( 0.0, function()
+
+	-- We call this once this addon has sucessfuly initialized, so other addons can override this one!
+	hook.Run( "TRizzleBotInitialized" )
+	
+end)

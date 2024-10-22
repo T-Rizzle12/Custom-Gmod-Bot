@@ -165,6 +165,13 @@ function TBotRetreatToCoverMeta:Update( me, interval )
 			
 		end
 		
+		-- Should the bot run when retreating to cover?
+		--[[if me:GetSuitPower() > 20 then
+		
+			me:PressRun()
+			
+		end]]
+		
 		self.m_path:Update( me )
 		
 	end

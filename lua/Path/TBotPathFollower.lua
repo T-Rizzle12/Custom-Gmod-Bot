@@ -740,7 +740,8 @@ function TBotPathFollowerMeta:Avoid( bot, goalPos, forward, left )
 
 	self.m_avoidTimer:Start( 0.5 )
 	
-	if bot:IsClimbingOrJumping() or !bot:IsOnGround() or bot:InVehicle() then
+	local mover = bot:GetTBotLocomotion()
+	if mover:IsClimbingOrJumping() or !bot:IsOnGround() or bot:InVehicle() then
 	
 		return goalPos
 		
@@ -764,13 +765,40 @@ function TBotPathFollowerMeta:Avoid( bot, goalPos, forward, left )
 	local hullMax = Vector( size, size, body:GetCrouchHullHeight() )
 	--local nextStepHullMin = Vector( -size, -size, 2.0 * self:GetStepSize() + 0.1 )
 	
+	-- This makes the bot walk through teammates if NoCollideWithTeammates is set to true!
+	local botTeam = bot:Team()
+	botTeam = botTeam >= 1 and botTeam or 0
+	local avoidFilter = function( ent ) 
+	
+		if ent == bot then
+		
+			return false
+			
+		elseif ent:IsPlayer() then
+		
+			if 4 <= botTeam and ent:Team() == botTeam then
+			
+				if ent:GetNoCollideWithTeammates() and bot:GetNoCollideWithTeammates() then
+				
+					return false
+					
+				end
+				
+			end
+		
+		end
+	
+		return true 
+		
+	end
+	
 	local leftFrom = bot:GetPos() + offset * left
 	local leftTo = leftFrom + range * forward
 	local isLeftClear = true
 	local leftAvoid = 0.0
 	
 	local result = {}
-	util.TraceHull( { start = leftFrom, endpos = leftTo, maxs = hullMax, mins = hullMin, filter = bot, mask = MASK_PLAYERSOLID, output = result } )
+	util.TraceHull( { start = leftFrom, endpos = leftTo, maxs = hullMax, mins = hullMin, filter = avoidFilter, mask = MASK_PLAYERSOLID, output = result } )
 	if result.Fraction < 1.0 or result.StartSolid then
 	
 		if result.StartSolid then
@@ -795,7 +823,7 @@ function TBotPathFollowerMeta:Avoid( bot, goalPos, forward, left )
 	local isRightClear = true
 	local rightAvoid = 0.0
 	
-	util.TraceHull( { start = rightFrom, endpos = rightTo, maxs = hullMax, mins = hullMin, filter = bot, mask = MASK_PLAYERSOLID, output = result } )
+	util.TraceHull( { start = rightFrom, endpos = rightTo, maxs = hullMax, mins = hullMin, filter = avoidFilter, mask = MASK_PLAYERSOLID, output = result } )
 	if result.Fraction < 1.0 or result.StartSolid then
 	
 		if result.StartSolid then

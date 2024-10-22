@@ -6,7 +6,19 @@ DEFINE_BASECLASS( "TBotBaseAction" )
 
 local TBotDeadMeta = {}
 
-TBotDeadMeta.__index = setmetatable( TBotDeadMeta, BaseClass )
+function TBotDeadMeta:__index( key ) 
+
+	-- Search the metatable.
+	local val = TBotDeadMeta[ key ] 
+	if val != nil then return val end
+	
+	-- Search the base class.
+	val = BaseClass[ key ]
+	if val != nil then return val end
+	
+	return nil
+	
+end
 
 function TBotDead()
 	local tbotdead = TBotBaseAction()

@@ -572,8 +572,9 @@ end
 function TBotVisionMeta:IsLookingAtPosition( pos, angleTolerance )
 	angleTolerance = angleTolerance or 20
 	
-	local idealAngles = ( pos - self:GetShootPos() ):Angle()
-	local viewAngles = self:EyeAngles()
+	local bot = self:GetBot()
+	local idealAngles = ( pos - bot:GetShootPos() ):Angle()
+	local viewAngles = bot:EyeAngles()
 	
 	local deltaYaw = math.AngleNormalize( idealAngles.y - viewAngles.y )
 	local deltaPitch = math.AngleNormalize( idealAngles.x - viewAngles.x )
@@ -585,6 +586,137 @@ function TBotVisionMeta:IsLookingAtPosition( pos, angleTolerance )
 	end
 	
 	return false
+	
+end
+
+-- Got this from CS:GO Source Code, made some changes so it works for Lua
+-- Checks if the bot can see the set range without the fog obscuring it
+function TBotVisionMeta:IsHiddenByFog( range )
+
+	if self:GetFogObscuredRatio( range ) >= 1.0 then
+	
+		return true
+		
+	end
+
+	return false
+	
+end
+
+-- Got this from CS:GO Source Code, made some changes so it works for Lua
+-- This returns a number based on how obscured a position is, 0.0 not obscured and 1.0 completely obscured
+function TBotVisionMeta:GetFogObscuredRatio( range )
+
+	local fog = self:GetFogParams()
+	
+	if !IsValid( fog ) then
+	
+		return 0.0
+		
+	end
+	
+	local enable = fog:GetInternalVariable( "m_fog.enable" )
+	local startDist = fog:GetInternalVariable( "m_fog.start" )^2
+	local endDist = fog:GetInternalVariable( "m_fog.end" )^2
+	local maxdensity = fog:GetInternalVariable( "m_fog.maxdensity" )
+
+	if !enable then
+	
+		return 0.0
+		
+	end
+
+	if range <= startDist then
+	
+		return 0.0
+		
+	end
+
+	if range >= endDist then
+	
+		return 1.0
+		
+	end
+
+	local ratio = (range - startDist) / (endDist - startDist)
+	ratio = math.min( ratio, maxdensity )
+	return ratio
+	
+end
+
+-- Finds and returns the master fog controller
+function GetMasterFogController()
+	
+	for k, fogController in ipairs( ents.FindByClass( "env_fog_controller" ) ) do
+		
+		if IsValid( fogController ) then return fogController end
+		
+	end
+	
+	return nil
+	
+end
+
+-- Finds the fog entity that is currently affecting a bot
+function TBotVisionMeta:GetFogParams()
+
+	local targetFog = nil
+	local trigger = self:GetFogTrigger()
+	
+	if IsValid( trigger ) then
+		
+		targetFog = trigger
+		
+	end
+	
+	if !IsValid( targetFog ) then 
+	
+		local masterFogController = GetMasterFogController()
+		if IsValid( masterFogController ) then
+	
+			targetFog = masterFogController
+		
+		end
+		
+	end
+
+	if IsValid( targetFog ) then
+	
+		return targetFog
+	
+	else
+		
+		return nil
+		
+	end
+
+end
+
+-- Got this from CS:GO Source Code, made some changes so it works for Lua
+-- Tracks the last trigger_fog touched by this bot
+function TBotVisionMeta:GetFogTrigger()
+
+	local bot = self:GetBot()
+	local bestDist = math.huge
+	local bestTrigger = nil
+
+	for k, fogTrigger in ipairs( ents.FindByClass( "trigger_fog" ) ) do
+	
+		if IsValid( fogTrigger ) then
+		
+			local dist = bot:GetPos():DistToSqr( fogTrigger:GetPos() )
+			if dist < bestDist then
+				
+				bestDist = dist
+				bestTrigger = fogTrigger
+				
+			end
+			
+		end
+		
+	end
+	
+	return bestTrigger
 	
 end
 
@@ -641,7 +773,7 @@ function TBotVisionMeta:IsAbleToSee( pos, checkFOV )
 		local subjectArea = pos:GetLastKnownArea()
 		if IsValid( myArea ) and IsValid( subjectArea ) then
 			
-			if myArea:IsPotentiallyVisible( subjectArea ) then
+			if !myArea:IsPotentiallyVisible( subjectArea ) then
 				
 				return false
 				
@@ -655,7 +787,7 @@ function TBotVisionMeta:IsAbleToSee( pos, checkFOV )
 			
 		end
 		
-		if bot:IsHiddenByFog( bot:GetShootPos():DistToSqr( pos:WorldSpaceCenter() ) ) then
+		if self:IsHiddenByFog( bot:GetShootPos():DistToSqr( pos:WorldSpaceCenter() ) ) then
 		
 			return false
 			
@@ -683,7 +815,7 @@ function TBotVisionMeta:IsAbleToSee( pos, checkFOV )
 			
 		end
 		
-		if bot:IsHiddenByFog( bot:GetShootPos():DistToSqr( pos ) ) then
+		if self:IsHiddenByFog( bot:GetShootPos():DistToSqr( pos ) ) then
 		
 			return false
 			
@@ -706,7 +838,7 @@ end
 function TBotVisionMeta:Blind( time, flingAim )
 	
 	local bot = self:GetBot()
-	if !bot:Alive() or time < ( self.m_blindTimer.endtime - CurTime() ) then 
+	if !bot:Alive() or time < ( ( self.m_blindTimer.endtime or 0.0 ) - CurTime() ) then 
 	
 		return 
 		

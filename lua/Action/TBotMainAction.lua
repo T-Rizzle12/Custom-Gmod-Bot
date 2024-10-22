@@ -335,24 +335,23 @@ function TBotMainActionMeta:PlayerSay( me, sender, text, teamChat )
 	if hook.Run( "PlayerCanSeePlayersChat", text, teamChat, me, sender ) then
 
 		local botTable = me:GetTable()
-		local startpos, endpos, botName = string.find( text, me:Nick() )
+		local botNamePattern = string.format( "^(%s) +(.*)$", me:Nick() )
 		local textTable
-		local command
+		local _, command = string.match( text, botNamePattern )
 
-		if isnumber( startpos ) and startpos == 1 then -- Only run the command if the bot name was said first!
+		if isstring( command ) then -- Only run the command if the bot name was said first!
 
-			textTable = string.Explode( " ", string.sub( text, endpos + 1 ) ) -- Grab everything else after the name!
-			table.remove( textTable, 1 ) -- Remove the unnecessary whitespace
-			command = textTable[ 1 ] and textTable[ 1 ]:lower()
+			textTable = string.Explode( " ", command ) -- Grab everything else after the name!
+			command = textTable[ 1 ] and textTable[ 1 ]:lower() -- Make it case insenstive
 
 		else
 
-			startpos, endpos, botName = string.find( text:lower(), "bots" )
-			if isnumber( startpos ) and startpos == 1 then -- Check to see if the player is commanding every bot!
+			local botsPattern = string.format( "^(%s) +(.*)$", "bots" )
+			_, command = string.match( text:lower(), botsPattern )
+			if isstring( command ) then -- Check to see if the player is commanding every bot!
 
-				textTable = string.Explode( " ", string.sub( text, endpos + 1 ) ) -- Grab everything else after the name!
-				table.remove( textTable, 1 ) -- Remove the unnecessary whitespace
-				command = textTable[ 1 ] and textTable[ 1 ]:lower()
+				textTable = string.Explode( " ", command ) -- Grab everything else after the name!
+				command = textTable[ 1 ] and textTable[ 1 ]:lower() -- Make it case insenstive
 
 			end
 
