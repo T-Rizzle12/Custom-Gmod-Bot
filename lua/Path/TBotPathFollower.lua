@@ -754,6 +754,7 @@ function TBotPathFollowerMeta:Avoid( bot, goalPos, forward, left )
 		
 	end
 	
+	local botCollision = bot:GetCollisionGroup()
 	local body = bot:GetTBotBody()
 	local size = body:GetHullWidth() / 4
 	local offset = size + 2
@@ -798,7 +799,7 @@ function TBotPathFollowerMeta:Avoid( bot, goalPos, forward, left )
 	local leftAvoid = 0.0
 	
 	local result = {}
-	util.TraceHull( { start = leftFrom, endpos = leftTo, maxs = hullMax, mins = hullMin, filter = avoidFilter, mask = MASK_PLAYERSOLID, output = result } )
+	util.TraceHull( { start = leftFrom, endpos = leftTo, maxs = hullMax, mins = hullMin, filter = avoidFilter, mask = MASK_PLAYERSOLID, collisiongroup = botCollision, output = result } )
 	if result.Fraction < 1.0 or result.StartSolid then
 	
 		if result.StartSolid then
@@ -823,7 +824,7 @@ function TBotPathFollowerMeta:Avoid( bot, goalPos, forward, left )
 	local isRightClear = true
 	local rightAvoid = 0.0
 	
-	util.TraceHull( { start = rightFrom, endpos = rightTo, maxs = hullMax, mins = hullMin, filter = avoidFilter, mask = MASK_PLAYERSOLID, output = result } )
+	util.TraceHull( { start = rightFrom, endpos = rightTo, maxs = hullMax, mins = hullMin, filter = avoidFilter, mask = MASK_PLAYERSOLID, collisiongroup = botCollision, output = result } )
 	if result.Fraction < 1.0 or result.StartSolid then
 	
 		if result.StartSolid then
