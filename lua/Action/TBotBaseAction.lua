@@ -955,6 +955,8 @@ function UnRegisterTBotActionHook( oldHook )
 	
 end
 
+gameevent.Listen( "player_say" )
+
 -- Register some default events for the action system!
 -- NOTE: You can add the register hook function to your custom actions.
 RegisterTBotActionHook( "DoPlayerDeath" )
@@ -964,7 +966,7 @@ RegisterTBotActionHook( "PlayerSilentDeath" )
 RegisterTBotActionHook( "EntityEmitSound" )
 RegisterTBotActionHook( "EntityTakeDamage" )
 RegisterTBotActionHook( "PlayerHurt" )
-RegisterTBotActionHook( "PlayerSay" ) -- TODO: I should change this to player_say, since it will accept the modified returns from PlayerSay
+RegisterTBotActionHook( "player_say" ) -- NOTE: I changed this to player_say, since it will accept the modified returns from PlayerSay
 RegisterTBotActionHook( "PlayerSpawn" )
 RegisterTBotActionHook( "OnPlayerJump" )
 RegisterTBotActionHook( "OnPlayerHitGround" )

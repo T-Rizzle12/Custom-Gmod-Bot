@@ -327,9 +327,12 @@ function TBotMainActionMeta:PlayerDisconnected( me, ply )
 
 end
 
-function TBotMainActionMeta:PlayerSay( me, sender, text, teamChat )
+function TBotMainActionMeta:player_say( me, data )
+	local sender = Player( data.userid )
 	if !IsValid( sender ) then return self:TryContinue() end
 
+	local text = data.text
+	local teamChat = tobool( data.teamonly )
 	-- HACKHACK: PlayerCanSeePlayersChat is called after PlayerSay, so we call it to check if the bot can see the chat message.
 	-- NEEDTOVALIDATE: Would it be better if I used the PlayerCanSeePlayersChat hook instead?
 	if hook.Run( "PlayerCanSeePlayersChat", text, teamChat, me, sender ) then
