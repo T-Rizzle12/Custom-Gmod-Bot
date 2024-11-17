@@ -955,6 +955,8 @@ function UnRegisterTBotActionHook( oldHook )
 	
 end
 
+gameevent.Listen( "player_say" )
+
 -- Register some default events for the action system!
 -- NOTE: You can add the register hook function to your custom actions.
 RegisterTBotActionHook( "DoPlayerDeath" )
@@ -964,7 +966,7 @@ RegisterTBotActionHook( "PlayerSilentDeath" )
 RegisterTBotActionHook( "EntityEmitSound" )
 RegisterTBotActionHook( "EntityTakeDamage" )
 RegisterTBotActionHook( "PlayerHurt" )
-RegisterTBotActionHook( "PlayerSay" )
+RegisterTBotActionHook( "player_say" ) -- NOTE: I changed this to player_say, since it will accept the modified returns from PlayerSay
 RegisterTBotActionHook( "PlayerSpawn" )
 RegisterTBotActionHook( "OnPlayerJump" )
 RegisterTBotActionHook( "OnPlayerHitGround" )
@@ -1013,9 +1015,10 @@ function TBotBaseActionMeta:ProcessHookEvent( method, ... )
 			end
 		
 		]]
+		-- FIXME: Certain operations create errors in these hooks when Lua is shuting down, there has to be a way to fix this!
 		-- HACKHACK: We check if the actor is vaild since when the server shuts down this creates errors.....
 		local hookFunc = _action[ method ] -- We can't do _action.method since it won't be dynamic. :(
-		if isfunction( hookFunc ) and IsValid( self.m_actor ) then
+		if isfunction( hookFunc ) and IsValid( self.m_actor ) and istable( self.m_actor:GetTable() ) then
 		
 			_result = hookFunc( _action, self.m_actor, ... ) or _result
 			
@@ -1052,6 +1055,7 @@ function TBotBaseActionMeta:StorePendingEventResult( result, eventName )
 		if self.m_eventResult.m_priority == TBotEventResultPriorityType.RESULT_CRITICAL then
 		
 			print( string.format( "%i: WARNING: %s::%s() RESULT_CRITICAL collision\n", CurTime(), self:GetName(), eventName or "" ) )
+			print( string.format( "%i: WARNING: %s::%s() RESULT_CRITICAL collided\n", CurTime(), self.m_eventResult.m_action and self.m_eventResult.m_action:GetName() or "NULL", eventName or "") )
 			
 		end
 		

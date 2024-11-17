@@ -57,7 +57,7 @@ function TBotRetreatPathMeta:Invalidate()
 end
 
 -- Make the bot move.
-function TBotRetreatPathMeta:Update( bot, threat )
+function TBotRetreatPathMeta:Update( bot, threat, cost )
 	
 	if !IsValid( threat ) then
 	
@@ -73,14 +73,14 @@ function TBotRetreatPathMeta:Update( bot, threat )
 	end
 	
 	-- Maintain path away from the threat
-	self:RefreshPath( bot, threat )
+	self:RefreshPath( bot, threat, cost )
 	
 	-- Move along the path towards the threat
 	BaseClass.Update( self, bot )
 	
 end
 
-function TBotRetreatPathMeta:RefreshPath( bot, threat )
+function TBotRetreatPathMeta:RefreshPath( bot, threat, cost )
 
 	local botTable = bot:GetTable()
 	local mover = bot:GetTBotLocomotion()
@@ -116,8 +116,9 @@ function TBotRetreatPathMeta:RefreshPath( bot, threat )
 		-- Remember our path threat
 		self.m_pathThreat = threat
 		self.m_pathThreatPos = threat:GetPos()
+		self:Invalidate() -- Clear the old path!
 		
-		local retreat = RetreatPathBuilder( bot, threat, self:GetMaxPathLength() )
+		local retreat = RetreatPathBuilder( bot, threat, self:GetMaxPathLength(), cost )
 		
 		local goalArea = retreat:ComputePath()
 		
@@ -595,7 +596,7 @@ function RetreatPathBuilderMeta:ComputePath()
 				end
 				
 				-- keep track of area farthest from threat
-				local threatRange = newArea:GetCenter():Distance( threat:GetPos() )
+				local threatRange = newArea:GetCenter():Distance( self.m_threat:GetPos() )
 				if threatRange > farthestRange then
 				
 					farthestArea = newArea

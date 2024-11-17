@@ -96,7 +96,7 @@ end
 
 function TBotSearchAndDestoryMeta:RecomputeSeekPath( me )
 
-	local goalVector = navmesh.Find( me:GetPos(), math.huge, me:GetMaxJumpHeight(), 1000 )
+	local goalVector = navmesh.Find( me:GetPos(), math.huge, me:GetTBotLocomotion():GetMaxJumpHeight(), 1000 )
 	
 	if #goalVector == 0 then
 	
