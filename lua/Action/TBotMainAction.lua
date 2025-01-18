@@ -4,6 +4,11 @@
 
 DEFINE_BASECLASS( "TBotBaseAction" )
 
+local ai_ignoreplayers = GetConVar( "ai_ignoreplayers" )
+local ai_disabled = GetConVar( "ai_disabled" )
+local TBotAimError = GetConVar( "TBotAimError" )
+local TBotBallisticElevationRate = GetConVar( "TBotBallisticElevationRate" )
+
 local TBotMainActionMeta = {}
 
 function TBotMainActionMeta:__index( key )
@@ -23,6 +28,7 @@ end
 function TBotMainAction()
 	local tbotmainaction = TBotBaseAction()
 
+	tbotmainaction.m_checkVehicleTimer = util.Timer()
 	tbotmainaction.m_spawnPreferredWeaponsTimer = util.Timer()
 	tbotmainaction.m_ammoRegenTimer = util.Timer()
 	tbotmainaction.m_aimAdjustTimer = util.Timer()
@@ -164,20 +170,26 @@ function TBotMainActionMeta:Update( me, interval )
 	local tbotOwner = botTable.TBotOwner
 	if IsValid( tbotOwner ) then
 
-		if tbotOwner:InVehicle() and !me:InVehicle() then
+		if self.m_checkVehicleTimer:Elapsed() then
+		
+			self.m_checkVehicleTimer:Start( math.Rand( 0.3, 0.5 ) )
+		
+			if tbotOwner:InVehicle() and !me:InVehicle() then
 
-			local vehicle = me:FindNearbySeat()
+				local vehicle = self:FindNearbySeat( me )
 
-			-- FIXME: Now that we have the action system this should really be a ChangeTo an enter vehicle state.....
-			if IsValid( vehicle ) then me:EnterVehicle( vehicle ) end -- I should make the bot press its use key instead of this hack
+				-- FIXME: Now that we have the action system this should really be a ChangeTo an enter vehicle state.....
+				if IsValid( vehicle ) then me:EnterVehicle( vehicle ) end -- I should make the bot press its use key instead of this hack
 
-		end
+			end
 
-		if !tbotOwner:InVehicle() and me:InVehicle() and CurTime() >= botTable.UseInterval then
+			if !tbotOwner:InVehicle() and me:InVehicle() and CurTime() >= botTable.UseInterval then
 
-			me:PressUse()
-			botTable.UseInterval = CurTime() + 0.5
+				me:PressUse()
+				botTable.UseInterval = CurTime() + 0.5
 
+			end
+			
 		end
 
 	end
@@ -383,7 +395,7 @@ function TBotMainActionMeta:player_say( me, data )
 
 			elseif command == "alert" then
 
-				botTable.LastCombatTime = CurTime() - 5.0
+				botTable.LastCombatTime = CurTime() - 5.1
 
 			elseif command == "warp" then
 
@@ -400,7 +412,7 @@ function TBotMainActionMeta:player_say( me, data )
 end
 
 function TBotMainActionMeta:EntityEmitSound( me, soundTable )
-	if GetConVar( "ai_ignoreplayers" ):GetBool() or GetConVar( "ai_disabled" ):GetBool() then return self:TryContinue() end
+	if ai_ignoreplayers:GetBool() or ai_disabled:GetBool() then return self:TryContinue() end
 	if !IsValid( soundTable.Entity ) or soundTable.Entity == me then return self:TryContinue() end
 	
 	local vision = me:GetTBotVision()
@@ -416,7 +428,7 @@ function TBotMainActionMeta:EntityEmitSound( me, soundTable )
 				
 			end
 			
-			if !me:IsInCombat() then me.LastCombatTime = CurTime() - 5.0 end
+			if !me:IsInCombat() then me.LastCombatTime = CurTime() - 5.1 end
 			
 		end
 		
@@ -427,7 +439,7 @@ function TBotMainActionMeta:EntityEmitSound( me, soundTable )
 end
 
 function TBotMainActionMeta:PlayerHurt( me, victim, attacker )
-	if GetConVar( "ai_ignoreplayers" ):GetBool() or GetConVar( "ai_disabled" ):GetBool() or !IsValid( attacker ) or !IsValid( victim ) or victim != me then return self:TryContinue() end
+	if ai_ignoreplayers:GetBool() or ai_disabled:GetBool() or !IsValid( attacker ) or !IsValid( victim ) or victim != me then return self:TryContinue() end
 	
 	local vision = me:GetTBotVision()
 	if vision:IsValidTarget( attacker ) and me:IsEnemy( attacker ) then
@@ -441,7 +453,7 @@ function TBotMainActionMeta:PlayerHurt( me, victim, attacker )
 			
 		end
 		
-		if !me:IsInCombat() then me.LastCombatTime = CurTime() - 5.0 end
+		if !me:IsInCombat() then me.LastCombatTime = CurTime() - 5.1 end
 		
 	end
 	
@@ -502,6 +514,32 @@ function TBotMainActionMeta:IsHindrance( me, blocker )
 	return TBotQueryResultType.ANSWER_UNDEFINED
 
 end
+
+function TBotMainActionMeta:FindNearbySeat( me )
+	
+	local targetdistsqr			=	40000 -- This will allow the bot to select the closest vehicle to it.
+	local target				=	nil -- This is the closest vehicle to the bot.
+	
+	local myPos = me:GetPos()
+	for k, vehicle in ents.Iterator() do
+		
+		if IsValid( vehicle ) and vehicle:IsVehicle() and !IsValid( vehicle:GetDriver() ) then -- The bot should enter the closest vehicle to it
+			
+			local vehicledistsqr = vehicle:GetPos():DistToSqr( myPos )
+			
+			if vehicledistsqr < targetdistsqr then 
+				target = vehicle
+				targetdistsqr = vehicledistsqr
+			end
+			
+		end
+		
+	end
+	
+	return target
+	
+end
+
 
 function TBotMainActionMeta:FireWeaponAtEnemy( me, threat, interval )
 	interval = tonumber( interval ) or 0.0
@@ -677,7 +715,7 @@ function TBotMainActionMeta:SelectTargetPoint( me, subject )
 			local toThreat = subject:GetPos() - me:GetPos()
 			local threatRange = toThreat:Length()
 			toThreat:Normalize()
-			local elevationAngle = threatRange * GetConVar( "TBotBallisticElevationRate" ):GetFloat()
+			local elevationAngle = threatRange * TBotBallisticElevationRate:GetFloat()
 
 			if elevationAngle > 45.0 then
 
@@ -704,7 +742,7 @@ function TBotMainActionMeta:SelectTargetPoint( me, subject )
 		self.m_aimAdjustTimer:Start( math.Rand( 0.5, 1.5 ) )
 
 		self.m_aimErrorAngle = math.Rand( -math.pi, math.pi )
-		self.m_aimErrorRadius = math.Rand( 0.0, GetConVar( "TBotAimError" ):GetFloat() )
+		self.m_aimErrorRadius = math.Rand( 0.0, TBotAimError:GetFloat() )
 
 	end
 
@@ -831,19 +869,13 @@ end
 function TBotMainActionMeta:IsImmediateThreat( me, threat )
 
 	local enemy = threat:GetEntity()
-	if enemy:IsNPC() and !enemy:IsAlive() then
+	if ( enemy:IsNPC() or enemy:IsNextBot() ) and !enemy:IsAlive() then
 
 		return false
 
 	end
 
 	if enemy:IsPlayer() and !enemy:Alive() then
-
-		return false
-
-	end
-
-	if enemy:IsNextBot() and enemy:Health() < 1 then
 
 		return false
 
@@ -866,11 +898,9 @@ function TBotMainActionMeta:IsImmediateThreat( me, threat )
 
 	end
 
-	local to = me:GetPos() - threat:GetLastKnownPosition()
-	local threatRange = to:Length() -- Should this be LengthSqr instead?
-	to:Normalize()
-
-	local nearbyRange = 500
+	-- Used to be Length, but changed to LengthSqr as an optimization!
+	local threatRange = me:GetPos():DistToSqr( threat:GetLastKnownPosition() )
+	local nearbyRange = 500^2
 	if threatRange < nearbyRange then
 
 		-- Very near threats are always immediately dangerous

@@ -49,7 +49,8 @@ end
 
 function TBotReloadInCoverMeta:OnStart( me, priorAction )
 
-	self.m_coverSpot = me:FindSpot( "near", { pos = me:GetPos(), radius = self.m_maxRange, stepdown = 1000, stepup = me:GetMaxJumpHeight(), checksafe = 1, checkoccupied = 1, checklineoffire = 1 } )
+	local mover = me:GetTBotLocomotion()
+	self.m_coverSpot = me:FindSpot( "near", { pos = me:GetPos(), radius = self.m_maxRange, stepdown = 1000, stepup = mover:GetMaxJumpHeight(), checksafe = 1, checkoccupied = 1, checklineoffire = 1 } )
 	
 	if !isvector( self.m_coverSpot ) then
 	
@@ -97,7 +98,8 @@ function TBotReloadInCoverMeta:Update( me, interval )
 		-- We are now in cover
 		if threat then
 		
-			self.m_coverSpot = me:FindSpot( "near", { pos = me:GetPos(), radius = self.m_maxRange, stepdown = 1000, stepup = me:GetMaxJumpHeight(), checksafe = 1, checkoccupied = 1, checklineoffire = 1 } )
+			local mover = me:GetTBotLocomotion()
+			self.m_coverSpot = me:FindSpot( "near", { pos = me:GetPos(), radius = self.m_maxRange, stepdown = 1000, stepup = mover:GetMaxJumpHeight(), checksafe = 1, checkoccupied = 1, checklineoffire = 1 } )
 			
 			if !isvector( self.m_coverSpot ) then
 			
