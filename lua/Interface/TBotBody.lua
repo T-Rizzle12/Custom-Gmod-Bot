@@ -490,9 +490,10 @@ function TBotBodyMeta:GetHeadAimTrackingInterval()
 end
 
 -- NOTE: This can be used to make bots have different aim speeds
+local TBotSaccadeSpeed = GetConVar( "TBotSaccadeSpeed" )
 function TBotBodyMeta:GetMaxHeadAngularVelocity()
 
-	return GetConVar( "TBotSaccadeSpeed" ):GetFloat()
+	return TBotSaccadeSpeed:GetFloat()
 	
 end
 

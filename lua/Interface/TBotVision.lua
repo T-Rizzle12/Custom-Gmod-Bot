@@ -2,6 +2,8 @@
 -- Purpose: This is the TBotVision MetaTable
 -- Author: T-Rizzle
 
+local UTIL_TRACELINE = util.TraceLine
+
 local TBotVisionMeta = {}
 
 TBotVisionMeta.__index = TBotVisionMeta
@@ -158,26 +160,6 @@ function TBotVisionMeta:GetClosestKnown()
 	
 end
 
-function TBotVisionMeta:GetKnown( entity )
-
-	if !IsValid( entity ) then
-	
-		return nil
-		
-	end
-	
-	for k, known in ipairs( self.m_knownEntityVector ) do
-	
-		if IsValid( known:GetEntity() ) and known:GetEntity() == entity and !known:IsObsolete() then
-		
-			return known
-			
-		end
-		
-	end
-	
-end
-
 function TBotVisionMeta:AddKnownEntity( entity )
 
 	if !IsValid( entity ) or entity:IsWorld() then
@@ -271,7 +253,7 @@ function TBotVisionMeta:IsValidTarget( pit )
 		
 	end
 	
-	if pit:IsNPC() and pit:IsAlive() then 
+	if ( pit:IsNPC() or pit:IsNextBot() ) and pit:IsAlive() then 
 	
 		return true
 		
@@ -281,12 +263,6 @@ function TBotVisionMeta:IsValidTarget( pit )
 	
 		return true
 	
-	end
-	
-	if pit:IsNextBot() and pit:Health() > 0 then
-	
-		return true
-		
 	end
 
 	return false
@@ -405,6 +381,8 @@ function TBotVisionMeta:UpdateKnownEntities()
 	
 end
 
+local ai_ignoreplayers = GetConVar( "ai_ignoreplayers" )
+local ai_disabled = GetConVar( "ai_disabled" )
 function TBotVisionMeta:Update()
 
 	-- This adds significantly to bot's reaction times
@@ -416,7 +394,7 @@ function TBotVisionMeta:Update()
 	
 	self.m_scanTimer:Start( 0.5 * self:GetMinRecognizeTime() )]]
 	
-	if GetConVar( "ai_ignoreplayers" ):GetBool() or GetConVar( "ai_disabled" ):GetBool() then
+	if ai_ignoreplayers:GetBool() or ai_disabled:GetBool() then
 	
 		self.m_knownEntityVector = {}
 		return
@@ -435,6 +413,41 @@ function TBotVisionMeta:IsAwareOf( known )
 
 	return known:GetTimeSinceBecameKnown() >= self:GetMinRecognizeTime()
 	
+end
+
+-- Returns true if the bot's vision reaction time has elapsed
+-- for the entered TBotKnownEntity
+function TBotVisionMeta:HasReactionTimeElapsed( known )
+
+	return ( CurTime() - known:GetTimeWhenBecameVisible() ) >= self:GetMinRecognizeTime()
+
+end
+
+-- This grabs every non-obsolete entities that we are aware of
+-- and runs the entered function on them!
+-- The function should have two parameters in the following order:
+-- 1. The TBotVision interface this was called on
+-- 2. The known entity to test!
+-- This returns true if every known entity passed the function 
+-- or false if the function returned false on any known entity!
+function TBotVisionMeta:ForEachKnownEntity( func )
+
+	for k, known in ipairs( self.m_knownEntityVector ) do
+	
+		if !known:IsObsolete() and self:IsAwareOf( known ) then
+		
+			if func( self, known ) == false then
+			
+				return false
+				
+			end
+			
+		end
+		
+	end
+	
+	return true
+
 end
 
 function TBotVisionMeta:IsVisibleEntityNoticed( subject )
@@ -727,7 +740,7 @@ function TBotVisionMeta:IsLineOfSightClear( pos )
 	if IsValid( pos ) and IsEntity( pos ) then
 		
 		local trace = {}
-		util.TraceLine( { start = bot:EyePos(), endpos = pos:WorldSpaceCenter(), filter = TBotTraceFilter, mask = MASK_VISIBLE_AND_NPCS, output = trace } )
+		UTIL_TRACELINE( { start = bot:EyePos(), endpos = pos:WorldSpaceCenter(), filter = TBotTraceFilter, mask = MASK_VISIBLE_AND_NPCS, output = trace } )
 	
 		if trace.Fraction >= 1.0 or trace.Entity == pos or ( pos:IsPlayer() and trace.Entity == pos:GetVehicle() ) then
 			
@@ -735,7 +748,7 @@ function TBotVisionMeta:IsLineOfSightClear( pos )
 
 		end
 		
-		util.TraceLine( { start = bot:EyePos(), endpos = pos:EyePos(), filter = TBotTraceFilter, mask = MASK_VISIBLE_AND_NPCS, output = trace } )
+		UTIL_TRACELINE( { start = bot:EyePos(), endpos = pos:EyePos(), filter = TBotTraceFilter, mask = MASK_VISIBLE_AND_NPCS, output = trace } )
 	
 		if trace.Fraction >= 1.0 or trace.Entity == pos or ( pos:IsPlayer() and trace.Entity == pos:GetVehicle() ) then
 			
@@ -746,7 +759,7 @@ function TBotVisionMeta:IsLineOfSightClear( pos )
 	elseif isvector( pos ) then
 		
 		local trace = {}
-		util.TraceLine( { start = bot:EyePos(), endpos = pos, filter = TBotTraceFilter, mask = MASK_VISIBLE_AND_NPCS, output = trace } )
+		UTIL_TRACELINE( { start = bot:EyePos(), endpos = pos, filter = TBotTraceFilter, mask = MASK_VISIBLE_AND_NPCS, output = trace } )
 		
 		return trace.Fraction >= 1.0
 		
