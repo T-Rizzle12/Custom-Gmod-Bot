@@ -304,8 +304,8 @@ local function TRizzleBotRangeCheckRetreat( info, area, fromArea, ladder, portal
 		-- the threat and closest point on the line is the danger cost.	
 		
 		-- path danger is CUMULATIVE
-		--local dangerCost = fromArea:GetCostSoFar()
-		local dangerCost = 0
+		local dangerCost = fromArea:GetCostSoFar()
+		--local dangerCost = 0
 		
 		local t, Close = CalcClosestPointOnLineSegment( info.m_threat:GetPos(), area:GetCenter(), fromArea:GetCenter() )
 		if t < 0.0 then
@@ -326,42 +326,42 @@ local function TRizzleBotRangeCheckRetreat( info, area, fromArea, ladder, portal
 			local dangerFactor = 1.0 - ( rangeToThreat / maxThreatRange )
 			dangerCost	=	dangerDensity * dangerFactor
 			
-		end
-		
-		-- HACKHACK: Save the directionToThreat since it doesn't change during the pathfind!
-		--[[if !info.directionToThreat then
-		
-			info.directionToThreat = info.m_threat:GetPos() - info.m_me:GetPos()
-			info.directionToThreat:Normalize()
+			-- HACKHACK: Save the directionToThreat since it doesn't change during the pathfind!
+			if !info.directionToThreat then
 			
-		end
-		
-		local directionToNavArea = Close - info.m_me:GetPos()
-		directionToNavArea:Normalize()
-		local dotProduct = info.directionToThreat:Dot( directionToNavArea )
-		
-		-- If the bot is moving closer to the threat, increase the cost significantly
-		if dotProduct > 0 then
-		
-			--print( "Area: " .. tostring( area ) )
-			--print( "Dot: " .. dotProduct )
-			if dangerCost > 0 then
-			
-				dangerCost = dangerCost + ( dangerDensity * dotProduct )
+				info.directionToThreat = info.m_threat:GetPos() - info.m_me:GetPos()
+				info.directionToThreat:Normalize()
 				
-			else
+			end
 			
-				dangerCost = ( dangerDensity * dotProduct )
+			local directionToNavArea = Close - info.m_me:GetPos()
+			directionToNavArea:Normalize()
+			local dotProduct = info.directionToThreat:Dot( directionToNavArea )
+			
+			-- If the bot is moving closer to the threat, increase the cost significantly
+			if dotProduct > 0 then
+			
+				--print( "Area: " .. tostring( area ) )
+				--print( "Dot: " .. dotProduct )
+				if dangerCost > 0 then
+				
+					dangerCost = dangerCost + ( dangerDensity * dotProduct )
+					
+				else
+				
+					dangerCost = ( dangerDensity * dotProduct )
+				
+				end
 			
 			end
-		
-		end]]
+			
+		end
 		
 		--print( "Danger Cost: " .. dangerCost )
 		--print( "Distance: " .. dist )
 		--print( "Cost: " .. cost )
 		
-		return cost * dangerCost -- Used to be cost + dangerCost, changed it so see how it affected the AI!
+		return cost + dangerCost -- Used to be cost * dangerCost, changed it so see how it affected the AI!
 		
 	end
 	
@@ -447,6 +447,7 @@ function RetreatPathBuilderMeta:ComputePath()
 		area:AddToClosedList()
 		
 		--- don't consider blocked areas
+		-- NEEDTOVAILDATE: Should I change this?
 		if area:IsBlocked() then
 		
 			continue
