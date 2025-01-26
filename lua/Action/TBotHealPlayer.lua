@@ -168,12 +168,14 @@ end
 
 function TBotHealPlayerMeta:OnEnd( me, nextAction )
 
+	me.MinEquipInterval = 0 -- Let the bot swap weapons as soon as possible!
 	return
 
 end
 
 function TBotHealPlayerMeta:OnSuspend( me, interruptingAction )
 
+	me.MinEquipInterval = 0 -- Let the bot swap weapons as soon as possible!
 	return self:Continue()
 
 end

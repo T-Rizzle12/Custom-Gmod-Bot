@@ -247,7 +247,7 @@ function TBotMainActionMeta:Update( me, interval )
 		end
 		me:Give( "weapon_medkit" )
 		
-		self.m_spawnPreferredWeaponsTimer:Start( 1 )
+		self.m_spawnPreferredWeaponsTimer:Start( math.Rand( 0.9, 1.3 ) )
 
 	end
 
@@ -416,7 +416,7 @@ function TBotMainActionMeta:EntityEmitSound( me, soundTable )
 	if !IsValid( soundTable.Entity ) or soundTable.Entity == me then return self:TryContinue() end
 	
 	local vision = me:GetTBotVision()
-	if vision:IsValidTarget( soundTable.Entity ) and me:IsEnemy( soundTable.Entity ) then 
+	if vision and vision:IsValidTarget( soundTable.Entity ) and me:IsEnemy( soundTable.Entity ) then 
 		
 		if soundTable.Entity:GetPos():DistToSqr( me:GetPos() ) < math.Clamp( ( 2500 * ( soundTable.SoundLevel / 100 ) )^2, 0, 6250000 ) then
 		
@@ -439,10 +439,13 @@ function TBotMainActionMeta:EntityEmitSound( me, soundTable )
 end
 
 function TBotMainActionMeta:PlayerHurt( me, victim, attacker )
-	if ai_ignoreplayers:GetBool() or ai_disabled:GetBool() or !IsValid( attacker ) or !IsValid( victim ) or victim != me then return self:TryContinue() end
+	if ai_ignoreplayers:GetBool() or ai_disabled:GetBool() or !IsValid( attacker ) or !IsValid( victim ) then return self:TryContinue() end
+	
+	local botTable = me:GetTable()
+	if victim != me and victim != botTable.TBotOwner then return self:TryContinue() end
 	
 	local vision = me:GetTBotVision()
-	if vision:IsValidTarget( attacker ) and me:IsEnemy( attacker ) then
+	if vision and vision:IsValidTarget( attacker ) and me:IsEnemy( attacker ) then
 		
 		local known = vision:AddKnownEntity( attacker )
 		
@@ -453,7 +456,7 @@ function TBotMainActionMeta:PlayerHurt( me, victim, attacker )
 			
 		end
 		
-		if !me:IsInCombat() then me.LastCombatTime = CurTime() - 5.1 end
+		if !me:IsInCombat() then botTable.LastCombatTime = CurTime() - 5.1 end
 		
 	end
 	
