@@ -432,7 +432,7 @@ net.Receive( "TRizzleBotVGUIMenu", function( _, ply )
 		table.insert( args, net.ReadInt( 32 ) ) -- HealThreshold
 		table.insert( args, net.ReadInt( 32 ) ) -- CombatHealThreshold
 		table.insert( args, net.ReadString() ) -- PlayerModel
-		table.insert( args, Either( net.ReadBool(), 1, 0 ) ) -- SpawnWithPreferredWeapons
+		table.insert( args, net.ReadBool() and 1 or 0 ) -- SpawnWithPreferredWeapons
 		
 		TBotCreate( ply, "TRizzleCreateBot", args )
 		
@@ -1587,7 +1587,22 @@ end
 function BOT:DidPlayerJustFireWeapon()
 
 	local weapon = self:GetActiveWeapon()
-	return IsValid( weapon ) and weapon:IsWeapon() and weapon:GetNextPrimaryFire() > CurTime()
+	if !IsValid( weapon ) or !weapon:IsWeapon() then
+	
+		return false
+		
+	end
+	
+	-- Some weapons don't use FireBullets, "Melee weapons," so we check GetNextPrimaryFire!
+	-- This can be incorrect at times, but this makes the bot attack reloading players as well!
+	-- NOTE: We add a 2.0 second buffer since if the weapon is automatic we might not notice the attack!
+	if weapon:GetNextPrimaryFire() > ( CurTime() - 2.0 ) then
+	
+		return true
+		
+	end
+	
+	return false
 	
 end
 
@@ -1957,8 +1972,10 @@ function BOT:IsCursorOnTarget( target )
 			
 		end
 		
+		-- Actually, just returning true is fine now since we can check if the bot is doing something important!
+		return true
 		-- Make sure we are actually aiming at someone!
-		return IsValid( body.m_lookAtSubject )
+		--return IsValid( body.m_lookAtSubject )
 		--return self:PointWithinCursor( target, self:SelectTargetPoint( target ) )
 	
 	end
@@ -1977,21 +1994,32 @@ function BOT:SelectBestWeapon( target, enemydistsqr )
 	local minEquipInterval	=	0
 	local bestWeapon		=	nil
 	local bestWeaponInfo	=	nil
-	--local pistol			=	self:GetWeapon( self.Pistol )
-	--local rifle				=	self:GetWeapon( self.Rifle )
-	--local shotgun			=	self:GetWeapon( self.Shotgun )
-	--local sniper			=	self:GetWeapon( self.Sniper )
-	--local grenade			=	self:GetWeapon( self.Grenade )
-	--local melee				=	self:GetWeapon( self.Melee )
-	--local medkit			=	self:GetWeapon( "weapon_medkit" )
 	
-	-- Deprecated: This is now handled by the Action system!
-	--[[if IsValid( medkit ) and botTable.CombatHealThreshold > self:Health() and medkit:Clip1() >= 25 then
+	-- Helper function that helps the bot decide if the new weapon is better than the old one!
+	local function isNewWeaponBetterOption( newWeapon, newWeaponInfo, oldWeapon, oldWeaponInfo, desiredWeaponType, backupWeaponType, preferredWeapons )
+	
+		if !IsValid( oldWeapon ) then
 		
-		-- The bot will heal themself if they get too injured during combat
-		botTable.BestWeapon = medkit
+			return true
+			
+		end
+		
+		if newWeaponInfo.WeaponType == desiredWeaponType and ( oldWeaponInfo.WeaponType != desiredWeaponType or tobool( preferredWeapons[ newWeapon:GetClass() ] ) ) then
+		
+			return true
+			
+		end
+		
+		local targetWeaponType = isstring( backupWeaponType ) and backupWeaponType or desiredWeaponType
+		if oldWeaponInfo.WeaponType != desiredWeaponType and oldWeaponInfo.WeaponType != newWeaponInfo.WeaponType and newWeapon:GetTBotDistancePriority( targetWeaponType ) > oldWeapon:GetTBotDistancePriority( targetWeaponType ) then
+		
+			return true
+		
+		end
+		
+		return false
 	
-	else]]
+	end
 	
 	local desiredWeaponType, backupWeaponType = self:GetDesiredWeaponType( enemydistsqr, vision, botTable )
 	local preferredWeapons = botTable.TBotPreferredWeapons
@@ -2001,7 +2029,7 @@ function BOT:SelectBestWeapon( target, enemydistsqr )
 			
 			local weaponInfo = GetTBotRegisteredWeapon( weapon:GetClass() )
 			local weaponType = weaponInfo.WeaponType
-			if !IsValid( bestWeapon ) or weaponType == desiredWeaponType or ( bestWeaponInfo.WeaponType != desiredWeaponType and weapon:GetTBotDistancePriority( isstring( backupWeaponType ) and backupWeaponType or desiredWeaponType ) > bestWeapon:GetTBotDistancePriority( isstring( backupWeaponType ) and backupWeaponType or desiredWeaponType ) ) then -- and bestWeapon:GetTBotDistancePriority() != desiredWeaponDistance + 1 )
+			if isNewWeaponBetterOption( weapon, weaponInfo, bestWeapon, bestWeaponInfo, desiredWeaponType, backupWeaponType, preferredWeapons ) then -- and bestWeapon:GetTBotDistancePriority() != desiredWeaponDistance + 1 )
 			
 				bestWeapon = weapon
 				minEquipInterval = weaponType != "Melee" and 5.0 or 2.0
@@ -3205,7 +3233,7 @@ function NavAreaBuildPath( startArea, goalArea, goalPos, bot, costFunc )
 			
 			-- Safety check against a bogus functor. The cost of the path
 			-- A...B, C should always be at least as big as the path A...B
-			assert( NewCostSoFar >= Current:GetCostSoFar() )
+			assert( NewCostSoFar >= Current:GetCostSoFar(), Format( "NewCostSoFar was %i while fromArea CostSoFar was %i!", NewCostSoFar, Current:GetCostSoFar() ) )
 			
 			-- And now that we've asserted, let's be a bit more defensive.
 			-- Make sure that any jump to a new area incurs some pathfinsing
@@ -3408,61 +3436,11 @@ end
 local result = Vector()
 -- Checks if the bot will cross enemy line of fire when attempting to move to the entered position
 function BOT:IsCrossingLineOfFire( startPos, endPos )
-
-	for k, known in ipairs( self.EnemyList or {} ) do
-	
-		if !self:IsAwareOf( known ) or known:IsObsolete() or !self:IsEnemy( known:GetEntity() )then
-		
-			continue
-			
-		end
-		
-		local enemy = known:GetEntity()
-		local viewForward = nil
-		if enemy:IsPlayer() or enemy:IsNPC() then
-		
-			viewForward = enemy:GetAimVector()
-		
-		else
-		
-			viewForward = enemy:EyeAngles():Forward() 
-		
-		end
-		
-		local target = enemy:WorldSpaceCenter() + 5000 * viewForward
-		
-		local IsIntersecting = false
-		result:Zero()
-		
-		IsIntersecting, result = IsIntersecting2D( startPos, endPos, enemy:WorldSpaceCenter(), target )
-		--print( "IsIntersecting: " .. IsIntersecting )
-		--print( "Result: " .. result )
-		if IsIntersecting then
-		
-			local loZ, hiZ = 0, 0
-			
-			if startPos.z < endPos.z then
-			
-				loZ = startPos.z 
-				hiZ = endPos.z 
-				
-			else
-			
-				loZ = endPos.z 
-				hiZ = startPos.z
-			
-			end
-			
-			if result.z >= loZ and result.z <= hiZ + 35.5 then return true end
-		
-		end
-		
-	end
 	
 	local vision = self:GetTBotVision()
 	for k, known in ipairs( vision.m_knownEntityVector or {} ) do
 	
-		if !vision:IsAwareOf( known ) or known:IsObsolete() or !self:IsEnemy( known:GetEntity() )then
+		if !vision:IsAwareOf( known ) or known:IsObsolete() or !self:IsEnemy( known:GetEntity() ) then
 		
 			continue
 			
@@ -3566,16 +3544,17 @@ function BOT:IsSpotOccupied( pos )
 
 	local ply, distance = util.GetClosestPlayer( pos )
 	
-	if IsValid( ply ) and ply != self then
+	-- Don't consider spots if a bot or human player is already there
+	if IsValid( ply ) and ply != self and distance < 75 then
 	
-		if ply:IsTRizzleBot() and ply.HidingSpot == pos then return true -- Don't consider spots already selected by other bots
-		elseif distance < 75 then return true end -- Don't consider spots if a bot or human player is already there
+		return true
 
 	end
 
 	local trace = {}
-	local size = self:GetHullWidth() / 2.0
-	util.TraceHull( { start = pos, endpos = pos, maxs = Vector( size, size, self:GetCrouchHullHeight() ), mins = Vector( -size, -size, 0.0 ), mask = MASK_PLAYERSOLID, filter = TBotTraceFilter, output = trace  } )
+	local body = self:GetTBotBody()
+	local size = body:GetHullWidth() / 2.0
+	util.TraceHull( { start = pos, endpos = pos, maxs = Vector( size, size, body:GetCrouchHullHeight() ), mins = Vector( -size, -size, 0.0 ), mask = MASK_PLAYERSOLID, filter = TBotTraceFilter, output = trace  } )
 	-- Don't consider spots if there is a prop in the way.
 	if trace.Fraction < 1.0 or trace.StartSolid then
 	
@@ -3590,13 +3569,6 @@ end
 -- Checks if a hiding spot is safe to use
 function BOT:IsSpotSafe( hidingSpot )
 
-	-- FIXME: Change this once the old addons are updated!!!
-	for k, known in ipairs( self.EnemyList or {} ) do
-	
-		if self:IsAwareOf( known ) and !known:IsObsolete() and self:IsEnemy( known:GetEntity() ) and known:GetEntity():TBotVisible( hidingSpot ) then return false end -- If one of the bot's enemies its aware of can see it the bot won't use it.
-	
-	end
-	
 	local vision = self:GetTBotVision()
 	for k, known in ipairs( vision.m_knownEntityVector or {} ) do
 	
@@ -3612,12 +3584,13 @@ end
 function BOT:FindSpots( tbl )
 
 	--local startTime = SysTime()
+	local mover = self:GetTBotLocomotion()
 	local tbl = tbl or {}
 
 	tbl.pos				= tbl.pos				or self:WorldSpaceCenter()
 	tbl.radius			= tbl.radius			or 1000
 	tbl.stepdown		= tbl.stepdown			or 1000
-	tbl.stepup			= tbl.stepup			or self:GetMaxJumpHeight()
+	tbl.stepup			= tbl.stepup			or mover:GetMaxJumpHeight()
 	tbl.spotType		= tbl.spotType			or "hiding"
 	tbl.checkoccupied	= tbl.checkoccupied		or 1
 	tbl.checksafe		= tbl.checksafe			or 1
@@ -4142,8 +4115,8 @@ function Zone:ComputeClosestPointInPortal( TargetArea, fromPos, dir )
 		local left = math.max( self:GetCorner( NORTH ).x, TargetArea:GetCorner( NORTH ).x )
 		local right = math.min( self:GetCorner( SOUTH ).x, TargetArea:GetCorner( SOUTH ).x )
 		
-		local leftMargin = Either( TargetArea:IsEdge( WEST ), left + margin, left )
-		local rightMargin = Either( TargetArea:IsEdge( EAST ), right - margin, right )
+		local leftMargin = TargetArea:IsEdge( WEST ) and left + margin or left
+		local rightMargin = TargetArea:IsEdge( EAST ) and right - margin or right
 		
 		if leftMargin > rightMargin then
 		
@@ -4182,8 +4155,8 @@ function Zone:ComputeClosestPointInPortal( TargetArea, fromPos, dir )
 		local top = math.max( self:GetCorner( NORTH ).y, TargetArea:GetCorner( NORTH ).y )
 		local bottom = math.min( self:GetCorner( SOUTH ).y, TargetArea:GetCorner( SOUTH ).y )
 		
-		local topMargin = Either( TargetArea:IsEdge( NORTH ), top + margin, top )
-		local bottomMargin = Either( TargetArea:IsEdge( SOUTH ), bottom - margin, bottom )
+		local topMargin = TargetArea:IsEdge( NORTH ) and top + margin or top
+		local bottomMargin = TargetArea:IsEdge( SOUTH ) and bottom - margin or bottom
 		
 		if topMargin > bottomMargin then
 		
