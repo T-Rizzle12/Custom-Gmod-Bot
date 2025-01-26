@@ -53,7 +53,7 @@ end
 function TBotHealPlayerMeta:Update( me, interval )
 
 	local botTable = me:GetTable()
-	self.m_healTarget = self:FindHealTarget( me ) -- Make sure we pick the closest player to heal!
+	self.m_healTarget = self:FindHealTarget( me ) or self.m_healTarget -- Make sure we pick the closest player to heal!
 	if !IsValid( self.m_healTarget ) or !self.m_healTarget:Alive() or !me:HasWeapon( "weapon_medkit" ) then
 	
 		return self:Done( "Our heal target is invalid or dead" )
@@ -67,7 +67,8 @@ function TBotHealPlayerMeta:Update( me, interval )
 	end
 	
 	-- If we are healing ourself in combat, finish when we hit the combat heal threshold or our health is getting low....
-	if me:IsInCombat() then 
+	local threat = me:GetTBotVision():GetPrimaryKnownThreat( true )
+	if istbotknownentity( threat ) and IsValid( threat:GetEntity() ) then
 	
 		if self.m_healTarget == me then 
 		
@@ -94,7 +95,6 @@ function TBotHealPlayerMeta:Update( me, interval )
 	if healTargetDist > 75^2 or !me:IsLineOfFireClear( self.m_healTarget ) then
 	
 		-- Attack any enemies we know about while moving to heal our selected target!
-		local threat = me:GetTBotVision():GetPrimaryKnownThreat( true )
 		if istbotknownentity( threat ) and IsValid( threat:GetEntity() ) then
 		
 			me:SelectBestWeapon( threat:GetEntity() )
@@ -145,12 +145,13 @@ function TBotHealPlayerMeta:FindHealTarget( me )
 	--The bot should heal its owner and itself before it heals anyone else
 	local tbotOwner = botTable.TBotOwner
 	if IsValid( tbotOwner ) and tbotOwner:Alive() and tbotOwner:Health() < botTable.HealThreshold and tbotOwner:Health() < tbotOwner:GetMaxHealth() and tbotOwner:GetPos():DistToSqr( me:GetPos() ) < targetdistsqr then return tbotOwner
-	elseif me:Health() < botTable.HealThreshold and me:Health() < me:GetMaxHealth() then return me end
+	elseif ( me:Health() < botTable.CombatHealThreshold or ( me:Health() < botTable.HealThreshold and !me:IsInCombat() ) ) and me:Health() < me:GetMaxHealth() then return me end
 
 	local searchPos = IsValid( tbotOwner ) and tbotOwner:Alive() and tbotOwner:GetPos() or me:GetPos()
+	local vision = me:GetTBotVision()
 	for k, ply in player.Iterator() do
 	
-		if IsValid( ply ) and ply:Alive() and !me:IsEnemy( ply ) and ply:Health() < botTable.HealThreshold and ply:Health() < ply:GetMaxHealth() and me:IsAbleToSee( ply ) then -- The bot will heal any teammate that needs healing that we can actually see and are alive.
+		if IsValid( ply ) and ply:Alive() and !me:IsEnemy( ply ) and ply:Health() < botTable.HealThreshold and ply:Health() < ply:GetMaxHealth() and vision:IsAbleToSee( ply ) then -- The bot will heal any teammate that needs healing that we can actually see and are alive.
 			
 			local teammatedistsqr = ply:GetPos():DistToSqr( searchPos )
 			
@@ -167,12 +168,14 @@ end
 
 function TBotHealPlayerMeta:OnEnd( me, nextAction )
 
+	me.MinEquipInterval = 0 -- Let the bot swap weapons as soon as possible!
 	return
 
 end
 
 function TBotHealPlayerMeta:OnSuspend( me, interruptingAction )
 
+	me.MinEquipInterval = 0 -- Let the bot swap weapons as soon as possible!
 	return self:Continue()
 
 end

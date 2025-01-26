@@ -210,13 +210,7 @@ function TBotKnownEntityMeta:IsObsolete()
 		
 	end
 	
-	if entity:IsNPC() and !entity:IsAlive() then
-	
-		return true
-		
-	end
-	
-	if entity:IsNextBot() and entity:Health() < 1 then
+	if ( entity:IsNPC() or entity:IsNextBot() ) and !entity:IsAlive() then
 	
 		return true
 		

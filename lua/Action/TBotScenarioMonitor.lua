@@ -53,6 +53,7 @@ function TBotScenarioMonitorMeta:OnStart( me, priorAction )
 
 end
 
+local TBotGoalTolerance = GetConVar( "TBotGoalTolerance" )
 function TBotScenarioMonitorMeta:Update( me, interval )
 
 	local botTable = me:GetTable()
@@ -135,7 +136,7 @@ function TBotScenarioMonitorMeta:Update( me, interval )
 	if isvector( self.m_holdPos ) then
 	
 		local holdDist = self.m_holdPos:DistToSqr( me:GetPos() )
-		if holdDist > GetConVar( "TBotGoalTolerance" ):GetFloat()^2 then
+		if holdDist > TBotGoalTolerance:GetFloat()^2 then
 			
 			if self.m_repathTimer:Elapsed() then
 			
@@ -168,9 +169,10 @@ function TBotScenarioMonitorMeta:FindHealTarget( me )
 	elseif me:Health() < botTable.HealThreshold and me:Health() < me:GetMaxHealth() then return me end
 
 	local searchPos = IsValid( tbotOwner ) and tbotOwner:Alive() and tbotOwner:GetPos() or me:GetPos()
+	local vision = me:GetTBotVision()
 	for k, ply in player.Iterator() do
 	
-		if IsValid( ply ) and ply:Alive() and !me:IsEnemy( ply ) and ply:Health() < botTable.HealThreshold and ply:Health() < ply:GetMaxHealth() and me:IsAbleToSee( ply ) then -- The bot will heal any teammate that needs healing that we can actually see and are alive.
+		if IsValid( ply ) and ply:Alive() and !me:IsEnemy( ply ) and ply:Health() < botTable.HealThreshold and ply:Health() < ply:GetMaxHealth() and vision:IsAbleToSee( ply ) then -- The bot will heal any teammate that needs healing that we can actually see and are alive.
 			
 			local teammatedistsqr = ply:GetPos():DistToSqr( searchPos )
 			
@@ -320,7 +322,7 @@ function TBotScenarioMonitorMeta:OnResume( me, interruptingAction )
 	-- If the bot finsihed looking around for enemies then they should not do so again for a bit.
 	if interruptingAction and interruptingAction:GetName() == "SearchAndDestory" then
 	
-		self.m_huntTimer:Start( math.random( 20, 30 ) )
+		self.m_huntTimer:Start( math.random( 10, 30 ) )
 		
 	end
 

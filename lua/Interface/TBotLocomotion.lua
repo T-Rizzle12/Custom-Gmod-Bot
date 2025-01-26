@@ -2,6 +2,8 @@
 -- Purpose: This is the TBotLocomotion MetaTable
 -- Author: T-Rizzle
 
+local UTIL_TRACEHULL = util.TraceHull
+
 TBotLadderState = {}
 TBotLadderState.NO_LADDER						=	0
 TBotLadderState.APPROACHING_ASCENDING_LADDER	=	1
@@ -290,7 +292,7 @@ function TBotLocomotionMeta:AdjustPosture( moveGoal )
 	local goal = feet + moveLength * left:Cross( vector_up ):GetNormalized()
 	
 	local trace = {}
-	util.TraceHull( { start = feet, endpos = goal, maxs = standMaxs, mins = hullMin, filter = TBotTraversableFilter, mask = MASK_PLAYERSOLID, output = trace } )
+	UTIL_TRACEHULL( { start = feet, endpos = goal, maxs = standMaxs, mins = hullMin, filter = TBotTraversableFilter, mask = MASK_PLAYERSOLID, output = trace } )
 	
 	if trace.Fraction >= 1.0 and !trace.StartSolid then
 	
@@ -299,7 +301,7 @@ function TBotLocomotionMeta:AdjustPosture( moveGoal )
 	end
 	
 	local crouchMaxs = Vector( halfSize, halfSize, body:GetCrouchHullHeight() )
-	util.TraceHull( { start = feet, endpos = goal, maxs = crouchMaxs, mins = hullMin, filter = TBotTraversableFilter, mask = MASK_PLAYERSOLID, output = trace } )
+	UTIL_TRACEHULL( { start = feet, endpos = goal, maxs = crouchMaxs, mins = hullMin, filter = TBotTraversableFilter, mask = MASK_PLAYERSOLID, output = trace } )
 	
 	if trace.Fraction >= 1.0 and !trace.StartSolid then
 	
@@ -626,7 +628,7 @@ function TBotLocomotionMeta:IsPotentiallyTraversable( from, to )
 	local hullMax = Vector( probeSize, probeSize, body:GetCrouchHullHeight() )
 	
 	local result = {}
-	util.TraceHull( { start = from, endpos = to, maxs = hullMax, mins = hullMin, filter = TBotTraversableFilter, mask = MASK_PLAYERSOLID, output = result } )
+	UTIL_TRACEHULL( { start = from, endpos = to, maxs = hullMax, mins = hullMin, filter = TBotTraversableFilter, mask = MASK_PLAYERSOLID, output = result } )
 
 	return result.Fraction >= 1.0 and !result.StartSolid, result.Fraction
 	
@@ -638,7 +640,7 @@ function TBotLocomotionMeta:IsGap( pos, forward )
 	local hullHeight = 1.0
 	
 	local ground = {}
-	util.TraceHull( { start = pos + Vector( 0, 0, self:GetBot():GetStepSize() ), endpos = pos + Vector( 0, 0, -self:GetMaxJumpHeight() ), maxs = Vector( halfWidth, halfWidth, hullHeight ), mins = Vector( -halfWidth, -halfWidth, 0 ), filter = TBotTraceFilter, mask = MASK_PLAYERSOLID, output = ground } )
+	UTIL_TRACEHULL( { start = pos + Vector( 0, 0, self:GetBot():GetStepSize() ), endpos = pos + Vector( 0, 0, -self:GetMaxJumpHeight() ), maxs = Vector( halfWidth, halfWidth, hullHeight ), mins = Vector( -halfWidth, -halfWidth, 0 ), filter = TBotTraceFilter, mask = MASK_PLAYERSOLID, output = ground } )
 	
 	--debugoverlay.SweptBox( pos + Vector( 0, 0, self:GetStepSize() ), pos + Vector( 0, 0, -self:GetMaxJumpHeight() ), Vector( -halfWidth, -halfWidth, 0 ), Vector( halfWidth, halfWidth, hullHeight ), Angle(), 5.0, Color( 255, 0, 0 ) )
 	
