@@ -25,6 +25,8 @@ function TBotRetreatPathMeta:__index( key )
 	
 end
 
+RegisterMetaTable( "TBotRetreatPath", TBotRetreatPathMeta ) -- Register this class so other versions of the pathfinder can use it.
+
 function TBotRetreatPath()
 	local tbotretreatpath = TBotPathFollower() -- HACKHACK: We have to create a path object in order for it to have the stuff intialized....
 	
@@ -135,7 +137,7 @@ function TBotRetreatPathMeta:RefreshPath( bot, threat, cost )
 		
 		end
 		
-		self.m_throttleTimer:Start( 0.5 )
+		self.m_throttleTimer:Start( 1.0 )
 		
 	end
 
@@ -143,7 +145,7 @@ end
 
 local function TRizzleBotRangeCheckRetreat( info, area, fromArea, ladder, portal )
 	
-	local maxThreatRange = 500.0
+	local maxThreatRange = 500.0 * 500.0
 	local dangerDensity = 1000.0
 	
 	local cost = 0.0
@@ -163,7 +165,7 @@ local function TRizzleBotRangeCheckRetreat( info, area, fromArea, ladder, portal
 			
 		else
 			
-			local rangeToThreat = info.m_threat:GetPos():Distance( info.m_me:GetPos() )
+			local rangeToThreat = info.m_threat:GetPos():DistToSqr( info.m_me:GetPos() )
 
 			if rangeToThreat < maxThreatRange then
 				
@@ -303,30 +305,90 @@ local function TRizzleBotRangeCheckRetreat( info, area, fromArea, ladder, portal
 		
 		-- path danger is CUMULATIVE
 		local dangerCost = fromArea:GetCostSoFar()
+		--local dangerCost = 0
 		
-		local t, Close = CalcClosestPointOnLineSegment( info.m_threat:GetPos(), area:GetCenter(), fromArea:GetCenter() )
+		local myPos = info.m_me:GetPos()
+		local fromAreaPos = fromArea:GetCenter()
+		local toAreaPos = area:GetCenter()
+		local threatPos = info.m_threat:GetPos()
+		local t, Close = CalcClosestPointOnLineSegment( threatPos, toAreaPos, fromAreaPos )
 		if t < 0.0 then
 			
-			Close = area:GetCenter()
+			Close = toAreaPos
 			
 		elseif t > 1.0 then
 			
-			Close = fromArea:GetCenter()
+			Close = fromAreaPos
 			
 		end
 		
-		local rangeToThreat = info.m_threat:GetPos():Distance( Close ) -- Would it be better to compare distsqr instead?
+		local rangeToThreat = info.m_threat:GetPos():DistToSqr( Close )
 		if rangeToThreat < maxThreatRange then
 			
+			--print( "Area: " .. tostring( area ) )
+			--print( "Threat Range: " .. math.sqrt( rangeToThreat ) )
 			local dangerFactor = 1.0 - ( rangeToThreat / maxThreatRange )
 			dangerCost	=	dangerDensity * dangerFactor
 			
+			-- HACKHACK: Save the threatAimDir since it doesn't change during the pathfind!
+			if !info.threatAimDir then
+			
+				local aimDirection = nil
+				if info.m_threat:IsPlayer() or info.m_threat:IsNPC() then
+		
+					aimDirection = info.m_threat:GetAimVector()
+				
+				else
+				
+					aimDirection = info.m_threat:EyeAngles():Forward() 
+				
+				end
+				info.threatAimDir = info.m_threat:WorldSpaceCenter() + 5000 * aimDirection
+				
+			end
+			
+			local IsIntersecting, result = IsIntersecting2D( myPos, toAreaPos, threatPos, info.threatAimDir )
+			--print( "IsIntersecting: " .. IsIntersecting )
+			--print( "Result: " .. result )
+			if IsIntersecting then
+			
+				local loZ, hiZ = 0, 0
+				
+				if myPos.z < toAreaPos.z then
+				
+					loZ = myPos.z 
+					hiZ = toAreaPos.z 
+					
+				else
+				
+					loZ = toAreaPos.z 
+					hiZ = myPos.z
+				
+				end
+				
+				if result.z >= loZ and result.z <= hiZ + 35.5 then 
+				
+					if dangerCost > 0 then
+				
+						dangerCost = dangerCost + ( dangerDensity * dangerFactor )
+						
+					else
+					
+						dangerCost = ( dangerDensity * dangerFactor )
+					
+					end
+					
+				end
+			
+			end
+			
 		end
 		
+		--print( "Danger Cost: " .. dangerCost )
 		--print( "Distance: " .. dist )
 		--print( "Cost: " .. cost )
 		
-		return cost + dangerCost
+		return cost + dangerCost -- Used to be cost * dangerCost, changed it so see how it affected the AI!
 		
 	end
 	
@@ -351,6 +413,7 @@ function RetreatPathBuilder( me, threat, retreatRange, costFunc )
 	
 end
 
+-- FIXME: The way Valve did this could be improved, I wonder how though....
 function RetreatPathBuilderMeta:ComputePath()
 
 	local NORTH = 0
@@ -411,6 +474,7 @@ function RetreatPathBuilderMeta:ComputePath()
 		area:AddToClosedList()
 		
 		--- don't consider blocked areas
+		-- NEEDTOVAILDATE: Should I change this?
 		if area:IsBlocked() then
 		
 			continue
@@ -596,7 +660,7 @@ function RetreatPathBuilderMeta:ComputePath()
 				end
 				
 				-- keep track of area farthest from threat
-				local threatRange = newArea:GetCenter():Distance( self.m_threat:GetPos() )
+				local threatRange = newArea:GetCenter():DistToSqr( self.m_threat:GetPos() )
 				if threatRange > farthestRange then
 				
 					farthestArea = newArea

@@ -2,6 +2,8 @@
 -- Purpose: This is where the bot's path types are defined.
 -- Author: T-Rizzle
 
+local UTIL_TRACEHULL = util.TraceHull
+
 -- Path types!!!!!!
 TBotSegmentType = {}
 TBotSegmentType.PATH_ON_GROUND			=	0
@@ -302,7 +304,7 @@ function TBotPathMeta:ComputeNavmeshVisibility( bot, start )
 					local pos = to.pos + Vector( pushDist * dir.x, pushDist * dir.y, 0 )
 					local lowerPos = Vector( pos.x, pos.y, toPos.z )
 					local ground = {}
-					util.TraceHull( { start = pos, endpos = lowerPos, mins = Vector( -halfWidth, -halfWidth, stepHeight ), maxs = Vector( halfWidth, halfWidth, hullHeight ), mask = MASK_PLAYERSOLID, filter = TBotTraversableFilter, output = ground } )
+					UTIL_TRACEHULL( { start = pos, endpos = lowerPos, mins = Vector( -halfWidth, -halfWidth, stepHeight ), maxs = Vector( halfWidth, halfWidth, hullHeight ), mask = MASK_PLAYERSOLID, filter = TBotTraversableFilter, output = ground } )
 					
 					--print( "Ground Fraction: " .. tostring( ground.Fraction ) )
 					--print( "Started Solid: " .. tostring( ground.StartSolid ) )
@@ -733,6 +735,7 @@ function TBotPathMeta:OnPathChanged( bot, result )
 
 end
 
+local TBotRandomPaths = GetConVar( "TBotRandomPaths" )
 local function TRizzleBotRangeCheck( area, fromArea, ladder, portal, bot, length )
 	
 	local isBotValid = IsValid( bot )
@@ -841,7 +844,7 @@ local function TRizzleBotRangeCheck( area, fromArea, ladder, portal, bot, length
 		-- This isn't really needed for sandbox, but since this is a bot base I will leave this here.
 		-- This will have certain cases where its not used.
 		-- NOTE: If TBotRandomPaths is nonzero the bot will use this when pathfinding
-		if GetConVar( "TBotRandomPaths" ):GetBool() then
+		if TBotRandomPaths:GetBool() then
 		
 			-- this term causes the same bot to choose different routes over time,
 			-- but keep the same route for a period in case of repaths

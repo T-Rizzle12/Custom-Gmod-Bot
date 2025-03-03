@@ -26,6 +26,19 @@ function TBotFollowOwner()
 	tbotfollowowner.m_chasePath = TBotChasePath()
 	tbotfollowowner.m_repathTimer = util.Timer( math.Rand( 3.0, 5.0 ) )
 
+	-- HACKHACK: We create our own IntervalTimer here, I should probably create a pull request and have this added to the base game.
+	local intervalTimer = {}
+	intervalTimer.m_timestamp = -1.0
+	intervalTimer.Reset = function( self ) self.m_timestamp = CurTime() end
+	intervalTimer.Start = function( self ) self.m_timestamp = CurTime() end
+	intervalTimer.Invalidate = function( self ) self.m_timestamp = -1.0 end
+	intervalTimer.HasStarted = function( self ) return self.m_timestamp > 0 end
+	intervalTimer.GetElapsedTime = function( self ) return Either( self:HasStarted(), CurTime() - self.m_timestamp, 99999.9 ) end
+	intervalTimer.IsLessThen = function( self, duration ) return CurTime() - self.m_timestamp < duration end
+	intervalTimer.IsGreaterThen = function( self, duration ) return CurTime() - self.m_timestamp > duration end
+	intervalTimer.__index = intervalTimer
+	tbotfollowowner.m_teleportTimer = intervalTimer
+
 	setmetatable( tbotfollowowner, TBotFollowOwnerMeta )
 
 	return tbotfollowowner
@@ -46,6 +59,7 @@ end
 
 function TBotFollowOwnerMeta:OnStart( me, priorAction )
 
+	self.m_teleportTimer:Invalidate()
 	return self:Continue()
 
 end
@@ -79,22 +93,75 @@ function TBotFollowOwnerMeta:Update( me, interval )
 	
 	end
 
-	self.m_chasePath:Update( me, owner )
-	
+	-- Repath every now and then to keep the path fresh
 	if self.m_repathTimer:Elapsed() then
 	
 		self.m_repathTimer:Start( math.Rand( 3.0, 5.0 ) )
-		
-		-- Don't recreate the path if Update just recomputed it.
-		if self.m_chasePath:GetAge() > 0.0 then
-		
-			self.m_chasePath:Invalidate()
-			
-		end
+		self.m_chasePath:Invalidate()
 		
 	end
 
+	self.m_chasePath:Update( me, owner )
+
+	-- Check if the bot is stuck or unable to path to the player
+	local mover = me:GetTBotLocomotion()
+	if !self.m_chasePath:IsValid() or mover:IsStuck() then
+	
+		if !self.m_teleportTimer:HasStarted() then
+		
+			self.m_teleportTimer:Start()
+			
+		end
+		
+		-- After 5 seconds the bot should attempt to teleport now!
+		if self.m_teleportTimer:IsGreaterThen( 5.0 ) then
+		
+			local playerFOV = math.cos( 0.5 * owner:GetFOV() * math.pi / 180 )
+			local navareas = navmesh.Find( owner:GetPos(), 2000, mover:GetMaxJumpHeight(), mover:GetMaxJumpHeight() )
+			local lastKnownArea = owner:GetLastKnownArea()
+			for _, area in ipairs( navareas ) do
+			
+				-- We don't want to teleport infront of the player as that would ruin the immersion a bit
+				local teleportPos = area:GetCenter()
+				if !area:IsPotentiallyVisible( lastKnownArea ) and !self:CanPlayerPotentiallySeeUsTeleport( owner, teleportPos ) then
+				
+					if !me:IsSpotOccupied( teleportPos ) then
+					
+						me:SetPos( teleportPos )
+						mover:ClearStuckStatus()
+						self.m_chasePath:Invalidate() -- Just in case the bot was stuck!
+						break
+						
+					end
+				
+				end
+			
+			end
+			
+			self.m_teleportTimer:Invalidate()
+		
+		end
+	
+	elseif self.m_teleportTimer:HasStarted() then
+	
+		self.m_teleportTimer:Invalidate()
+	
+	end
+
 	return self:Continue()
+
+end
+
+function TBotFollowOwnerMeta:CanPlayerPotentiallySeeUsTeleport( player, pos, cosTolerance )
+
+	cosTolerance = cosTolerance or math.cos( 0.5 * player:GetFOV() * math.pi / 180 )
+	local to = pos - player:GetPos()
+	local diff = player:GetAimVector():Dot( to )
+	if diff < 0 then return false end
+	
+	local length = to:LengthSqr()
+	
+	return diff^2 > length * cosTolerance^2
 
 end
 

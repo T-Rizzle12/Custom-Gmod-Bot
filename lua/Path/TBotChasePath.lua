@@ -29,6 +29,8 @@ function TBotChasePathMeta:__index( key )
 	
 end
 
+RegisterMetaTable( "TBotChasePath", TBotChasePathMeta ) -- Register this class so other versions of the pathfinder can use it.
+
 function TBotChasePath( chaseHow )
 	local tbotchasepath = TBotPathFollower() -- HACKHACK: We have to create a path object in order for it to have the stuff intialized....
 	

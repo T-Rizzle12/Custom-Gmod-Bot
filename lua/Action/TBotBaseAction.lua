@@ -344,11 +344,11 @@ function TBotBehaviorMeta:Update( me, interval )
 	
 	self.m_action = self.m_action:ApplyResult( me, self, self.m_action:InvokeUpdate( me, self, interval ) )
 	
-	--[[if false and GetConVar( "developer" ):GetBool() then
+	if self.m_action and GetConVar( "developer" ):GetBool() then
 	
-		-- TODO: Implement debug code from TF2 source code!
+		debugoverlay.Text( me:WorldSpaceCenter(), string.format( "%s: %s", self:GetName(), self.m_action:DebugString() ), interval, true )
 		
-	end]]
+	end
 	
 	-- Delete any dead Actions
 	for k, action in ipairs( self.m_deadActionVector ) do
@@ -938,7 +938,7 @@ function RegisterTBotActionHook( newHook )
 	-- since it will just "override" the old hook function with the "new" one.
 	hook.Add( newHook, "TBotAction" .. newHook, function( ... ) 
 	
-		for action, _ in pairs( TBotActionTable ) do
+		for action in pairs( TBotActionTable ) do
 		
 			action:ProcessHookEvent( newHook, ... )
 			
@@ -966,7 +966,8 @@ RegisterTBotActionHook( "PlayerSilentDeath" )
 RegisterTBotActionHook( "EntityEmitSound" )
 RegisterTBotActionHook( "EntityTakeDamage" )
 RegisterTBotActionHook( "PlayerHurt" )
-RegisterTBotActionHook( "player_say" ) -- NOTE: I changed this to player_say, since it will accept the modified returns from PlayerSay
+RegisterTBotActionHook( "PlayerSay" )
+RegisterTBotActionHook( "player_say" ) -- NOTE: I added player_say since it will accept the modified returns from PlayerSay
 RegisterTBotActionHook( "PlayerSpawn" )
 RegisterTBotActionHook( "OnPlayerJump" )
 RegisterTBotActionHook( "OnPlayerHitGround" )
@@ -1491,4 +1492,46 @@ function TBotBaseActionMeta:NextContainedResponder( current )
 
 	return
 	
+end
+
+function TBotBaseActionMeta:DebugString()
+
+	local str = {}
+	-- Find root
+	local root = self
+	while root.m_parent do
+	
+		root = root.m_parent
+	
+	end
+	
+	return self:BuildDecoratedName( str, root )
+
+end
+
+function TBotBaseActionMeta:BuildDecoratedName( name, action )
+
+	-- Add the name of the given function!
+	table.insert( name, action:GetName() )
+	
+	-- Add any contained actions
+	local child = action:GetActiveChildAction()
+	if child then
+	
+		table.insert( name, "( " )
+		self:BuildDecoratedName( name, child )
+		table.insert( name, " )" )
+		
+	end
+	
+	local buried = action:GetActionBuriedUnderMe()
+	if buried then
+	
+		table.insert( name, "<<" )
+		self:BuildDecoratedName( name, buried )
+		
+	end
+	
+	return table.concat( name )
+
 end

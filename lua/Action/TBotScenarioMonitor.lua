@@ -27,7 +27,6 @@ function TBotScenarioMonitor()
 	tbotscenariomonitor.m_repathTimer = util.Timer()
 	tbotscenariomonitor.m_holdPos = nil
 	tbotscenariomonitor.m_healTimer = util.Timer()
-	tbotscenariomonitor.m_huntTimer = util.Timer()
 
 	setmetatable( tbotscenariomonitor, TBotScenarioMonitorMeta )
 
@@ -43,7 +42,7 @@ end
 
 function TBotScenarioMonitorMeta:InitialContainedAction( me )
 
-	return nil
+	return TBotFollowerMonitor()
 
 end
 
@@ -53,51 +52,10 @@ function TBotScenarioMonitorMeta:OnStart( me, priorAction )
 
 end
 
+local TBotGoalTolerance = GetConVar( "TBotGoalTolerance" )
 function TBotScenarioMonitorMeta:Update( me, interval )
 
 	local botTable = me:GetTable()
-	-- NEEDTOVALIDATE: Should this be its own action?
-	if !isvector( self.m_holdPos ) then
-	
-		if IsValid( botTable.TBotOwner ) and botTable.TBotOwner:Alive() then
-		
-			local ownerDist = botTable.TBotOwner:GetPos():DistToSqr( me:GetPos() )
-			if ownerDist > botTable.FollowDist^2 then
-		
-				return self:SuspendFor( TBotFollowOwner(), "Moving to stay nearby our owner" )
-				
-			end
-		
-		else
-		
-			local newLeader = me:FindGroupLeader()
-			botTable.GroupLeader = IsValid( newLeader ) and newLeader or me
-			if IsValid( botTable.GroupLeader ) and botTable.GroupLeader:Alive() and !me:IsGroupLeader() then
-		
-				local leaderDist = botTable.GroupLeader:GetPos():DistToSqr( me:GetPos() )
-				if leaderDist > botTable.FollowDist^2 then
-			
-					return self:SuspendFor( TBotFollowGroupLeader(), "Moving to stay nearby our group leader" )
-				
-				end
-				
-			end
-		
-		end
-		
-	end
-	
-	-- Group leader logic, YAY!
-	if me:IsGroupLeader() then
-	
-		-- NEEDTOVALIDATE: Should I make the bot only search and destory when safe?
-		if self.m_huntTimer:Elapsed() then
-			
-			return self:SuspendFor( TBotSearchAndDestory(), "Looking for possible targets" )
-			
-		end
-	
-	end
 	
 	-- Go and reload every weapon in our inventory!
 	-- NEEDTOVALIDATE: Should this be below the heal and revive checks?
@@ -118,7 +76,9 @@ function TBotScenarioMonitorMeta:Update( me, interval )
 			
 		end
 		
-		if !me:IsInCombat() then
+		-- If we took damage of any kind recently, we should not heal.
+		-- This is important if we are standing on something that is constantly hurting us!
+		if !me:IsInCombat() and me:GetLastDamageTimestamp() >= 1.0 then
 		
 			local healTarget = self:FindHealTarget( me )
 			if IsValid( healTarget ) and me:HasWeapon( "weapon_medkit" ) then
@@ -126,26 +86,6 @@ function TBotScenarioMonitorMeta:Update( me, interval )
 				return self:SuspendFor( TBotHealPlayer( healTarget ), "Healing injured player" )
 			
 			end
-			
-		end
-		
-	end
-
-	-- NEEDTOVALIDATE: Should this be its own action?
-	if isvector( self.m_holdPos ) then
-	
-		local holdDist = self.m_holdPos:DistToSqr( me:GetPos() )
-		if holdDist > GetConVar( "TBotGoalTolerance" ):GetFloat()^2 then
-			
-			if self.m_repathTimer:Elapsed() then
-			
-				self.m_repathTimer:Start( math.Rand( 3.0, 5.0 ) )
-			
-				self.m_path:Compute( me, self.m_holdPos )
-				
-			end
-			
-			self.m_path:Update( me )
 			
 		end
 		
@@ -165,12 +105,13 @@ function TBotScenarioMonitorMeta:FindHealTarget( me )
 	--The bot should heal its owner and itself before it heals anyone else
 	local tbotOwner = botTable.TBotOwner
 	if IsValid( tbotOwner ) and tbotOwner:Alive() and tbotOwner:Health() < botTable.HealThreshold and tbotOwner:Health() < tbotOwner:GetMaxHealth() and tbotOwner:GetPos():DistToSqr( me:GetPos() ) < targetdistsqr then return tbotOwner
-	elseif me:Health() < botTable.HealThreshold and me:Health() < me:GetMaxHealth() then return me end
+	elseif ( me:Health() < botTable.CombatHealThreshold or ( me:Health() < botTable.HealThreshold and !me:IsInCombat() ) ) and me:Health() < me:GetMaxHealth() then return me end
 
 	local searchPos = IsValid( tbotOwner ) and tbotOwner:Alive() and tbotOwner:GetPos() or me:GetPos()
+	local vision = me:GetTBotVision()
 	for k, ply in player.Iterator() do
 	
-		if IsValid( ply ) and ply:Alive() and !me:IsEnemy( ply ) and ply:Health() < botTable.HealThreshold and ply:Health() < ply:GetMaxHealth() and me:IsAbleToSee( ply ) then -- The bot will heal any teammate that needs healing that we can actually see and are alive.
+		if IsValid( ply ) and ply:Alive() and !me:IsEnemy( ply ) and ply:Health() < botTable.HealThreshold and ply:Health() < ply:GetMaxHealth() and vision:IsAbleToSee( ply ) then -- The bot will heal any teammate that needs healing that we can actually see and are alive.
 			
 			local teammatedistsqr = ply:GetPos():DistToSqr( searchPos )
 			
@@ -251,39 +192,7 @@ function TBotScenarioMonitorMeta:player_say( me, data )
 		if sender == botTable.TBotOwner and isstring( command ) then
 
 			-- FIXME: There might be a better way of doing this.....
-			if command == "follow" then
-			
-				self.m_holdPos = nil
-			
-			elseif command == "hold" then
-
-				local pos = sender:GetEyeTrace().HitPos
-				local ground = navmesh.GetGroundHeight( pos )
-				if ground then
-
-					pos.z = ground
-
-				end
-
-				self.m_holdPos = pos
-
-				--return self:TryChangeTo( TBotHoldPosition( pos ), TBotEventResultPriorityType.RESULT_TRY, "Holding ordered postion" )
-
-			elseif command == "wait" then
-
-				local pos = me:GetPos()
-				local ground = navmesh.GetGroundHeight( pos )
-				if ground then
-
-					pos.z = ground
-
-				end
-
-				self.m_holdPos = pos
-
-				--return self:TryChangeTo( TBotHoldPosition( pos ), TBotEventResultPriorityType.RESULT_TRY, "Holding current postion" )
-			
-			elseif command == "use" then
+			if command == "use" then
 
 				local useEnt = sender:GetEyeTrace().Entity
 
@@ -320,7 +229,7 @@ function TBotScenarioMonitorMeta:OnResume( me, interruptingAction )
 	-- If the bot finsihed looking around for enemies then they should not do so again for a bit.
 	if interruptingAction and interruptingAction:GetName() == "SearchAndDestory" then
 	
-		self.m_huntTimer:Start( math.random( 20, 30 ) )
+		self.m_huntTimer:Start( math.random( 10, 30 ) )
 		
 	end
 

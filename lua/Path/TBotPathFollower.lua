@@ -2,7 +2,12 @@
 -- Purpose: This is the TBotPathFollower MetaTable
 -- Author: T-Rizzle
 
+local UTIL_TRACEHULL = util.TraceHull
 local BaseClass = FindMetaTable( "TBotPath" )
+local TBotGoalTolerance = GetConVar( "TBotGoalTolerance" )
+local TBotLookAheadRange = GetConVar( "TBotLookAheadRange" )
+local TBotCheaperClimbing = GetConVar( "TBotCheaperClimbing" )
+local developer = GetConVar( "developer" )
 
 local TBotPathFollowerMeta = {}
 
@@ -105,7 +110,7 @@ function TBotPathFollowerMeta:IsAtGoal( bot )
 			-- passed goal or corrupt path
 			return true
 			
-		elseif ( destination:GetPos() - bot:GetPos() ):AsVector2D():IsLengthLessThan( GetConVar( "TBotGoalTolerance" ):GetFloat() ) then
+		elseif ( destination:GetPos() - bot:GetPos() ):AsVector2D():IsLengthLessThan( TBotGoalTolerance:GetFloat() ) then
 		
 			return true
 			
@@ -143,7 +148,7 @@ function TBotPathFollowerMeta:IsAtGoal( bot )
 			
 		end
 		
-		if toGoal:AsVector2D():IsLengthLessThan( GetConVar( "TBotGoalTolerance" ):GetFloat() ) then
+		if toGoal:AsVector2D():IsLengthLessThan( TBotGoalTolerance:GetFloat() ) then
 		
 			-- Reached goal
 			return true
@@ -327,13 +332,13 @@ function TBotPathFollowerMeta:CheckProgress( bot )
 	-- skip nearby goal points that are redundant to smooth path following motion
 	local pSkipToGoal = nil
 	local mover = bot:GetTBotLocomotion()
-	if GetConVar( "TBotLookAheadRange" ):GetFloat() > 0 then
+	if TBotLookAheadRange:GetFloat() > 0 then
 	
 		pSkipToGoal = self.m_goal
 		local myFeet = bot:GetPos()
 		while pSkipToGoal and pSkipToGoal.type == TBotSegmentType.PATH_ON_GROUND and bot:IsOnGround() do
 		
-			if ( pSkipToGoal.pos - myFeet ):IsLengthLessThan( GetConVar( "TBotLookAheadRange" ):GetFloat() ) then
+			if ( pSkipToGoal.pos - myFeet ):IsLengthLessThan( TBotLookAheadRange:GetFloat() ) then
 			
 				-- goal is too close - step to next segment
 				local nextSegment = self:NextSegment( pSkipToGoal )
@@ -648,12 +653,13 @@ function TBotPathFollowerMeta:BreakableCheck( bot )
 	-- This could be unreliable in certain situations
 	-- Used to use ents.FindInSphere( self:GetPos(), 30 )
 	local body = bot:GetTBotBody()
+	local vision = bot:GetTBotVision()
 	local halfWidth = body:GetHullWidth() / 2.0
 	local botPos = bot:GetPos()
 	local botTable = bot:GetTable()
 	for k, breakable in ipairs( ents.FindAlongRay( botPos, self.m_goal.pos, Vector( -halfWidth, -halfWidth, -halfWidth ), Vector( halfWidth, halfWidth, body:GetStandHullHeight() / 2.0 ) ) ) do
 	
-		if IsValid( breakable ) and breakable:IsBreakable() and breakable:NearestPoint( botPos ):DistToSqr( botPos ) <= 80^2 and bot:IsAbleToSee( breakable ) then 
+		if IsValid( breakable ) and breakable:IsBreakable() and !breakable:IsExplosive() and breakable:NearestPoint( botPos ):DistToSqr( botPos ) <= 80^2 and ( vision:IsAbleToSee( breakable ) or vision:IsAbleToSee( breakable:WorldSpaceCenter() ) ) then 
 		
 			body:AimHeadTowards( breakable:WorldSpaceCenter(), TBotLookAtPriority.MAXIMUM_PRIORITY, 0.5 )
 	
@@ -768,7 +774,7 @@ function TBotPathFollowerMeta:Avoid( bot, goalPos, forward, left )
 	
 	-- This makes the bot walk through teammates if NoCollideWithTeammates is set to true!
 	local botTeam = bot:Team()
-	botTeam = botTeam >= 1 and botTeam or 0
+	botTeam = botTeam >= 1 and botTeam or TEAM_UNASSIGNED
 	local avoidFilter = function( ent ) 
 	
 		if ent == bot then
@@ -777,7 +783,7 @@ function TBotPathFollowerMeta:Avoid( bot, goalPos, forward, left )
 			
 		elseif ent:IsPlayer() then
 		
-			if 4 <= botTeam and ent:Team() == botTeam then
+			if 4 >= botTeam and ent:Team() == botTeam then
 			
 				if ent:GetNoCollideWithTeammates() and bot:GetNoCollideWithTeammates() then
 				
@@ -799,7 +805,7 @@ function TBotPathFollowerMeta:Avoid( bot, goalPos, forward, left )
 	local leftAvoid = 0.0
 	
 	local result = {}
-	util.TraceHull( { start = leftFrom, endpos = leftTo, maxs = hullMax, mins = hullMin, filter = avoidFilter, mask = MASK_PLAYERSOLID, collisiongroup = botCollision, output = result } )
+	UTIL_TRACEHULL( { start = leftFrom, endpos = leftTo, maxs = hullMax, mins = hullMin, filter = avoidFilter, mask = MASK_PLAYERSOLID, collisiongroup = botCollision, output = result } )
 	if result.Fraction < 1.0 or result.StartSolid then
 	
 		if result.StartSolid then
@@ -824,7 +830,7 @@ function TBotPathFollowerMeta:Avoid( bot, goalPos, forward, left )
 	local isRightClear = true
 	local rightAvoid = 0.0
 	
-	util.TraceHull( { start = rightFrom, endpos = rightTo, maxs = hullMax, mins = hullMin, filter = avoidFilter, mask = MASK_PLAYERSOLID, collisiongroup = botCollision, output = result } )
+	UTIL_TRACEHULL( { start = rightFrom, endpos = rightTo, maxs = hullMax, mins = hullMin, filter = avoidFilter, mask = MASK_PLAYERSOLID, collisiongroup = botCollision, output = result } )
 	if result.Fraction < 1.0 or result.StartSolid then
 	
 		if result.StartSolid then
@@ -844,7 +850,7 @@ function TBotPathFollowerMeta:Avoid( bot, goalPos, forward, left )
 		
 	end
 	
-	if GetConVar( "developer" ):GetBool() then
+	if developer:GetBool() then
 		
 		if isLeftClear then
 		
@@ -952,7 +958,7 @@ function TBotPathFollowerMeta:Climbing( bot, goal, forward, right, goalRange )
 		
 	end
 	
-	if GetConVar( "TBotCheaperClimbing" ):GetBool() then
+	if TBotCheaperClimbing:GetBool() then
 	
 		-- Trust what the nav mesh tells us.
 		-- We have been told not to do the expensive ledge-finding.
@@ -1090,7 +1096,7 @@ function TBotPathFollowerMeta:Climbing( bot, goal, forward, right, goalRange )
 	-- backed-up feet position for the ledge finding traces.
 	local feet = bot:GetPos()
 	local ceiling = feet + Vector( 0, 0, mover:GetMaxJumpHeight() )
-	util.TraceHull( { start = feet, endpos = ceiling, maxs = skipStepHeightHullMax, mins = skipStepHeightHullMin, filter = TBotTraversableFilter, mask = MASK_PLAYERSOLID, output = result } )
+	UTIL_TRACEHULL( { start = feet, endpos = ceiling, maxs = skipStepHeightHullMax, mins = skipStepHeightHullMin, filter = TBotTraversableFilter, mask = MASK_PLAYERSOLID, output = result } )
 	ceilingFraction = result.Fraction
 	local isBackupTraceUsed = false
 	if ceilingFraction < 1.0 or result.StartSolid then
@@ -1099,7 +1105,7 @@ function TBotPathFollowerMeta:Climbing( bot, goal, forward, right, goalRange )
 		local backupDistance = hullWidth * 0.25
 		local backupFeet = feet - climbDirection * backupDistance
 		local backupCeiling = backupFeet + Vector( 0, 0, mover:GetMaxJumpHeight() )
-		util.TraceHull( { start = backupFeet, endpos = backupCeiling, maxs = skipStepHeightHullMax, mins = skipStepHeightHullMin, filter = TBotTraversableFilter, mask = MASK_PLAYERSOLID, output = backupTrace } )
+		UTIL_TRACEHULL( { start = backupFeet, endpos = backupCeiling, maxs = skipStepHeightHullMax, mins = skipStepHeightHullMin, filter = TBotTraversableFilter, mask = MASK_PLAYERSOLID, output = backupTrace } )
 		if !backupTrace.StartSolid and backupTrace.Fraction > ceilingFraction then
 		
 			result = backupTrace
@@ -1127,7 +1133,7 @@ function TBotPathFollowerMeta:Climbing( bot, goal, forward, right, goalRange )
 	local climbHullMax = Vector( halfSize, halfSize, maxLedgeHeight )
 	local ledgePos = Vector( feet ) -- to be computed below
 	
-	util.TraceHull( { start = feet, endpos = feet + climbDirection * ledgeLookAheadRange, maxs = climbHullMax, mins = skipStepHeightHullMin, filter = TBotTraversableFilter, mask = MASK_PLAYERSOLID, output = result } )
+	UTIL_TRACEHULL( { start = feet, endpos = feet + climbDirection * ledgeLookAheadRange, maxs = climbHullMax, mins = skipStepHeightHullMin, filter = TBotTraversableFilter, mask = MASK_PLAYERSOLID, output = result } )
 	
 	if result.Hit and !result.StartSolid then
 	
@@ -1195,7 +1201,7 @@ function TBotPathFollowerMeta:Climbing( bot, goal, forward, right, goalRange )
 			while true do
 			
 				-- trace forward to find the wall in front of us, or the empty space of the ledge above us
-				util.TraceHull( { start = feet + Vector( 0, 0, ledgeHeight ), endpos = feet + Vector( 0, 0, ledgeHeight ) + climbDirection * ledgeTopLookAheadRange, maxs = climbHullMax, mins = climbHullMin, filter = TBotTraversableFilter, mask = MASK_PLAYERSOLID, output = result } )
+				UTIL_TRACEHULL( { start = feet + Vector( 0, 0, ledgeHeight ), endpos = feet + Vector( 0, 0, ledgeHeight ) + climbDirection * ledgeTopLookAheadRange, maxs = climbHullMax, mins = climbHullMin, filter = TBotTraversableFilter, mask = MASK_PLAYERSOLID, output = result } )
 				
 				local traceDepth = ledgeTopLookAheadRange * result.Fraction
 				
@@ -1214,7 +1220,7 @@ function TBotPathFollowerMeta:Climbing( bot, goal, forward, right, goalRange )
 							-- Find the actual ground level on the potential ledge
 							-- Only trace back down to the previous ledge height trace. 
 							-- The ledge can be no lower, or we would've found it in the last iteration.
-							util.TraceHull( { start = ledgePos, endpos = ledgePos + Vector( 0, 0, -ledgeHeightIncrement ), maxs = climbHullMax, mins = climbHullMin, filter = TBotTraversableFilter, mask = MASK_PLAYERSOLID, output = result } )
+							UTIL_TRACEHULL( { start = ledgePos, endpos = ledgePos + Vector( 0, 0, -ledgeHeightIncrement ), maxs = climbHullMax, mins = climbHullMin, filter = TBotTraversableFilter, mask = MASK_PLAYERSOLID, output = result } )
 							
 							ledgePos = result.HitPos
 							
@@ -1264,7 +1270,7 @@ function TBotPathFollowerMeta:Climbing( bot, goal, forward, right, goalRange )
 									testPos = testPos - 4.0 * climbDirection
 									backUpSoFar = backUpSoFar + 4.0
 									
-									util.TraceHull( { start = testPos, endpos = testPos + Vector( 0, 0, -ledgeHeightIncrement ), maxs = climbHullMax, mins = climbHullMin, filter = TBotTraversableFilter, mask = MASK_PLAYERSOLID, output = result } )
+									UTIL_TRACEHULL( { start = testPos, endpos = testPos + Vector( 0, 0, -ledgeHeightIncrement ), maxs = climbHullMax, mins = climbHullMin, filter = TBotTraversableFilter, mask = MASK_PLAYERSOLID, output = result } )
 									
 									if result.Hit and result.HitNormal.z >= 0.7 then
 									
@@ -1287,12 +1293,12 @@ function TBotPathFollowerMeta:Climbing( bot, goal, forward, right, goalRange )
 								-- Make sure this doesn't embed us in the far wall if the ledge is narrow, since we would
 								-- have backed up less than halfSize.
 								local climbHullMinStep = Vector( climbHullMin ) -- Skip StepHeight for sloped ledges
-								util.TraceHull( { start = validLedgePos, endpos = ledgePos, maxs = climbHullMax, mins = climbHullMinStep, filter = TBotTraversableFilter, mask = MASK_PLAYERSOLID, output = result } )
+								UTIL_TRACEHULL( { start = validLedgePos, endpos = ledgePos, maxs = climbHullMax, mins = climbHullMinStep, filter = TBotTraversableFilter, mask = MASK_PLAYERSOLID, output = result } )
 								
 								ledgePos = result.HitPos
 								
 								-- Now since ledgePos + StepHeight is valid, trace down to find ground on sloped ledges.
-								util.TraceHull( { start = ledgePos + Vector( 0, 0, bot:GetStepSize() ), endpos = ledgePos, maxs = climbHullMax, mins = climbHullMin, filter = TBotTraversableFilter, mask = MASK_PLAYERSOLID, output = result } )
+								UTIL_TRACEHULL( { start = ledgePos + Vector( 0, 0, bot:GetStepSize() ), endpos = ledgePos, maxs = climbHullMax, mins = climbHullMin, filter = TBotTraversableFilter, mask = MASK_PLAYERSOLID, output = result } )
 								
 								if !result.StartSolid then
 								
