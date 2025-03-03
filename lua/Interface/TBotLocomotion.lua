@@ -243,7 +243,7 @@ function TBotLocomotionMeta:Update()
 	
 	local vel = bot:GetVelocity()
 	self.m_speed = vel:Length()
-	self.m_groundSpeed = vel:AsVector2D():Length()
+	self.m_groundSpeed = vel:Length2D() --Length2D is much faster than vel:AsVector2D():Length()
 	
 	local velocityThreshold = 10.0
 	if self.m_speed > velocityThreshold then
@@ -286,7 +286,7 @@ function TBotLocomotionMeta:AdjustPosture( moveGoal )
 	local standMaxs = Vector( halfSize, halfSize, body:GetStandHullHeight() )
 	
 	local moveDir = moveGoal - feet
-	local moveLength = moveDir:Length()
+	local moveLength = moveDir:Length() -- Should their be a range limit?
 	moveDir:Normalize()
 	local left = Vector( -moveDir.y, moveDir.x, 0 )
 	local goal = feet + moveLength * left:Cross( vector_up ):GetNormalized()
@@ -399,7 +399,7 @@ function TBotLocomotionMeta:Approach( pos )
 				turnPos.z = 0.0
 				turnPos:Normalize()
 				
-				forward = currentVehicle:GetAngles():Forward()
+				forward = currentAngles:Forward()
 				forward.z = 0.0
 				forward:Normalize()
 				
