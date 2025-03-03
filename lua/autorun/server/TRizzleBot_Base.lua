@@ -1429,6 +1429,13 @@ function BOT:GetDeathTimestamp()
 
 end
 
+-- Grabs the last time the bot was damaged
+function BOT:GetLastDamageTimestamp()
+
+	return -self:GetInternalVariable( "m_flLastDamageTime" )
+
+end
+
 -- Width of bot's collision hull in XY plane
 function BOT:GetHullWidth()
 
@@ -2058,8 +2065,8 @@ function BOT:SelectBestWeapon( target, enemydistsqr )
 			
 			local deployDuration = bestWeapon:SequenceDuration( bestWeapon:SelectWeightedSequence( ACT_VM_DRAW ) )
 			if deployDuration < 0 then deployDuration = 0.0 end
-			botTable.FireWeaponInterval = CurTime() + deployDuration
-			botTable.MinEquipInterval = botTable.MinEquipInterval + deployDuration
+			botTable.FireWeaponInterval = CurTime() + deployDuration + 0.1 -- We add 0.1 to account for floating point errors!
+			botTable.MinEquipInterval = botTable.MinEquipInterval + deployDuration + 0.1
 			--self.FireWeaponInterval = CurTime() + 1.5
 			
 		end
@@ -3433,7 +3440,6 @@ function TRizzleBotGetPortals()
 	
 end
 
-local result = Vector()
 -- Checks if the bot will cross enemy line of fire when attempting to move to the entered position
 function BOT:IsCrossingLineOfFire( startPos, endPos )
 	
@@ -3459,11 +3465,7 @@ function BOT:IsCrossingLineOfFire( startPos, endPos )
 		end
 		
 		local target = enemy:WorldSpaceCenter() + 5000 * viewForward
-		
-		local IsIntersecting = false
-		result:Zero()
-		
-		IsIntersecting, result = IsIntersecting2D( startPos, endPos, enemy:WorldSpaceCenter(), target )
+		local IsIntersecting, result = IsIntersecting2D( startPos, endPos, enemy:WorldSpaceCenter(), target )
 		--print( "IsIntersecting: " .. IsIntersecting )
 		--print( "Result: " .. result )
 		if IsIntersecting then
@@ -3505,7 +3507,7 @@ function IsIntersecting2D( startA, endA, startB, endB )
 	if demon == 0 then
 	
 		-- Parallel
-		return false, result
+		return false, vector_origin * 1 -- Copy of!
 	
 	end
 	
@@ -3513,7 +3515,7 @@ function IsIntersecting2D( startA, endA, startB, endB )
 	if numS == 0 then
 	
 		-- Coincident
-		return true, result
+		return true, vector_origin * 1 -- Copy of!
 		
 	end
 	
@@ -3523,7 +3525,7 @@ function IsIntersecting2D( startA, endA, startB, endB )
 	if s < 0.0 or s > 1.0 then
 	
 		-- Intersection is not within line segment of startA to endA
-		return false, result
+		return false, vector_origin * 1 -- Copy of!
 		
 	end
 	
@@ -3531,7 +3533,7 @@ function IsIntersecting2D( startA, endA, startB, endB )
 	if t < 0.0 or t > 1.0 then
 	
 		-- Intersection is not within line segment of startB to endB
-		return false, result
+		return false, vector_origin * 1 -- Copy of!
 		
 	end
 	
