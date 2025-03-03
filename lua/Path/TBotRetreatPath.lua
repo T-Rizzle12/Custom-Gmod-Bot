@@ -307,14 +307,18 @@ local function TRizzleBotRangeCheckRetreat( info, area, fromArea, ladder, portal
 		local dangerCost = fromArea:GetCostSoFar()
 		--local dangerCost = 0
 		
-		local t, Close = CalcClosestPointOnLineSegment( info.m_threat:GetPos(), area:GetCenter(), fromArea:GetCenter() )
+		local myPos = info.m_me:GetPos()
+		local fromAreaPos = fromArea:GetCenter()
+		local toAreaPos = area:GetCenter()
+		local threatPos = info.m_threat:GetPos()
+		local t, Close = CalcClosestPointOnLineSegment( threatPos, toAreaPos, fromAreaPos )
 		if t < 0.0 then
 			
-			Close = area:GetCenter()
+			Close = toAreaPos
 			
 		elseif t > 1.0 then
 			
-			Close = fromArea:GetCenter()
+			Close = fromAreaPos
 			
 		end
 		
@@ -326,31 +330,54 @@ local function TRizzleBotRangeCheckRetreat( info, area, fromArea, ladder, portal
 			local dangerFactor = 1.0 - ( rangeToThreat / maxThreatRange )
 			dangerCost	=	dangerDensity * dangerFactor
 			
-			-- HACKHACK: Save the directionToThreat since it doesn't change during the pathfind!
-			if !info.directionToThreat then
+			-- HACKHACK: Save the threatAimDir since it doesn't change during the pathfind!
+			if !info.threatAimDir then
 			
-				info.directionToThreat = info.m_threat:GetPos() - info.m_me:GetPos()
-				info.directionToThreat:Normalize()
+				local aimDirection = nil
+				if info.m_threat:IsPlayer() or info.m_threat:IsNPC() then
+		
+					aimDirection = info.m_threat:GetAimVector()
+				
+				else
+				
+					aimDirection = info.m_threat:EyeAngles():Forward() 
+				
+				end
+				info.threatAimDir = info.m_threat:WorldSpaceCenter() + 5000 * aimDirection
 				
 			end
 			
-			local directionToNavArea = Close - info.m_me:GetPos()
-			directionToNavArea:Normalize()
-			local dotProduct = info.directionToThreat:Dot( directionToNavArea )
+			local IsIntersecting, result = IsIntersecting2D( myPos, toAreaPos, threatPos, info.threatAimDir )
+			--print( "IsIntersecting: " .. IsIntersecting )
+			--print( "Result: " .. result )
+			if IsIntersecting then
 			
-			-- If the bot is moving closer to the threat, increase the cost significantly
-			if dotProduct > 0 then
-			
-				--print( "Area: " .. tostring( area ) )
-				--print( "Dot: " .. dotProduct )
-				if dangerCost > 0 then
+				local loZ, hiZ = 0, 0
 				
-					dangerCost = dangerCost + ( dangerDensity * dotProduct )
+				if myPos.z < toAreaPos.z then
+				
+					loZ = myPos.z 
+					hiZ = toAreaPos.z 
 					
 				else
 				
-					dangerCost = ( dangerDensity * dotProduct )
+					loZ = toAreaPos.z 
+					hiZ = myPos.z
 				
+				end
+				
+				if result.z >= loZ and result.z <= hiZ + 35.5 then 
+				
+					if dangerCost > 0 then
+				
+						dangerCost = dangerCost + ( dangerDensity * dangerFactor )
+						
+					else
+					
+						dangerCost = ( dangerDensity * dangerFactor )
+					
+					end
+					
 				end
 			
 			end
