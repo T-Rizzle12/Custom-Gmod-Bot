@@ -67,7 +67,7 @@ function TBotHealPlayerMeta:Update( me, interval )
 	end
 	
 	-- If we are healing ourself in combat, finish when we hit the combat heal threshold or our health is getting low....
-	local threat = me:GetTBotVision():GetPrimaryKnownThreat( true )
+	local threat = me:GetTBotVision():GetPrimaryKnownThreat()
 	if istbotknownentity( threat ) and IsValid( threat:GetEntity() ) then
 	
 		if self.m_healTarget == me then 
@@ -76,6 +76,10 @@ function TBotHealPlayerMeta:Update( me, interval )
 	
 				return self:Done( "We healed past the combat heal threshold and should go back to fighting" )
 				
+			elseif threat:IsVisibleRecently() and threat:TookDamageFromRecently() and me:IsLineOfFireClear( threat:GetEntity() ) then
+			
+				return self:SuspendFor( TBotRetreatToCover( -1.0, nil, 1000 ), "Fall back, we took damager recently!" )
+			
 			end
 			
 		else
@@ -90,9 +94,17 @@ function TBotHealPlayerMeta:Update( me, interval )
 		
 	end
 	
+	-- If we took damage of any kind recently, we should not heal.
+	-- This is important if we are standing on something that is constantly hurting us!
+	if me:GetLastDamageTimestamp() < 1.0 and me:IsUnhealthy() then
+	
+		return self:Done( "We took some kind of damage, we should go back to fighting!" )
+	
+	end
+	
 	-- Move closer to our heal target before attempting to heal them!
 	local healTargetDist = me:GetPos():DistToSqr( self.m_healTarget:GetPos() )
-	if healTargetDist > 75^2 or !me:IsLineOfFireClear( self.m_healTarget ) then
+	if healTargetDist > 65^2 or !me:IsLineOfFireClear( self.m_healTarget ) then -- Heal range changed from 75 to 65 since the default heal range is 64
 	
 		-- Attack any enemies we know about while moving to heal our selected target!
 		if istbotknownentity( threat ) and IsValid( threat:GetEntity() ) then

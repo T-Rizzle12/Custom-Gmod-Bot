@@ -74,16 +74,19 @@ function TBotRevivePlayerMeta:Update( me, interval )
 	
 	-- Move closer to our revive target before attempting to revive them!
 	local reviveTargetDist = me:GetPos():DistToSqr( self.m_reviveTarget:GetPos() )
-	if reviveTargetDist > 75^2 or !me:IsLineOfFireClear( self.m_reviveTarget ) then
+	if reviveTargetDist > 65^2 or !me:IsLineOfFireClear( self.m_reviveTarget ) then
 	
 		self.m_chasePath:Update( me, self.m_reviveTarget ) -- Repathing is handled in chase path!
 		
 	else
 		
-		me:GetTBotBody():AimHeadTowards( self.m_reviveTarget:GetPos(), TBotLookAtPriority.MAXIMUM_PRIORITY, 1.0 )
+		local lookAtPos = self.m_reviveTarget:WorldSpaceCenter()
+		lookAtPos.z = self.m_reviveTarget:GetPos().z
+		me:GetTBotBody():AimHeadTowards( lookAtPos, TBotLookAtPriority.MAXIMUM_PRIORITY, 1.0 )
 		
-		if me:IsLookingAtPosition( self.m_reviveTarget:GetPos() ) then
+		if me:IsLookingAtPosition( lookAtPos ) then
 		
+			me:PressCrouch()
 			me:PressUse()
 			
 		end

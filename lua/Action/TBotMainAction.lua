@@ -665,7 +665,7 @@ function TBotMainActionMeta:FireWeaponAtEnemy( me, threat, interval )
 			botTable.SecondaryInterval = CurTime() + weaponTable.SecondaryAttackCooldown
 			--bot.MinEquipInterval = CurTime() + 2.0
 
-		elseif ( weaponType != "Grenade" or ( botTable.GrenadeInterval <= CurTime() and botWeapon:GetNextPrimaryFire() <= CurTime() ) ) and ( weaponType != "Melee" or enemyDist <= botTable.MeleeDist^2 ) then
+		elseif weaponType != "Melee" or enemyDist <= botTable.MeleeDist^2 then
 
 			me:PressPrimaryAttack()
 
@@ -689,11 +689,11 @@ function TBotMainActionMeta:FireWeaponAtEnemy( me, threat, interval )
 
 			elseif enemyDist < 800^2 then
 
-				botTable.FireWeaponInterval = CurTime() + math.Rand( 0.15 , 0.25 )
+				botTable.FireWeaponInterval = CurTime() + math.Rand( 0.15, 0.25 )
 
 			else
 
-				botTable.FireWeaponInterval = CurTime() + math.Rand( 0.3 , 0.7 )
+				botTable.FireWeaponInterval = CurTime() + math.Rand( 0.3, 0.7 )
 
 			end
 
